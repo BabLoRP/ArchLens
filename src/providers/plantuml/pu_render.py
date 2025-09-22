@@ -4,23 +4,23 @@ from src.views.view_entities import ViewPackage
 import sys
 
 
-def save_plant_uml(view_graph, view_name, config):
-    plant_uml_str = _render_pu_graph(view_graph, view_name, config)
-    project_name = config["name"]
-    save_location = os.path.join(config["saveLocation"], f"{project_name}-{view_name}")
+def save_plant_uml(view_graph, view_name, config_manager):
+    plant_uml_str = _render_pu_graph(view_graph, view_name, config_manager)
+    project_name = config_manager.name
+    save_location = os.path.join(config_manager.save_location, f"{project_name}-{view_name}")
     _save_plantuml_str(save_location, plant_uml_str)
 
 
-def save_plant_uml_diff(diff_graph, view_name, config):
-    plant_uml_str = _render_pu_graph(diff_graph, view_name, config)
-    project_name = config["name"]
+def save_plant_uml_diff(diff_graph, view_name, config_manager):
+    plant_uml_str = _render_pu_graph(diff_graph, view_name, config_manager)
+    project_name = config_manager.name
     save_location = os.path.join(
-        config["saveLocation"], f"{project_name}-diff-{view_name}"
+        config_manager.save_location, f"{project_name}-diff-{view_name}"
     )
     _save_plantuml_str(save_location, plant_uml_str)
 
 
-def _render_pu_graph(view_graph: list[ViewPackage], view_name, config):
+def _render_pu_graph(view_graph: list[ViewPackage], view_name, config_manager):
 
     pu_package_string = "\n".join(
         [pu_package.render_package_pu() for pu_package in view_graph]
@@ -28,7 +28,7 @@ def _render_pu_graph(view_graph: list[ViewPackage], view_name, config):
     pu_dependency_string = "\n".join(
         [pu_package.render_dependency_pu() for pu_package in view_graph]
     )
-    project_name = config.get("name", "")
+    project_name = config_manager.name
     title = f"{project_name}-{view_name}"
     uml_str = f"""
 @startuml

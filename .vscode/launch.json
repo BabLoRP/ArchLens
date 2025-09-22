@@ -84,6 +84,7 @@
                 "${workspaceFolder}/archlens.json",
                 "${workspaceFolder}/test_projects/api/archlens.json",
                 "${workspaceFolder}/test_projects/pandas/archlens.json",
+                "C:/Users/lotte/Skrivebord/ITU/CS3/Research-project/py-test-proj/archlens.json"
             ],
             "default": "${workspaceFolder}/test_projects/calibre/archlens.json",
         }

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from src.utils.config_manager_singleton import ConfigManagerSingleton
+
 
 class PathManagerSingleton:
     _instance = None
@@ -15,8 +17,8 @@ class PathManagerSingleton:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def setup(self, config: dict, git_config=None):
-        self._set_path(config, git_config=False)
+    def setup(self, config_manager: ConfigManagerSingleton, git_config=None):
+        self._set_path(config_manager, git_config=False)
         self._set_path(git_config, git_config=True)
 
     def get_relative_path_from_project_root(self, path: str, append_root_folder=False):
@@ -37,11 +39,11 @@ class PathManagerSingleton:
             )
             return Path(path).relative_to(current_config_path).as_posix()
 
-    def _set_path(self, config: dict, git_config: bool):
-        if config is None:
+    def _set_path(self, config_manager: ConfigManagerSingleton, git_config: bool):
+        if config_manager is None:
             return None
-        config_path = Path(config["_config_path"])
-        config_root_folder_path = config_path.joinpath(config["rootFolder"])
+        config_path = Path(config_manager._config_path)
+        config_root_folder_path = config_path.joinpath(config_manager.root_folder)
 
         config_path = config_path.as_posix()
         config_root_folder_path = config_root_folder_path.as_posix()

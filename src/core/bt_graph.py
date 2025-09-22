@@ -8,6 +8,8 @@ from src.core.bt_file import BTFile, get_imported_modules
 from src.core.bt_module import BTModule
 from astroid.manager import AstroidManager
 
+from src.utils.config_manager_singleton import ConfigManagerSingleton
+
 
 class BTGraph:
     DEFAULT_SETTINGS = {"diagram_name": "", "project": None}
@@ -20,9 +22,9 @@ class BTGraph:
     def __init__(self, am: AstroidManager) -> None:
         self.am = am
 
-    def build_graph(self, config: dict):
-        config_path = config.get("_config_path")
-        self.root_module_location = os.path.join(config_path, config.get("rootFolder"))
+    def build_graph(self, config_manager: ConfigManagerSingleton):
+        config_path = config_manager._config_path
+        self.root_module_location = os.path.join(config_path, config_manager.root_folder)
         self.target_project_base_location = config_path
 
         sys.path.insert(0, config_path)

@@ -1,5 +1,6 @@
 import sys
 from src.core.bt_graph import BTGraph
+from src.utils.config_manager_singleton import ConfigManagerSingleton
 from src.views.view_entities import (
     PACKAGE_NAME_SPLITTER,
     EntityState,
@@ -12,7 +13,7 @@ from typing import Callable
 
 def render_views(
     graph: BTGraph,
-    config: dict,
+    config_manager: ConfigManagerSingleton,
     save_to_file: Callable[[list[ViewPackage], str, dict], None],
 ):
     views = _create_view_graphs(graph, config)
@@ -28,7 +29,7 @@ def render_views(
             print("Dependency count:", dep_count)
 
         view_graph = list(view_package_map.values())
-        view_config: dict = config["views"][view_name]
+        view_config: dict = config_manager.views[view_name]
         use_package_path_as_label = view_config.get("usePackagePathAsLabel", True)
         if not use_package_path_as_label:
             _handle_duplicate_name(view_graph)
@@ -39,11 +40,11 @@ def render_views(
 def render_diff_views(
     local_bt_graph: BTGraph,
     remote_bt_graph: BTGraph,
-    config: dict,
+    config_manager: ConfigManagerSingleton,
     save_to_file: Callable[[list[ViewPackage], str, dict], None],
 ):
-    local_graph_views = _create_view_graphs(local_bt_graph, config)
-    remote_graph_views = _create_view_graphs(remote_bt_graph, config)
+    local_graph_views = _create_view_graphs(local_bt_graph, config_manager)
+    remote_graph_views = _create_view_graphs(remote_bt_graph, config_manager)
     packages_to_skip_dependency_update = set()
 
     for view_name, local_graph in local_graph_views.items():
@@ -137,7 +138,7 @@ def render_diff_views(
 
             diff_graph.append(package)
 
-        view_config: dict = config["views"][view_name]
+        view_config: dict = config_manager.views[view_name]
         use_package_path_as_label = view_config.get("usePackagePathAsLabel", True)
         if not use_package_path_as_label:
             _handle_duplicate_name(diff_graph)
@@ -165,14 +166,14 @@ def _handle_duplicate_name(view_graph: list[ViewPackage]):
 
 
 def _create_view_graphs(
-    graph: BTGraph, config: dict
+    graph: BTGraph, config_manager: ConfigManagerSingleton
 ) -> dict[str, dict[str, ViewPackage]]:
 
     # all the nodes at all kinds of lelves
     bt_packages = graph.get_all_bt_modules_map()
     views = {}
 
-    for view_name, view in config["views"].items():
+    for view_name, view in config_manager.views.items():
 
         viewpackages_by_name: dict[str, ViewPackage] = {}
 

@@ -30,30 +30,30 @@ app = typer.Typer(add_completion=True)
 
 @app.command()
 def render(config_path: str = "archlens.json"):
-    config = read_config_file(config_path)
+    config_manager = read_config_file(config_path)
 
     mt_path_manager = PathManagerSingleton()
-    mt_path_manager.setup(config)
+    mt_path_manager.setup(config_manager)
 
     am = _create_astroid()
     g = BTGraph(am)
-    g.build_graph(config)
+    g.build_graph(config_manager)
 
-    render_views(g, config, save_plant_uml)
+    render_views(g, config_manager, save_plant_uml)
 
 
 @app.command()
 def render_json(config_path: str = "archlens.json"):
-    config = read_config_file(config_path)
+    config_manager = read_config_file(config_path)
 
     mt_path_manager = PathManagerSingleton()
-    mt_path_manager.setup(config)
+    mt_path_manager.setup(config_manager)
 
     am = _create_astroid()
     g = BTGraph(am)
-    g.build_graph(config)
+    g.build_graph(config_manager)
 
-    render_views(g, config, save_json)
+    render_views(g, config_manager, save_json)
 
 
 def _create_astroid():
@@ -66,20 +66,20 @@ def _create_astroid():
 def render_diff(config_path: str = "archlens.json"):
     with tempfile.TemporaryDirectory() as tmp_dir:
         print("Created temporary directory:", tmp_dir)
-        config = read_config_file(config_path)
+        config_manager = read_config_file(config_path)
 
-        fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
+        fetch_git_repo(tmp_dir, config_manager.github["url"], config_manager.github["branch"])
 
         shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
 
         config_git = read_config_file(os.path.join(tmp_dir, "archlens.json"))
 
         path_manager = PathManagerSingleton()
-        path_manager.setup(config, config_git)
+        path_manager.setup(config_manager, config_git)
 
         local_am = _create_astroid()
         local_graph = BTGraph(local_am)
-        local_graph.build_graph(config)
+        local_graph.build_graph(config_manager)
         # verify_config_options(config, g)
 
         remote_am = _create_astroid()
@@ -87,27 +87,27 @@ def render_diff(config_path: str = "archlens.json"):
         remote_graph.build_graph(config_git)
         # verify_config_options(config_git, g_git)
 
-        render_diff_views(local_graph, remote_graph, config, save_plant_uml_diff)
+        render_diff_views(local_graph, remote_graph, config_manager, save_plant_uml_diff)
 
 
 @app.command()
 def render_diff_json(config_path: str = "archlens.json"):
     with tempfile.TemporaryDirectory() as tmp_dir:
         print("Created temporary directory:", tmp_dir)
-        config = read_config_file(config_path)
+        config_manager = read_config_file(config_path)
 
-        fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
+        fetch_git_repo(tmp_dir, config_manager.github["url"], config_manager.github["branch"])
 
         shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
 
         config_git = read_config_file(os.path.join(tmp_dir, "archlens.json"))
 
         path_manager = PathManagerSingleton()
-        path_manager.setup(config, config_git)
+        path_manager.setup(config_manager, config_git)
 
         local_am = _create_astroid()
         local_graph = BTGraph(local_am)
-        local_graph.build_graph(config)
+        local_graph.build_graph(config_manager)
         # verify_config_options(config, g)
 
         remote_am = _create_astroid()
@@ -115,7 +115,7 @@ def render_diff_json(config_path: str = "archlens.json"):
         remote_graph.build_graph(config_git)
         # verify_config_options(config_git, g_git)
 
-        render_diff_views(local_graph, remote_graph, config, save_json_diff)
+        render_diff_views(local_graph, remote_graph, config_manager, save_json_diff)
 
 
 @app.command()
@@ -165,7 +165,7 @@ def read_config_file(config_path):
     config_manager = ConfigManagerSingleton()
     config_manager.setup(config)
 
-    return config
+    return config_manager
 
 
 def main():
