@@ -128,6 +128,7 @@ public class ConfigManager(string _path)
         return s switch
         {
             "json" or "application/json" => RenderFormat.Json,
+            "puml" or "plantuml" => RenderFormat.PlantUML,
             _ => throw new NotSupportedException($"Unsupported format: '{raw}'.")
         };
     }
