@@ -10,21 +10,20 @@ public sealed class JsonRenderer : IRenderer
 {
     public string RenderGraph(DependencyGraph graph, Options options, CancellationToken ct = default)
     {
-        var childrenJson = "";
-        var children = graph.GetChildren();
-        for (int i = 0; i < children.Count; i++)
+        var packagestr = "";
+        for (int i = 0; i < graph.Packages().Count; i++)
         {
-            var child = children[i];
+            var package = graph.Packages()[i];
 
-            if (childrenJson.Contains(child.Name)) continue;
+            if (packagestr.Contains(package)) continue;
 
-            if (i > 0) childrenJson += ",\n";
+            if (i > 0) packagestr += ",\n";
 
-            childrenJson +=
+            packagestr +=
                 $$"""
                 
                 {
-                    "name": "{{child.Name}}",
+                    "name": "{{package}}",
                     "state": "NEUTRAL"
                 }
             """;
@@ -35,7 +34,7 @@ public sealed class JsonRenderer : IRenderer
         {
             "title": "{{graph.Name}}",
             "packages": [
-                {{childrenJson}}
+                {{packagestr}}
             ],
 
             "edges": [

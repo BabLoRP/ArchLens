@@ -1,4 +1,3 @@
-using Archlens.Domain;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
@@ -53,7 +52,7 @@ public sealed class GitSnaphotManager : ISnapshotManager
                 if (string.IsNullOrWhiteSpace(json))
                     continue;
 
-                var graph = DependencyGraphSerializer.Deserialize(json);
+                var graph = DependencyGraph.Deserialize(json);
                 if (graph is not null) return graph;
             }
             catch (OperationCanceledException) { throw; }

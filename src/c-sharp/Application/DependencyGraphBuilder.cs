@@ -1,112 +1,60 @@
-using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models;
-using Archlens.Domain.Models.Records;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Application;
 
 public class DependencyGraphBuilder(IDependencyParser _dependencyParser, Options _options)
 {
-    public async Task<DependencyGraph> GetGraphAsync(IReadOnlyDictionary<string, IEnumerable<string>> changedModules, CancellationToken ct = default)
+    public async Task<DependencyGraph> GetGraphAsync(string root, IReadOnlyDictionary<string, IEnumerable<string>> changedModules, CancellationToken ct = default)
     {
-        var graph = await BuildGraphAsync(changedModules, ct);
+        DependencyGraphNode graph = new() { Name = $"{_options.ProjectName}" };
+
+        await BuildGraphAsync(graph, changedModules, ct);
+
         return graph;
     }
 
-
-    private async Task<DependencyGraphNode> BuildGraphAsync(IReadOnlyDictionary<string, IEnumerable<string>> changedModules, CancellationToken ct = default)
+    private async Task BuildGraphAsync(DependencyGraphNode root, IReadOnlyDictionary<string, IEnumerable<string>> changedModules, CancellationToken ct = default)
     {
-        Dictionary<string, DependencyGraphNode> nodes = [];
-        List<string> children = [];
+        
+        List<DependencyGraphNode> children = [];
 
-        foreach (var modulePath in changedModules.Keys)
+        foreach (var module in changedModules.Keys)
         {
-            var name = modulePath.Equals(_options.FullRootPath) ? _options.ProjectName : Path.GetFileName(modulePath);
-            nodes[modulePath] = new DependencyGraphNode 
-            { 
-                Name = name, 
-                NameSpace = GetNameSpace(modulePath),
-                Path = modulePath,
-                LastWriteTime = File.GetLastWriteTimeUtc(modulePath) 
-            };
-        }
+            DependencyGraphNode node = new() { Name = module };
 
-        foreach (var pair in changedModules)
-        {
-            var module = pair.Key;
-            var contents = pair.Value;
-
-            var parent = nodes[module];
-
-            foreach (var content in contents)
+            foreach (string content in changedModules[module])
             {
-                var contentPath = Path.Combine(module, content);
-                var nameSpace   = GetNameSpace(contentPath);
-
                 DependencyGraph child;
 
-                bool isDir;
-                try
+                var contentPath = Path.Combine(module, content);
+
+                var relativePath = Path.GetRelativePath(_options.ProjectRoot, contentPath);
+                var nameSpace = relativePath.Replace("\\", ".").Trim('.');
+
+                var attr = File.GetAttributes(contentPath);
+                if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
                 {
-                    isDir = (File.GetAttributes(contentPath) & FileAttributes.Directory) != 0;
-                }
-                catch { continue; }
-                if (isDir)
-                {
-                    if (nodes.TryGetValue(content, out var existing))
-                    {
-                        child = existing;
-                        children.Add(content);
-                    }
-                    else
-                    {
-                        var name = Path.GetFileName(content);
-                        child = new DependencyGraphNode 
-                        { 
-                            Name = name, 
-                            Path = contentPath,
-                            NameSpace = nameSpace, 
-                            LastWriteTime = File.GetLastWriteTimeUtc(module) 
-                        };
-                    }
+                    var name = content.Split("\\").Last();
+                    child = new DependencyGraphNode { Name = name, NameSpace = nameSpace };
                 }
                 else
                 {
-                    var name = Path.GetFileName(content);
-                    var deps = await _dependencyParser.ParseFileDependencies(contentPath, ct).ConfigureAwait(false);
-                    var leaf = new DependencyGraphLeaf
-                    { 
-                        Name = name, 
-                        NameSpace = nameSpace,
-                        Path = contentPath,
-                        LastWriteTime = File.GetLastWriteTimeUtc(contentPath)
-                    };
-                    leaf.AddDependencyRange(deps);
-                    child = leaf;
+                    var deps = await _dependencyParser.ParseFileDependencies(contentPath, ct);
+                    child = new DependencyGraphLeaf{ Name = content.Split("\\").Last(), NameSpace = nameSpace };
+                    child.AddDependencyRange(deps);
                 }
-                parent.AddChild(child);
+                node.AddChild(child);
             }
+
+            children.Add(node);
         }
-        var rootKey = nodes.Keys
-        .Except(children, StringComparer.OrdinalIgnoreCase)
-        .OrderBy(k => !k.Equals(_options.FullRootPath, StringComparison.OrdinalIgnoreCase))
-        .FirstOrDefault();
-
-        return rootKey is null ? null : nodes[rootKey];
-    }
-
-    private string GetNameSpace(string fullPath)
-    {
-        var relPath = Path.GetRelativePath(_options.FullRootPath, fullPath);
-        var nameSpace = relPath.Replace(Path.DirectorySeparatorChar, '.')
-                               .Replace(Path.AltDirectorySeparatorChar, '.')
-                               .Trim('.');
-        return nameSpace;
+        root.AddChildren(children);
     }
 }

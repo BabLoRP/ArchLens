@@ -36,7 +36,7 @@ public sealed class ChangeDetector
             try
             {
                 var relativePath = GetRelative(projectRoot, pair.Key);
-                var inLastGraph = lastSavedGraph.GetChild(relativePath) != null;
+                var inLastGraph = lastSavedGraph.Packages().Contains(relativePath);
                 if (!inLastGraph)
                 {
                     changed.Add(pair.Key, pair.Value);
@@ -97,6 +97,7 @@ public sealed class ChangeDetector
                 ? existing.Concat(includedFiles).ToList()
                 : [.. includedFiles];
         }
+        result.Remove(root);
         return result;
     }
 
