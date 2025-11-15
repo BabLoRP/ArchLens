@@ -48,9 +48,6 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
     public virtual IReadOnlyList<DependencyGraph> GetChildren() => [];
     public override string ToString() => Name;
 
-    public virtual List<string> ToPlantUML(bool diff) => [];
-
-
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     public IEnumerator<DependencyGraph> GetEnumerator()
@@ -117,35 +114,6 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
         return res;
     }
 
-    public override List<string> ToPlantUML(bool diff)
-    { //TODO: Add color depending on diff
-        string package = $"package \"{Name}\" as {Name} {{ \n";
-
-        List<string> puml = [];
-
-        foreach (var child in _children)
-        {
-            string childName = child.Name.Replace(" ", "-");
-
-            if (child is DependencyGraphLeaf)
-            {
-                package += $"\n [{childName}]";
-                var childList = child.ToPlantUML(diff);
-                puml.AddRange(childList);
-            }
-            else
-            {
-                var childList = child.ToPlantUML(diff);
-                var c = childList.Last(); //last is the package declaration, which we want to be added here
-                package += $"\n{c}\n";
-                childList.Remove(c);
-                puml.AddRange(childList);
-            }
-        }
-        package += "\n}\n";
-        puml.Add(package);
-        return puml;
-    }
 }
 
 public class DependencyGraphLeaf(string projectRoot) : DependencyGraph(projectRoot)
@@ -156,16 +124,5 @@ public class DependencyGraphLeaf(string projectRoot) : DependencyGraph(projectRo
         foreach (var d in GetDependencies().Keys)
             res += "\n \t \t --> " + d;
         return res;
-    }
-
-    public override List<string> ToPlantUML(bool diff)
-    { //TODO: diff
-        List<string> puml = [];
-
-        foreach (var dep in GetDependencies().Keys)
-        {
-            puml.Add($"\n\"{Name}\"-->{dep}"); //package alias
-        }
-        return puml;
     }
 }
