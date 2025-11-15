@@ -47,7 +47,6 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
 
     public virtual IReadOnlyList<DependencyGraph> GetChildren() => [];
     public override string ToString() => Name;
-    public virtual string ToJson() => "";
 
     public virtual List<string> ToPlantUML(bool diff) => [];
 
@@ -116,69 +115,6 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
         foreach (var c in _children)
             res += "\n \t" + c;
         return res;
-    }
-
-    public override string ToJson()
-    {
-        var str = "";
-        var dependencies = GetDependencies();
-        if (dependencies.Keys.Count > 0)
-        {
-            for (int i = 0; i < dependencies.Keys.Count; i++)
-            {
-                var dep = dependencies.Keys.ElementAt(i);
-                var relations = "";
-                for (int j = 0; j < dependencies[dep]; j++)
-                {
-                    var rel = dependencies[dep];
-                    if (j > 0) relations += ",\n";
-
-                    relations +=
-                    $$"""
-                            {
-                                "from_file": {
-                                    "name": "{{dependencies.Keys}}",
-                                    "path": "{{dependencies.Keys}}"
-                                },
-                                "to_file": {
-                                    "name": "{{dep}}",
-                                    "path": "{{dep}}"
-                                }
-                            }
-                    """;
-                }
-
-                if (i > 0) str += ",\n";
-
-                str +=
-                $$"""
-                    {
-                        "state": "NEUTRAL",
-                        "fromPackage": "{{Name}}",
-                        "toPackage": "{{dep}}",
-                        "label": "{{dependencies[dep]}}",
-                        "relations": [
-                            {{relations}}
-                        ]
-                    }
-                """;
-            }
-
-        }
-
-        var children = GetChildren();
-        for (int c = 0; c < children.Count; c++)
-        {
-            var child = children[c];
-            var childJson = child.ToJson();
-            if (c > 0 && childJson != "" && !childJson.StartsWith(',') && str != "")
-                str += ",\n";
-
-            str += childJson;
-        }
-
-        return str;
-
     }
 
     public override List<string> ToPlantUML(bool diff)
