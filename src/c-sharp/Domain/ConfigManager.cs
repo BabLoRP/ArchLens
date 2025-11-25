@@ -24,6 +24,15 @@ public class ConfigManager(string _path)
         public string? Format { get; set; }
         public string[]? Exclusions { get; set; }
         public string[]? FileExtensions { get; set; }
+        public Dictionary<string, ViewDto>? Views { get; set; }
+#pragma warning restore CS8632
+    }
+
+    private sealed class ViewDto
+    {
+#pragma warning disable CS8632
+        public string[]? Packages { get; set; }
+        public string[]? IgnorePackages { get; set; }
 #pragma warning restore CS8632
     }
 
@@ -72,6 +81,8 @@ public class ConfigManager(string _path)
         if (fileExts.Length == 0)
             throw new InvalidOperationException("fileExtensions resolved to an empty list.");
 
+        var views = MapViews(dto.Views);
+
         return new Options(
             ProjectRoot: projectRoot,
             ProjectName: projectName,
@@ -80,7 +91,8 @@ public class ConfigManager(string _path)
             Format: format,
             Exclusions: fileExts.Length == 0 ? [] : exclusions,
             FileExtensions: fileExts,
-            FullRootPath: fullRootPath
+            FullRootPath: fullRootPath,
+            Views: views
         );
     }
 
@@ -168,5 +180,10 @@ public class ConfigManager(string _path)
             "puml" or "plantuml" or "plant-uml" => RenderFormat.PlantUML,
             _ => throw new NotSupportedException($"Unsupported format: '{raw}'.")
         };
+    }
+
+    private static List<View> MapViews(Dictionary<string, ViewDto> viewDtos)
+    {
+        return [.. viewDtos.Select(v => new View(v.Key, v.Value.Packages, v.Value.IgnorePackages))];
     }
 }
