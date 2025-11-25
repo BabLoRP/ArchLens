@@ -10,8 +10,15 @@ public sealed record Options(
     RenderFormat Format,
     IReadOnlyList<string> Exclusions,
     IReadOnlyList<string> FileExtensions,
+    IReadOnlyList<View> Views,
     string SnapshotDir = ".archlens",
     string SnapshotFile = "snaphot",
     string GitUrl = "",
     string FullRootPath = ""
+);
+
+public sealed record View(
+    string ViewName,
+    IReadOnlyList<string> Packages,
+    IReadOnlyList<string> IgnorePackages
 );
