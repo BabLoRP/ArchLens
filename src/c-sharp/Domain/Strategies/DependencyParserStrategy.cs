@@ -10,7 +10,7 @@ public sealed class DependencyParserStrategy
 {
     public static IDependencyParser SelectDependencyParser(Options o) => o.Language switch
     {
-        Language.CSharp => new CsharpSyntaxWalkerParser(o),
+        Language.CSharp => new CsharpDependencyParser(o),
         _ => throw new ArgumentOutOfRangeException(nameof(o.Language))
     };
 }

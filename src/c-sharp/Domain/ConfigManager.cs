@@ -25,14 +25,23 @@ public class ConfigManager(string _path)
         public string[]? Exclusions { get; set; }
         public string[]? FileExtensions { get; set; }
         public Dictionary<string, ViewDto>? Views { get; set; }
+        public string? SaveLocation { get; set; }
 #pragma warning restore CS8632
     }
 
     private sealed class ViewDto
     {
 #pragma warning disable CS8632
-        public string[]? Packages { get; set; }
+        public PackageDto[]? Packages { get; set; }
         public string[]? IgnorePackages { get; set; }
+#pragma warning restore CS8632
+    }
+
+    private sealed class PackageDto
+    {
+#pragma warning disable CS8632
+        public string? Path { get; set; }
+        public int? Depth { get; set; }
 #pragma warning restore CS8632
     }
 
@@ -70,6 +79,7 @@ public class ConfigManager(string _path)
         var exclusions = (dto.Exclusions ?? []).Select(s => s.Trim())
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .ToArray();
+        var saveLoc = MapSaveLocation(dto, baseDir);
 
         var fileExts = (dto.FileExtensions ?? DefaultExtensions(language)).Select(NormalizeExtension).ToArray();
 
@@ -92,7 +102,8 @@ public class ConfigManager(string _path)
             Exclusions: fileExts.Length == 0 ? [] : exclusions,
             FileExtensions: fileExts,
             FullRootPath: fullRootPath,
-            Views: views
+            Views: views,
+            SaveLocation: saveLoc
         );
     }
 
@@ -182,8 +193,18 @@ public class ConfigManager(string _path)
         };
     }
 
+    private static string MapSaveLocation(ConfigDto dto, string baseDir)
+    {
+        return baseDir + dto.SaveLocation;
+    }
+
     private static List<View> MapViews(Dictionary<string, ViewDto> viewDtos)
     {
-        return [.. viewDtos.Select(v => new View(v.Key, v.Value.Packages, v.Value.IgnorePackages))];
+        return [.. viewDtos.Select(v =>
+            new View(
+                v.Key,
+                [.. v.Value.Packages.Select<PackageDto,Package>(p => new(p.Path, p.Depth ?? 0))],
+                v.Value.IgnorePackages
+            ))];
     }
 }

@@ -31,9 +31,32 @@ public sealed class PlantUMLRenderer : IRenderer
 
     public async Task SaveGraphToFileAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
     {
-        var filename = options.FullRootPath.Replace("src\\c-sharp\\", "") + "/diagrams/graph-puml.puml"; //TODO
-        var content = RenderGraph(graph, options, ct);
-        await File.WriteAllTextAsync(filename, content, ct);
+        var dir = options.SaveLocation;
+        Directory.CreateDirectory(dir);
+
+        foreach (var item in options.Views)
+        {
+            var filename = $"{item.ViewName}-puml.puml";
+            var path = Path.Combine(dir, filename);
+
+            string content;
+
+            if (item.Packages.Count == 0)
+            {
+                content = RenderGraph(graph, options, ct);
+            }
+            else
+            {
+                var packagePath = item.Packages[0].Path; //TODO
+
+                var graphPath = Path.Combine(options.FullRootPath, packagePath);
+                var g = graph.FindByPath(graphPath);
+                if (g == null) content = $"{dir}\n{graphPath}";
+                else content = RenderGraph(g, options, ct);
+            }
+
+            await File.WriteAllTextAsync(path, content, ct);
+        }
     }
 
     public static List<string> ToPlantUML(DependencyGraph graph, bool isRoot = true)

@@ -11,6 +11,7 @@ public sealed record Options(
     IReadOnlyList<string> Exclusions,
     IReadOnlyList<string> FileExtensions,
     IReadOnlyList<View> Views,
+    string SaveLocation,
     string SnapshotDir = ".archlens",
     string SnapshotFile = "snaphot",
     string GitUrl = "",
@@ -19,6 +20,11 @@ public sealed record Options(
 
 public sealed record View(
     string ViewName,
-    IReadOnlyList<string> Packages,
+    IReadOnlyList<Package> Packages,
     IReadOnlyList<string> IgnorePackages
+);
+
+public sealed record Package(
+    string Path,
+    int Depth
 );
