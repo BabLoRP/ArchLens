@@ -10,13 +10,15 @@
     "snapshotManager": "local",
     "snapshotDir": ".archlens",
     "snapshotFile": "snaphot",
-    "saveLocation": "./diagrams/",
-    "format": "json",
+    "saveLocation": "/diagrams/",
+    "format": "puml",
     "exclusions": [
         "obj/",
         "bin/",
         ".vs/",
-        ".git/"
+        ".git/",
+        ".idea/",
+        ".archlens"
     ],
     "fileExtensions": [
         ".cs"
@@ -24,6 +26,18 @@
     "views": {
         "completeView": {
             "packages": [],
+            "ignorePackages": [
+                ".idea/",
+                ".archlens"
+            ]
+        },
+        "infraView": {
+            "packages": [
+                {
+                    "path": "Infra",
+                    "depth": 1
+                }
+            ],
             "ignorePackages": []
         }
     }

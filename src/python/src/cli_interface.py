@@ -44,9 +44,10 @@ def render(config_path: str = "./archlens.json"):
         Program.Main([config_path])
 
         if (config["format"] == "puml" or config["format"] == "PlantUML"):
-            file_name = config["saveLocation"] + "/graph-puml.puml"
-            puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
-            subprocess.run(["powershell", puml_command], shell=True)
+            for view in config["views"]:
+                file_name = os.getcwd() + (config["saveLocPure"]) + f"{view}-puml.puml"
+                puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
+                subprocess.run(["powershell", puml_command], shell=True)
 
     else:
         mt_path_manager = PathManagerSingleton()
@@ -175,6 +176,8 @@ def read_config_file(config_path):
 
     if not os.getenv("MT_DEBUG"):
         jsonschema.validate(instance=config, schema=config_schema)
+
+    config["saveLocPure"] = config["saveLocation"]
 
     config["_config_path"] = os.path.dirname(os.path.abspath(config_path))
 

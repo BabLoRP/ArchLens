@@ -53,17 +53,32 @@ public sealed class JsonRenderer : IRenderer
 
     public async Task SaveGraphToFileAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
     {
-        var root = string.IsNullOrEmpty(options.FullRootPath) ? Path.GetFullPath(options.ProjectRoot) : options.FullRootPath;
-
-        var dir = Path.Combine(root, "diagrams");
+        var dir = options.SaveLocation;
         Directory.CreateDirectory(dir);
 
-        var filename = "graph-json.json"; //TODO
-        var path = Path.Combine(root, filename);
+        foreach (var item in options.Views)
+        {
+            var filename = $"{item.ViewName}-json.json";
+            var path = Path.Combine(dir, filename);
 
-        var content = RenderGraph(graph, options, ct);
+            string content;
 
-        await File.WriteAllTextAsync(path, content, ct);
+            if (item.Packages.Count == 0)
+            {
+                content = RenderGraph(graph, options, ct);
+            }
+            else
+            {
+                var packagePath = item.Packages[0].Path; //TODO
+
+                var graphPath = Path.Combine(options.FullRootPath, packagePath);
+                var g = graph.FindByPath(graphPath);
+                if (g == null) content = $"{dir}\n{graphPath}";
+                else content = RenderGraph(g, options, ct);
+            }
+
+            await File.WriteAllTextAsync(path, content, ct);
+        }
     }
 
     private static string ToJson(DependencyGraph graph)
