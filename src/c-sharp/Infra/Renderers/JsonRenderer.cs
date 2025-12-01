@@ -69,11 +69,11 @@ public sealed class JsonRenderer : IRenderer
             }
             else
             {
-                var packagePath = item.Packages[0].Path; //TODO
+                var packagePath = item.Packages[0].Path; //TODO: Use more than the first package
 
                 var graphPath = Path.Combine(options.FullRootPath, packagePath);
-                var g = graph.FindByPath(graphPath);
-                if (g == null) content = $"{dir}\n{graphPath}";
+                var g = graph.FindByPath(graphPath); //TODO: Debug why this only works on second run
+                if (g == null) content = "";
                 else content = RenderGraph(g, options, ct);
             }
 
