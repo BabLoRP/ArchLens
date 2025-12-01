@@ -13,7 +13,7 @@ public sealed class PlantUMLRenderer : IRenderer
 {
     public string RenderGraph(DependencyGraph graph, Options options, CancellationToken ct = default)
     {
-        string title = options.ProjectName;
+        string title = graph.Name;
         List<string> graphString = ToPlantUML(graph); //TODO: diff
         graphString.Sort((s1, s2) => s1.Contains("package") ? (s2.Contains("package") ? 0 : -1) : (s2.Contains("package") ? 1 : 0));
 
@@ -47,11 +47,11 @@ public sealed class PlantUMLRenderer : IRenderer
             }
             else
             {
-                var packagePath = item.Packages[0].Path; //TODO
+                var packagePath = item.Packages[0].Path; //TODO: Use more than the first package
 
                 var graphPath = Path.Combine(options.FullRootPath, packagePath);
-                var g = graph.FindByPath(graphPath);
-                if (g == null) content = $"{dir}\n{graphPath}";
+                var g = graph.FindByPath(graphPath); //TODO: Debug why this only works on second run
+                if (g == null) content = "";
                 else content = RenderGraph(g, options, ct);
             }
 
