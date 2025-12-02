@@ -3,9 +3,8 @@ using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Archlens.Infra.Renderers;
 
@@ -29,34 +28,28 @@ public sealed class PlantUMLRenderer : IRenderer
         return uml_str;
     }
 
-    public async Task SaveGraphToFileAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, Options options, CancellationToken ct = default)
     {
-        var dir = options.SaveLocation;
-        Directory.CreateDirectory(dir);
-
-        foreach (var item in options.Views)
+        List<string> graphString = [];
+        foreach (var graph in graphs)
         {
-            var filename = $"{item.ViewName}-puml.puml";
-            var path = Path.Combine(dir, filename);
-
-            string content;
-
-            if (item.Packages.Count == 0)
-            {
-                content = RenderGraph(graph, options, ct);
-            }
-            else
-            {
-                var packagePath = item.Packages[0].Path; //TODO: Use more than the first package
-
-                var graphPath = Path.Combine(options.FullRootPath, packagePath);
-                var g = graph.FindByPath(graphPath); //TODO: Debug why this only works on second run
-                if (g == null) content = "";
-                else content = RenderGraph(g, options, ct);
-            }
-
-            await File.WriteAllTextAsync(path, content, ct);
+            graphString.Add($"package \"{graph.Name.Replace("\\", ".")}\" as {graph.Name.Replace("\\", ".")} {{ }}");
+            graphString.AddRange(ToPlantUML(graph)); //TODO: diff
         }
+
+        graphString.Sort((s1, s2) => s1.Contains("package") ? (s2.Contains("package") ? 0 : -1) : (s2.Contains("package") ? 1 : 0));
+        graphString = [.. graphString.Distinct()];
+
+        string uml_str = $"""
+        @startuml
+        skinparam linetype ortho
+        skinparam backgroundColor GhostWhite
+        title {viewName}
+        {string.Join("\n", graphString.ToArray())}
+        @enduml
+        """;
+
+        return uml_str;
     }
 
     public static List<string> ToPlantUML(DependencyGraph graph, bool isRoot = true)
@@ -75,20 +68,25 @@ public sealed class PlantUMLRenderer : IRenderer
 
         if (isRoot)
         {
+            var packages = $"package \"{node.Name}\" as {node.Name} {{\n";
             foreach (var child in node.GetChildren())
             {
                 if (child is DependencyGraphNode)
                 {
                     var childList = ToPlantUML(child, false);
 
+                    var parentEdge = childList.Find(s => s.StartsWith($"{child.Name}-->{node.Name}"));
+                    if (!string.IsNullOrEmpty(parentEdge)) childList.Remove(parentEdge);
+
                     puml.AddRange(childList);
+                    packages += $"package \"{child.Name}\" as {child.Name} {{ }}\n";
                 }
             }
+            packages += "}";
+            puml.Add(packages);
         }
         else
         {
-            puml.Add($"package \"{node.Name.Replace("\\", ".")}\" as {node.Name.Replace("\\", ".")} {{ }}");
-
             foreach (var (dep, count) in node.GetDependencies())
             {
                 var fromName = node.Name;

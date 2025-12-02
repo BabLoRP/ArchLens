@@ -2,9 +2,8 @@ using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Archlens.Infra.Renderers;
 
@@ -51,34 +50,49 @@ public sealed class JsonRenderer : IRenderer
         return str;
     }
 
-    public async Task SaveGraphToFileAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, Options options, CancellationToken ct = default)
     {
-        var dir = options.SaveLocation;
-        Directory.CreateDirectory(dir);
+        var childrenJson = "";
+        var childrenRelations = "";
 
-        foreach (var item in options.Views)
+        foreach (var graph in graphs)
         {
-            var filename = $"{item.ViewName}-json.json";
-            var path = Path.Combine(dir, filename);
-
-            string content;
-
-            if (item.Packages.Count == 0)
+            var children = graph.GetChildren();
+            for (int i = 0; i < children.Count; i++)
             {
-                content = RenderGraph(graph, options, ct);
-            }
-            else
-            {
-                var packagePath = item.Packages[0].Path; //TODO: Use more than the first package
+                var child = children[i];
 
-                var graphPath = Path.Combine(options.FullRootPath, packagePath);
-                var g = graph.FindByPath(graphPath); //TODO: Debug why this only works on second run
-                if (g == null) content = "";
-                else content = RenderGraph(g, options, ct);
-            }
+                if (childrenJson.Contains(child.Name)) continue;
+                if (!childrenJson.EndsWith(",\n") && !string.IsNullOrEmpty(childrenJson)) childrenJson += ",\n";
+                if (!childrenRelations.EndsWith(",\n") && !string.IsNullOrEmpty(childrenRelations) && !string.IsNullOrEmpty(ToJson(child))) childrenRelations += ",\n";
 
-            await File.WriteAllTextAsync(path, content, ct);
+                childrenJson +=
+                    $$"""
+                    
+                    {
+                        "name": "{{child.Name}}",
+                        "state": "NEUTRAL"
+                    }
+                    """;
+
+                childrenRelations += ToJson(child);
+            }
         }
+
+        var str =
+        $$"""
+        {
+            "title": "{{viewName}}",
+            "packages": [
+                {{childrenJson}}
+            ],
+
+            "edges": [
+                {{childrenRelations}}
+            ]
+        }
+        """;
+        return str;
     }
 
     private static string ToJson(DependencyGraph graph)

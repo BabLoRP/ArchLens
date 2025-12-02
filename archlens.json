@@ -39,6 +39,19 @@
                 }
             ],
             "ignorePackages": []
+        },
+        "infraDomainView": {
+            "packages": [
+                {
+                    "path": "Infra",
+                    "depth": 1
+                },
+                {
+                    "path": "Domain",
+                    "depth": 1
+                }
+            ],
+            "ignorePackages": []
         }
     }
 }
