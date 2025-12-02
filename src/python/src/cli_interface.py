@@ -31,7 +31,7 @@ from pythonnet import load
 load("coreclr")
 import clr
 clr.AddReference(os.path.abspath(os.path.dirname(__file__)).replace('src\\python', '') + "\\c-sharp\\bin\\Debug\\net9.0\\Archlens.dll")
-from Archlens.Main import Program
+from Archlens.CLI import Program
 
 app = typer.Typer(add_completion=True)
 
