@@ -19,6 +19,8 @@ public sealed class GitSnapShotManagerTests : IDisposable
         SnapshotManager: SnapshotManager.Git,
         Format: RenderFormat.Json,
         Exclusions: [],
+        Views: [],
+        SaveLocation: null,
         FileExtensions: [".cs"],
         FullRootPath: _fs.Root,
         SnapshotDir: ".archlens",

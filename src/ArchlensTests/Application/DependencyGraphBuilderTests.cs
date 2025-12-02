@@ -18,6 +18,8 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SnapshotManager: default,
         Format: default,
         Exclusions: [],
+        Views: [],
+        SaveLocation: null,
         FileExtensions: [".cs"],
         FullRootPath: _fs.Root
     );
