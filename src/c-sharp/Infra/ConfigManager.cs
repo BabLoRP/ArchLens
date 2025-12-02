@@ -8,39 +8,39 @@ using System.Threading.Tasks;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 
-namespace Archlens.Domain;
+namespace Archlens.Infra;
 
 public class ConfigManager(string _path)
 {
     private sealed class ConfigDto
     {
 #pragma warning disable CS8632
-        public string? ProjectRoot { get; set; }
-        public string? RootFolder { get; set; }
-        public string? ProjectName { get; set; }
-        public string? Name { get; set; }
-        public string? Language { get; set; }
-        public string? SnapshotManager { get; set; }
-        public string? Format { get; set; }
-        public string[]? Exclusions { get; set; }
-        public string[]? FileExtensions { get; set; }
-        public Dictionary<string, ViewDto>? Views { get; set; }
-        public string? SaveLocation { get; set; }
+        public string ProjectRoot { get; set; }
+        public string RootFolder { get; set; }
+        public string ProjectName { get; set; }
+        public string Name { get; set; }
+        public string Language { get; set; }
+        public string SnapshotManager { get; set; }
+        public string Format { get; set; }
+        public string[] Exclusions { get; set; }
+        public string[] FileExtensions { get; set; }
+        public Dictionary<string, ViewDto> Views { get; set; }
+        public string SaveLocation { get; set; }
 #pragma warning restore CS8632
     }
 
     private sealed class ViewDto
     {
 #pragma warning disable CS8632
-        public PackageDto[]? Packages { get; set; }
-        public string[]? IgnorePackages { get; set; }
+        public PackageDto[] Packages { get; set; }
+        public string[] IgnorePackages { get; set; }
 #pragma warning restore CS8632
     }
 
     private sealed class PackageDto
     {
 #pragma warning disable CS8632
-        public string? Path { get; set; }
+        public string Path { get; set; }
         public int? Depth { get; set; }
 #pragma warning restore CS8632
     }
@@ -145,20 +145,20 @@ public class ConfigManager(string _path)
 
     private static string MapProjectRoot(ConfigDto dto)
     {
-        if (!String.IsNullOrEmpty(dto.ProjectRoot))
+        if (!string.IsNullOrEmpty(dto.ProjectRoot))
             return dto.ProjectRoot;
-        if (!String.IsNullOrEmpty(dto.RootFolder))
+        if (!string.IsNullOrEmpty(dto.RootFolder))
             return dto.RootFolder;
-        return String.Empty;
+        return string.Empty;
     }
 
     private static string MapName(ConfigDto dto)
     {
-        if (!String.IsNullOrEmpty(dto.ProjectName))
+        if (!string.IsNullOrEmpty(dto.ProjectName))
             return dto.ProjectName;
-        if (!String.IsNullOrEmpty(dto.Name))
+        if (!string.IsNullOrEmpty(dto.Name))
             return dto.Name;
-        return String.Empty;
+        return string.Empty;
     }
 
     private static Language MapLanguage(string raw)

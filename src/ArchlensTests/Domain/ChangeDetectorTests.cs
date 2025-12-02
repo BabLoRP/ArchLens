@@ -1,4 +1,4 @@
-﻿using Archlens.Domain;
+﻿using Archlens.Application;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
@@ -16,6 +16,8 @@ public sealed class ChangeDetectorTests : IDisposable
             SnapshotManager: default,
             Format: default,
             Exclusions: exclusions ?? [],
+            Views: [],
+            SaveLocation: null,
             FileExtensions: extensions ?? [".cs"],
             FullRootPath: _fs.Root
         );
