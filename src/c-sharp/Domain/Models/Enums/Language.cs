@@ -4,4 +4,5 @@ public enum Language
 {
     CSharp,
     Go
+    Kotlin
 }
