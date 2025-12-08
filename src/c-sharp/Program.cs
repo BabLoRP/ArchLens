@@ -14,7 +14,8 @@ public class Program
     {
         try
         {
-            var options = await GetOptions(args[0].Trim());
+            var path = args.Length == 0 ? string.Empty : args[0].Trim();
+            var options = await GetOptions(path);
 
             var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(options);
             var parser = DependencyParserFactory.SelectDependencyParser(options);
