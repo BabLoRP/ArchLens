@@ -11,6 +11,7 @@ public sealed class DependencyParserFactory
     public static IDependencyParser SelectDependencyParser(Options o) => o.Language switch
     {
         Language.CSharp => new CsharpDependencyParser(o),
+        Language.Go => new GoDependencyParser(o),
         _ => throw new ArgumentOutOfRangeException(nameof(o.Language))
     };
 }
