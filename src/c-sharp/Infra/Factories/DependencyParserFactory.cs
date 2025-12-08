@@ -12,6 +12,7 @@ public sealed class DependencyParserFactory
     {
         Language.CSharp => new CsharpDependencyParser(o),
         Language.Go => new GoDependencyParser(o),
+        Language.Kotlin => new KotlinDependencyParser(o),
         _ => throw new ArgumentOutOfRangeException(nameof(o.Language))
     };
 }
