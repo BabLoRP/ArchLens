@@ -167,6 +167,7 @@ public class ConfigManager(string _path)
         return s switch
         {
             "c#" or "csharp" or "cs" or "c-sharp" or "c sharp" => Language.CSharp,
+            "go" or "golang" => Language.Go,
             _ => throw new NotSupportedException($"Unsupported language: '{raw}'.")
         };
     }
