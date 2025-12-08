@@ -133,6 +133,20 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
         _children.Add(child);
     }
 
+    public void ReplaceChild(DependencyGraph replacement)
+    {
+        for (var i = 0; i < _children.Count; i++)
+        {
+            if (string.Equals(_children[i].Path, replacement.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                _children[i] = replacement;
+                return;
+            }
+        }
+
+        _children.Add(replacement);
+    }
+
     internal void ReplaceDependencies(IDictionary<string, int> newDeps)
     {
         var dict = GetDependencies();
