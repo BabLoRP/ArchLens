@@ -36,21 +36,23 @@ public sealed class ChangeDetectorTests : IDisposable
 
     private sealed class SnapshotGraph(string projectRoot) : DependencyGraph(projectRoot)
     {
-        private readonly Dictionary<string, DependencyGraph> _nodes = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DependencyGraph> _children = new(StringComparer.OrdinalIgnoreCase);
 
         public void AddFile(string relPath, DateTime lastWriteUtc)
         {
-            var n = new DependencyGraphLeaf(projectRoot) { Name = System.IO.Path.GetFileName(relPath), Path = "./" + relPath.Replace('\\', '/'), LastWriteTime = lastWriteUtc };
-            var dir = System.IO.Path.GetDirectoryName(relPath)?.Replace('\\', '/') ?? ".";
-            _nodes[relPath.Replace('\\', '/')] = n;
-            _nodes[dir] = new DependencyGraphNode(projectRoot) { Name = dir, Path = "./" + dir, LastWriteTime = lastWriteUtc };
+            var n = new DependencyGraphLeaf(projectRoot) { Name = System.IO.Path.GetFileName(relPath), Path = relPath, LastWriteTime = lastWriteUtc };
+            var dir = System.IO.Path.GetDirectoryName(relPath) ?? ".";
+            _children[relPath] = n;
+            _children[dir] = new DependencyGraphNode(projectRoot) { Name = dir, Path = dir, LastWriteTime = lastWriteUtc };
         }
+
+        public override IReadOnlyList<DependencyGraph> GetChildren() => [.. _children.Values];
 
         public override DependencyGraph GetChild(string path)
         {
             var key = path.Replace('\\', '/');
-            if (_nodes.TryGetValue(key, out var n)) return n;
-            if (_nodes.TryGetValue(key.TrimEnd('/'), out n)) return n;
+            if (_children.TryGetValue(key, out var n)) return n;
+            if (_children.TryGetValue(key.TrimEnd('/'), out n)) return n;
             return null!;
         }
     }
