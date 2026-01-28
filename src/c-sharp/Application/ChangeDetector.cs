@@ -30,38 +30,28 @@ public sealed class ChangeDetector
         if (lastSavedGraph == null) return paths;
 
         var changed = new Dictionary<string, IEnumerable<string>>();
-        var thread = new SemaphoreSlim(Environment.ProcessorCount - 1);
-        var tasks = paths.Select(async pair =>
+
+        foreach (var pair in modules)
         {
             ct.ThrowIfCancellationRequested();
-            await thread.WaitAsync(ct).ConfigureAwait(false);
-            try
+            var relativePath = PathNormaliser.NormalisePath(projectRoot, pair.Key);
+            if (relativePath.Equals("./"))
+                continue;
+            var inLastGraph = lastSavedGraph.ContainsPath(relativePath);
+            if (!inLastGraph)
             {
-                var relativePath = PathNormaliser.NormalisePath(projectRoot, pair.Key);
-                if (relativePath.Equals("./"))
-                    return;
-                var inLastGraph = lastSavedGraph.ContainsPath(relativePath);
-                if (!inLastGraph)
-                {
+                changed.Add(pair.Key, pair.Value);
+            }
+            else
+            {
+                var lastNodeWriteTime = lastSavedGraph.FindByPath(relativePath).LastWriteTime;
+
+                var currentWriteTime = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(pair.Key));
+
+                if (TrimMilliseconds(currentWriteTime) > TrimMilliseconds(lastNodeWriteTime))
                     changed.Add(pair.Key, pair.Value);
-                }
-                else
-                {
-                    var lastNodeWriteTime = lastSavedGraph.FindByPath(relativePath).LastWriteTime;
-
-                    var currentWriteTime = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(pair.Key));
-
-                    if (TrimMilliseconds(currentWriteTime) > TrimMilliseconds(lastNodeWriteTime))
-                        changed.Add(pair.Key, pair.Value);
-                }
             }
-            finally
-            {
-                thread.Release();
-            }
-        });
-
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
         return changed;
     }
 
