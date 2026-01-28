@@ -14,7 +14,7 @@ public sealed class RendererService(Options options,
     public async Task RenderDependencyGraphAsync(CancellationToken ct = default)
     {
         var snapshotGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(options, ct);
-        var changedModules = await ChangeDetector.GetChangedProjectFilesAsync(options, snapshotGraph, ct);
+        var changedModules = await ChangeDetector.GetChangedProjectPathsAsync(options, snapshotGraph, ct);
         var graph = await new DependencyGraphBuilder(parser, options).GetGraphAsync(changedModules, ct);
 
         await renderer.SaveGraphToFileAsync(graph, options, ct);

@@ -18,7 +18,7 @@ public sealed class ChangeDetector
         string[] FileSuffixes      // specific file postfixes, like: "*.dev.cs", ".g.cs"
     );
 
-    public static async Task<IReadOnlyDictionary<string, IEnumerable<string>>> GetChangedProjectFilesAsync(
+    public static async Task<IReadOnlyDictionary<string, IEnumerable<string>>> GetChangedProjectPathsAsync(
         Options options,
         DependencyGraph lastSavedGraph,
         CancellationToken ct = default)
