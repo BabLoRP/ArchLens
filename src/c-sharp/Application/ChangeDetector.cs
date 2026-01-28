@@ -26,12 +26,12 @@ public sealed class ChangeDetector
         var projectRoot = string.IsNullOrEmpty(options.FullRootPath) ? Path.GetFullPath(options.ProjectRoot) : options.FullRootPath;
 
         var rules = CompileExclusions(options.Exclusions);
-        var modules = EnumerateFiles(projectRoot, options.FileExtensions, rules);
-        if (lastSavedGraph == null) return modules;
+        var paths = EnumeratePathsInRoot(projectRoot, options.FileExtensions, rules);
+        if (lastSavedGraph == null) return paths;
 
         var changed = new Dictionary<string, IEnumerable<string>>();
         var thread = new SemaphoreSlim(Environment.ProcessorCount - 1);
-        var tasks = modules.Select(async pair =>
+        var tasks = paths.Select(async pair =>
         {
             ct.ThrowIfCancellationRequested();
             await thread.WaitAsync(ct).ConfigureAwait(false);
@@ -74,12 +74,12 @@ public sealed class ChangeDetector
     }
 
 
-    private static Dictionary<string, IEnumerable<string>> EnumerateFiles(string root, IReadOnlyList<string> extensions, ExclusionRule exclusions)
+    private static Dictionary<string, IEnumerable<string>> EnumeratePathsInRoot(string root, IReadOnlyList<string> extensions, ExclusionRule exclusions)
     {
         var dirs = new Stack<string>();
         dirs.Push(root);
 
-        var result = new Dictionary<string, IEnumerable<string>>
+        var paths = new Dictionary<string, IEnumerable<string>>
         {
             { root, [] }
         };
@@ -95,7 +95,7 @@ public sealed class ChangeDetector
                 foreach (var subdir in subdirs)
                     dirs.Push(subdir);
 
-                result[dir] = result.TryGetValue(dir, out var contents)
+                paths[dir] = paths.TryGetValue(dir, out var contents)
                     ? contents.Concat(subdirs).ToList()
                     : [.. subdirs];
             } catch { /* ignore */ }
@@ -106,11 +106,11 @@ public sealed class ChangeDetector
             } catch { /* ignore */ }
 
             var includedFiles = files.Where(file => extensions.Contains(Path.GetExtension(file)));
-            result[dir] = result.TryGetValue(dir, out var existing)
+            paths[dir] = paths.TryGetValue(dir, out var existing)
                 ? existing.Concat(includedFiles).ToList()
                 : [.. includedFiles];
         }
-        return result;
+        return paths;
     }
 
 
