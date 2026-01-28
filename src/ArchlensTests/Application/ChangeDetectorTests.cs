@@ -66,7 +66,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         Assert.Contains(Path.Combine(_fs.Root, "src"), changed.Keys);
         Assert.Contains(Path.Combine(_fs.Root, "src", "A.cs"), changed[Path.Combine(_fs.Root, "src")]);
@@ -82,7 +82,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
         snap.AddFile("src/B.cs", t);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         Assert.Empty(changed);
     }
@@ -99,7 +99,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
         snap.AddFile("src/C.cs", oldT);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         Assert.Single(changed);
         var mod = changed.Single();
@@ -116,7 +116,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(extensions: [".cs"]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         var srcKey = Path.Combine(_fs.Root, "src");
         Assert.Contains(srcKey, changed.Keys);
@@ -133,7 +133,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(exclusions: ["Tests/"]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         Assert.DoesNotContain(Path.Combine(_fs.Root, "Tests"), changed.Keys);
         Assert.Contains(Path.Combine(_fs.Root, "src"), changed.Keys);
@@ -148,7 +148,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(exclusions: ["bin"]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         Assert.Contains(Path.Combine(_fs.Root, "src", "good"), changed.Keys);
         Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "bin"), changed.Keys);
@@ -165,7 +165,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(exclusions: ["**.dev.cs."]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectFilesAsync(opts, snap);
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
 
         var srcKey = Path.Combine(_fs.Root, "src");
         Assert.Contains(srcKey, changed.Keys);
@@ -184,6 +184,6 @@ public sealed class ChangeDetectorTests : IDisposable
 
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await ChangeDetector.GetChangedProjectFilesAsync(opts, snap, cts.Token));
+            await ChangeDetector.GetChangedProjectPathsAsync(opts, snap, cts.Token));
     }
 }
