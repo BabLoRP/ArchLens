@@ -6,17 +6,25 @@ public static class PathNormaliser
 {
     public const string RelativeRoot = "./";
 
-        var isDirectory = IsDirectoryPath(fullPath);
+    public static string NormaliseModule(string root, string path) =>
+        Normalise(root, path, isDirectory: true);
 
-        var relativePath = Path
+    public static string NormaliseFile(string root, string path) =>
+        Normalise(root, path, isDirectory: false);
+
+    public static string Normalise(string root, string path, bool isDirectory)
+    {
+        var fullPath = CombinePaths(root, path);
+
+        var relative = Path
             .GetRelativePath(root, fullPath)
             .Replace(Path.DirectorySeparatorChar, '/')
             .TrimEnd('/');
 
-        if (relativePath == "." || relativePath == string.Empty)
-            return "./";
+        if (relative is "." or "")
+            return RelativeRoot;
 
-        return isDirectory ? $"./{relativePath}/" : $"./{relativePath}";
+        return isDirectory ? $"./{relative}/" : $"./{relative}";
     }
 
     private static bool IsDirectoryPath(string fullPath)
