@@ -106,22 +106,12 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         var asFile = PathNormaliser.NormaliseFile(_projectRoot, path);
         return (asModule, asFile);
     }
+
+    public IEnumerator<DependencyGraph> GetEnumerator() =>
+        GetChildren().GetEnumerator();
+
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    public IEnumerator<DependencyGraph> GetEnumerator()
-    {
-        return Traverse(this).GetEnumerator();
-
-        static IEnumerable<DependencyGraph> Traverse(DependencyGraph node)
-        {
-            yield return node;
-            foreach (var child in node.GetChildren())
-            {
-                foreach (var desc in Traverse(child))
-                    yield return desc;
-            }
-        }
-    }
 }
 
 public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRoot)
