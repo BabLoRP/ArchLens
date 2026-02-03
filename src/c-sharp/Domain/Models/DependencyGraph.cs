@@ -60,8 +60,7 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
     }
 
     public virtual IReadOnlyList<DependencyGraph> GetChildren() => [];
-        {
-            var current = stack.Pop();
+    public override string ToString() => $"{Name} ({Path})";
 
     public bool ContainsPath(string path) => FindByPath(path) is not null;
 
@@ -150,13 +149,7 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
             dict[kv.Key] = kv.Value;
     }
 
-    public override string ToString()
-    {
-        string res = Name + $" ({GetDependencies()})";
-        foreach (var c in _children)
-            res += "\n \t" + c;
-        return res;
-    }
+    public override string ToString() => $"{Name} ({Path})";
 }
 
 public class DependencyGraphLeaf(string projectRoot) : DependencyGraph(projectRoot)
@@ -164,8 +157,5 @@ public class DependencyGraphLeaf(string projectRoot) : DependencyGraph(projectRo
     protected override string NormaliseOwnPath(string value) =>
         PathNormaliser.NormaliseFile(projectRoot, value);
 
-        foreach (var d in GetDependencies().Keys)
-            res += "\n \t \t --> " + d;
-        return res;
-    }
+    public override string ToString() => $"{Name} ({Path}) deps={GetDependencies().Count}";
 }
