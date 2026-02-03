@@ -34,12 +34,10 @@ public static class PathNormaliser
             : Path.GetFullPath(relativePath, fullRootPath);
         return fullPath;
     }
+
+    public static string GetFileOrModuleName(string normalisedPath)
         {
-            return Directory.Exists(fullPath);
-        }
-        catch
-        {
-            return false;
-        }
+        var trimmed = normalisedPath.TrimEnd('/');
+        return Path.GetFileName(trimmed);
     }
 }
