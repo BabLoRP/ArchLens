@@ -2,6 +2,7 @@ using Archlens.Domain;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,10 +21,7 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         DependencyGraph lastSavedDependencyGraph,
         CancellationToken ct = default)
     {
-        var root = await BuildGraphAsync(changedModules, ct);
-        DependencyAggregator.RecomputeAggregates(root);
-        return root;
-    }
+        var changedRoot = await BuildGraphAsync(changedModules, ct).ConfigureAwait(false);
 
         var merged = lastSavedDependencyGraph is null
             ? changedRoot
@@ -37,63 +35,84 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
         CancellationToken ct)
     {
-        var comparer = StringComparer.OrdinalIgnoreCase;
-        var nodes = new Dictionary<string, DependencyGraphNode>(comparer);
+        var rootFull = _options.FullRootPath;
+        var nodes = new Dictionary<string, DependencyGraphNode>(PathComparer);
 
-        var rootNode = new DependencyGraphNode(_options.FullRootPath)
+        var rootNode = new DependencyGraphNode(rootFull)
         {
             Name = _options.ProjectName,
             Path = _options.ProjectRoot,
-            LastWriteTime = File.GetLastWriteTimeUtc(_options.FullRootPath)
+            LastWriteTime = File.GetLastWriteTimeUtc(rootFull)
         };
-        nodes["."] = rootNode;
+        nodes[PathNormaliser.RelativeRoot] = rootNode;
 
-        foreach (var moduleAbs in changedModules.Keys)
+        DependencyGraphNode EnsureDirectoryNode(string dirPath)
         {
-            var key = CanonRel(_options.FullRootPath, moduleAbs);
-            var name = key == "." ? _options.ProjectName : Path.GetFileName(key);
-            nodes[key] = new DependencyGraphNode(_options.FullRootPath)
+            var abs = PathNormaliser.CombinePaths(rootFull, dirPath);
+            var key = PathNormaliser.NormaliseModule(rootFull, abs);
+
+            if (nodes.TryGetValue(key, out var existing))
+                return existing;
+
+            var node = new DependencyGraphNode(rootFull)
             {
-                Name = name,
-                Path = moduleAbs,
-                LastWriteTime = File.GetLastWriteTimeUtc(moduleAbs)
+                Name = key == PathNormaliser.RelativeRoot ? _options.ProjectName : PathNormaliser.GetFileOrModuleName(key),
+                Path = dirPath,
+                LastWriteTime = File.GetLastWriteTimeUtc(abs)
             };
+
+            nodes[key] = node;
+
+            var parentAbs = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(abs));
+            var parent = parentAbs is null || PathComparer.Equals(parentAbs, rootFull)
+                ? rootNode
+                : EnsureDirectoryNode(parentAbs);
+
+            parent.AddChild(node);
+            return node;
         }
 
-        foreach (var key in nodes.Keys.OrderBy(k => k.Count(c => c == Path.DirectorySeparatorChar)))
-        {
-            if (key == ".") continue;
-            var parentKey = Path.GetDirectoryName(key);
-            if (string.IsNullOrEmpty(parentKey)) parentKey = ".";
-            nodes[parentKey].AddChild(nodes[key]);
-        }
+        foreach (var module in changedModules.Keys)
+            EnsureDirectoryNode(module);
 
-        foreach (var (moduleAbs, contents) in changedModules)
+        foreach (var (_, contents) in changedModules)
         {
-            var moduleKey = CanonRel(_options.FullRootPath, moduleAbs);
-            var moduleNode = nodes[moduleKey];
-
-            foreach (var absPath in contents)
+            foreach (var item in contents)
             {
-                var childKey = JoinRel(moduleKey, absPath);
+                if (string.IsNullOrWhiteSpace(item))
+                    continue;
 
-                if (nodes.TryGetValue(childKey, out var childDir))
+                var abs = PathNormaliser.CombinePaths(rootFull, item);
+
+                if (!(Path.GetExtension(abs).Length != 0))
                 {
-                    moduleNode.AddChild(childDir);
+                    EnsureDirectoryNode(abs);
                     continue;
                 }
 
-                if (!Path.HasExtension(absPath)) continue;
+                ct.ThrowIfCancellationRequested();
 
-                var deps = await _dependencyParser.ParseFileDependencies(absPath, ct).ConfigureAwait(false);
-                var leaf = new DependencyGraphLeaf(_options.FullRootPath)
+                var parentAbs = Path.GetDirectoryName(abs);
+                if (parentAbs is null)
+                    continue;
+
+                var parentNode = EnsureDirectoryNode(parentAbs);
+
+                var deps = await _dependencyParser.ParseFileDependencies(abs, ct).ConfigureAwait(false);
+
+                var leaf = new DependencyGraphLeaf(rootFull)
                 {
-                    Name = Path.GetFileName(childKey),
-                    Path = $"{absPath}",
-                    LastWriteTime = File.GetLastWriteTimeUtc(absPath)
+                    Name = Path.GetFileName(abs),
+                    Path = item,
+                    LastWriteTime = File.GetLastWriteTimeUtc(abs)
                 };
                 leaf.AddDependencyRange(deps);
-                moduleNode.AddChild(leaf);
+
+                UpsertChild(parentNode, leaf);
+            }
+        }
+
+        return rootNode;
     }
 
     private static DependencyGraph MergeGraphs(DependencyGraph lastSaved, DependencyGraphNode changedRoot)
@@ -116,7 +135,7 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         {
             parent.AddChild(newChild);
             return;
-            }
+        }
 
         if (existing is DependencyGraphNode existingNode && newChild is DependencyGraphNode incomingNode)
         {
