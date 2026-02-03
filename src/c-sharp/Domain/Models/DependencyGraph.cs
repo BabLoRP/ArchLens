@@ -48,35 +48,22 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         }
     }
 
-    public virtual DependencyGraph GetChild(string path) => GetChildren().Where(child => child.Path == path).FirstOrDefault();
-
-    public virtual IReadOnlyList<DependencyGraph> GetChildren() => [];
-    public override string ToString() => Name;
-
-    public bool ContainsPath(string path)
+    public virtual DependencyGraph? GetChild(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
-            return false;
+            return null;
 
-        var target = PathNormaliser.NormalisePath(_projectRoot, path);
+        var (asModule, asFile) = NormaliseQueryPathBothWays(path);
 
-        var stack = new Stack<DependencyGraph>();
-        stack.Push(this);
+        return GetChildren().FirstOrDefault(child =>
+            PathComparer.Equals(child.Path, asModule) || PathComparer.Equals(child.Path, asFile));
+    }
 
-        while (stack.Count > 0)
+    public virtual IReadOnlyList<DependencyGraph> GetChildren() => [];
         {
             var current = stack.Pop();
 
-            if (current.Path == target)
-                return true;
-
-            var children = current.GetChildren();
-            for (int i = children.Count - 1; i >= 0; i--)
-                stack.Push(children[i]);
-        }
-
-        return false;
-    }
+    public bool ContainsPath(string path) => FindByPath(path) is not null;
 
     public DependencyGraph? FindByPath(string path)
     {
