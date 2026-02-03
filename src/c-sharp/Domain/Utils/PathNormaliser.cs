@@ -4,13 +4,7 @@ namespace Archlens.Domain.Utils;
 
 public static class PathNormaliser
 {
-    public static string NormalisePath(string root, string path)
-    {
-        if (!Path.IsPathFullyQualified(root))
-            root = Path.GetFullPath(root);
-        var fullPath = Path.IsPathRooted(path)
-            ? path
-            : Path.GetFullPath(path, root);
+    public const string RelativeRoot = "./";
 
         var isDirectory = IsDirectoryPath(fullPath);
 
