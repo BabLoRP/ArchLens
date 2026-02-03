@@ -100,6 +100,12 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         return null;
     }
 
+    private (string asModule, string asFile) NormaliseQueryPathBothWays(string path)
+    {
+        var asModule = PathNormaliser.NormaliseModule(_projectRoot, path);
+        var asFile = PathNormaliser.NormaliseFile(_projectRoot, path);
+        return (asModule, asFile);
+    }
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     public IEnumerator<DependencyGraph> GetEnumerator()
