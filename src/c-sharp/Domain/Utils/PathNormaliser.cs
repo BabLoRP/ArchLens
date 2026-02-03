@@ -27,9 +27,13 @@ public static class PathNormaliser
         return isDirectory ? $"./{relative}/" : $"./{relative}";
     }
 
-    private static bool IsDirectoryPath(string fullPath)
+    public static string CombinePaths(string fullRootPath, string relativePath)
     {
-        try
+        var fullPath = Path.IsPathRooted(relativePath)
+            ? relativePath
+            : Path.GetFullPath(relativePath, fullRootPath);
+        return fullPath;
+    }
         {
             return Directory.Exists(fullPath);
         }
