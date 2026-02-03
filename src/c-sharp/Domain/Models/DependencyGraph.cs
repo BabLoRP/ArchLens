@@ -12,6 +12,9 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
     private readonly string _path;
     private Dictionary<string, int> _dependencies { get; init; } = [];
 
+    protected virtual string NormaliseOwnPath(string value) =>
+        PathNormaliser.NormaliseModule(_projectRoot, value);
+
     required public DateTime LastWriteTime
     {
         get => _lastWriteTime;
@@ -22,7 +25,7 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
     required public string Path
     {
         get => _path;
-        init { _path = PathNormaliser.NormalisePath(_projectRoot, value); }
+        init { _path = NormaliseOwnPath(value); }
     }
 
     public IDictionary<string, int> GetDependencies() => _dependencies;
@@ -118,6 +121,10 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
 public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRoot)
 {
     private List<DependencyGraph> _children { get; init; } = [];
+
+    protected override string NormaliseOwnPath(string value) =>
+        PathNormaliser.NormaliseModule(projectRoot, value);
+
     public override IReadOnlyList<DependencyGraph> GetChildren() => _children;
     public void AddChildren(IEnumerable<DependencyGraph> childr)
     {
@@ -126,6 +133,7 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
             AddChild(child);
         }
     }
+
     public void AddChild(DependencyGraph child)
     {
         if (_children.Any(c => ReferenceEquals(c, child) || c.Path == child.Path))
@@ -166,9 +174,9 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
 
 public class DependencyGraphLeaf(string projectRoot) : DependencyGraph(projectRoot)
 {
-    public override string ToString()
-    {
-        var res = "\t" + Name;
+    protected override string NormaliseOwnPath(string value) =>
+        PathNormaliser.NormaliseFile(projectRoot, value);
+
         foreach (var d in GetDependencies().Keys)
             res += "\n \t \t --> " + d;
         return res;
