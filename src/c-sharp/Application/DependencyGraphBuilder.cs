@@ -17,6 +17,7 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
     
     public async Task<DependencyGraph> GetGraphAsync(
         IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
+        DependencyGraph lastSavedDependencyGraph,
         CancellationToken ct = default)
     {
         var root = await BuildGraphAsync(changedModules, ct);
@@ -24,19 +25,12 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         return root;
     }
 
-    private static string CanonRel(string root, string path)
-    {
-        var abs = Path.GetFullPath(path);
-        var rel = Path.GetRelativePath(root, abs);
-        rel = rel.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar);
-        return rel.Length == 0 ? "." : rel;
-    }
+        var merged = lastSavedDependencyGraph is null
+            ? changedRoot
+            : MergeGraphs(lastSavedDependencyGraph, changedRoot);
 
-    private static string JoinRel(string parentRel, string child)
-    {
-        var p = parentRel == "." ? child : Path.Combine(parentRel, child);
-        return p.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                .TrimEnd(Path.DirectorySeparatorChar);
+        DependencyAggregator.RecomputeAggregates(merged);
+        return merged;
     }
 
     private async Task<DependencyGraphNode> BuildGraphAsync(
@@ -100,10 +94,41 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
                 };
                 leaf.AddDependencyRange(deps);
                 moduleNode.AddChild(leaf);
+    }
+
+    private static DependencyGraph MergeGraphs(DependencyGraph lastSaved, DependencyGraphNode changedRoot)
+    {
+        if (lastSaved is not DependencyGraphNode lastSavedRoot)
+            throw new ArgumentException("Expected the saved graph root to be a node.", nameof(lastSaved));
+
+        foreach (var changedChild in changedRoot.GetChildren())
+            UpsertChild(lastSavedRoot, changedChild);
+
+        return lastSavedRoot;
+    }
+
+    private static void UpsertChild(DependencyGraphNode parent, DependencyGraph newChild)
+    {
+        var existing = parent.GetChildren()
+            .FirstOrDefault(c => string.Equals(c.Path, newChild.Path, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is null)
+        {
+            parent.AddChild(newChild);
+            return;
             }
+
+        if (existing is DependencyGraphNode existingNode && newChild is DependencyGraphNode incomingNode)
+        {
+            existingNode.ReplaceDependencies(incomingNode.GetDependencies());
+
+            foreach (var grandChild in incomingNode.GetChildren())
+                UpsertChild(existingNode, grandChild);
+
+            return;
         }
 
-        return nodes["."]; // project root
+        parent.ReplaceChild(newChild);
     }
 }
 
