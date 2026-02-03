@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Application;
 
-public class DependencyGraphBuilder(IDependencyParser _dependencyParser, Options _options)
+public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, Options _options)
 {
     public async Task<DependencyGraph> GetGraphAsync(
         IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
