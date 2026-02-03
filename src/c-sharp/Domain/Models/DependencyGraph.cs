@@ -83,7 +83,7 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
-        var target = PathNormaliser.NormalisePath(_projectRoot, path);
+        var (asModule, asFile) = NormaliseQueryPathBothWays(path);
 
         var stack = new Stack<DependencyGraph>();
         stack.Push(this);
