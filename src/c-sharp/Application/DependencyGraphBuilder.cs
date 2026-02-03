@@ -13,6 +13,8 @@ namespace Archlens.Application;
 
 public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, Options _options)
 {
+    private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
+    
     public async Task<DependencyGraph> GetGraphAsync(
         IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
         CancellationToken ct = default)
