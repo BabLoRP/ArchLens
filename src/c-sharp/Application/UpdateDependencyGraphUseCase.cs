@@ -5,13 +5,13 @@ using System.Threading.Tasks;
 
 namespace Archlens.Application;
 
-public sealed class RendererService(Options options,
+public sealed class UpdateDependencyGraphUseCase(Options options,
     ISnapshotManager snapshotManager,
     IDependencyParser parser,
     IRenderer renderer
     )
 {
-    public async Task RenderDependencyGraphAsync(CancellationToken ct = default)
+    public async Task RunAsync(CancellationToken ct = default)
     {
         var snapshotGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(options, ct);
         var projectChanges = await ChangeDetector.GetChangedProjectPathsAsync(options, snapshotGraph, ct);

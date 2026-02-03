@@ -21,9 +21,9 @@ public class Program
             var parser = DependencyParserFactory.SelectDependencyParser(options);
             var renderer = RendererFactory.SelectRenderer(options.Format);
 
-            var rendererService = new RendererService(options, snapshotManager, parser, renderer);
+            var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(options, snapshotManager, parser, renderer);
 
-            await rendererService.RenderDependencyGraphAsync();
+            await updateDepGraphUseCase.RunAsync();
         }
         catch (Exception e)
         {
