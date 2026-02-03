@@ -33,7 +33,6 @@ public sealed class ChangeDetector
 
         foreach (var pair in modules)
         {
-            ct.ThrowIfCancellationRequested();
             var relativePath = PathNormaliser.NormalisePath(projectRoot, pair.Key);
             if (relativePath.Equals("./"))
                 continue;
