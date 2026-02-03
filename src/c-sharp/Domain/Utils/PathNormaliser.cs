@@ -36,7 +36,7 @@ public static class PathNormaliser
     }
 
     public static string GetFileOrModuleName(string normalisedPath)
-        {
+    {
         var trimmed = normalisedPath.TrimEnd('/');
         return Path.GetFileName(trimmed);
     }
