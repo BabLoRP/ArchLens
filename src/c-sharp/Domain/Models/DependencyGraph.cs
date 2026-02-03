@@ -12,6 +12,8 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
     private readonly string _path;
     private Dictionary<string, int> _dependencies { get; init; } = [];
 
+    protected static StringComparer PathComparer => StringComparer.OrdinalIgnoreCase;
+
     protected virtual string NormaliseOwnPath(string value) =>
         PathNormaliser.NormaliseModule(_projectRoot, value);
 
@@ -89,7 +91,8 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         while (stack.Count > 0)
         {
             var current = stack.Pop();
-            if (current.Path == target)
+
+            if (PathComparer.Equals(current.Path, asModule) || PathComparer.Equals(current.Path, asFile))
                 return current;
 
             var children = current.GetChildren();
@@ -132,8 +135,9 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
 
     public void AddChild(DependencyGraph child)
     {
-        if (_children.Any(c => ReferenceEquals(c, child) || c.Path == child.Path))
+        if (_children.Any(c => ReferenceEquals(c, child) || PathComparer.Equals(c.Path, child.Path)))
             return;
+
         _children.Add(child);
     }
 
@@ -141,7 +145,7 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
     {
         for (var i = 0; i < _children.Count; i++)
         {
-            if (string.Equals(_children[i].Path, replacement.Path, StringComparison.OrdinalIgnoreCase))
+            if (PathComparer.Equals(_children[i].Path, replacement.Path))
             {
                 _children[i] = replacement;
                 return;
