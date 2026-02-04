@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Models;
+using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 
 namespace Archlens.Domain.Interfaces;
@@ -20,8 +21,8 @@ public interface IRenderer
 
         foreach (var view in options.Views)
         {
-            var fileExtension = options.Format == Models.Enums.RenderFormat.Json ? "json" : "puml";
-            var filename = $"{view.ViewName}-{fileExtension}.{fileExtension}";
+            var fileExtension = options.Format.ToFileExtension();
+            var filename = $"{options.ProjectName}-{view.ViewName}.{fileExtension}";
             var path = Path.Combine(dir, filename);
 
             if (view.Packages.Count == 0)
