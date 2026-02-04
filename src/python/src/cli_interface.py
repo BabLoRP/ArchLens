@@ -40,12 +40,12 @@ app = typer.Typer(add_completion=True)
 def render(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
     
-    if (config["language"] and config["language"] != "python"):
+    if ("language" in config and config["language"] != "python"):
         Program.Main([config_path])
 
         if (config["format"] == "puml" or config["format"] == "PlantUML"):
             for view in config["views"]:
-                file_name = os.getcwd() + (config["saveLocPure"]) + f"{view}-puml.puml"
+                file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-{view}.puml"
                 puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
                 subprocess.run(["powershell", puml_command], shell=True)
 
@@ -64,7 +64,7 @@ def render(config_path: str = "./archlens.json"):
 def render_json(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
 
-    if (config["language"] == "C#"):
+    if ("language" in config and config["language"] != "python"):
         Program.Main([config_path])
     else:
         mt_path_manager = PathManagerSingleton()
