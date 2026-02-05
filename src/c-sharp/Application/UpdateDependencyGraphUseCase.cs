@@ -5,19 +5,22 @@ using System.Threading.Tasks;
 
 namespace Archlens.Application;
 
-public sealed class UpdateDependencyGraphUseCase(Options options,
-    ISnapshotManager snapshotManager,
+public sealed class UpdateDependencyGraphUseCase(
+    ParserOptions parserOptions,
+    RenderOptions renderOptions,
+    SnapshotOptions snapshotOptions,
     IDependencyParser parser,
-    IRenderer renderer
+    IRenderer renderer,
+    ISnapshotManager snapshotManager
     )
 {
     public async Task RunAsync(CancellationToken ct = default)
     {
-        var snapshotGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(options, ct);
-        var projectChanges = await ChangeDetector.GetChangedProjectPathsAsync(options, snapshotGraph, ct);
-        var graph = await new DependencyGraphBuilder(parser, options).GetGraphAsync(projectChanges, snapshotGraph, ct);
+        var snapshotGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(snapshotOptions, ct);
+        var projectChanges = await ChangeDetector.GetChangedProjectPathsAsync(parserOptions, snapshotGraph, ct);
+        var graph = await new DependencyGraphBuilder(parser, renderOptions).GetGraphAsync(projectChanges, ct);
 
-        await renderer.SaveGraphToFileAsync(graph, options, ct);
-        await snapshotManager.SaveGraphAsync(graph, options, ct);
+        await renderer.SaveGraphToFileAsync(graph, renderOptions, ct);
+        await snapshotManager.SaveGraphAsync(graph, snapshotOptions, ct);
     }
 }
