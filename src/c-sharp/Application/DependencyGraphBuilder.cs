@@ -75,12 +75,14 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
             return node;
         }
 
+        // we need to process modules first to ensure their directory nodes exist
         foreach (var module in changedModules.Keys)
             EnsureDirectoryNode(module);
 
-        foreach (var (_, contents) in changedModules)
+        foreach (var (_, contents) in changedModules) // changedModules is a Dictionary where keys are module paths and values are list of file AND module paths (contents) that have changed within those modules
         {
-            foreach (var item in contents)
+            // The keys (module paths) have already been processed in the previous loop, so we only care about the values (contents paths).
+            foreach (var item in contents) // contents contain both file paths and module (directory) paths -> hence we call it item
             {
                 if (string.IsNullOrWhiteSpace(item))
                     continue;
