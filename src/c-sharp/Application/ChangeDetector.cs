@@ -31,9 +31,9 @@ public sealed class ChangeDetector
 
         var changed = new Dictionary<string, IEnumerable<string>>();
 
-        foreach (var pair in modules)
+        foreach (var pair in paths)
         {
-            var relativePath = PathNormaliser.NormalisePath(projectRoot, pair.Key);
+            var relativePath = PathNormaliser.NormaliseModule(projectRoot, pair.Key);
             if (relativePath.Equals("./"))
                 continue;
             var inLastGraph = lastSavedGraph.ContainsPath(relativePath);
