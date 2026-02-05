@@ -22,6 +22,7 @@ public class Program
             var renderer = RendererFactory.SelectRenderer(renderOptions);
 
             var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(
+                                                        baseOptions,
                                                         parserOptions,
                                                         renderOptions,
                                                         snapshotOptions,
