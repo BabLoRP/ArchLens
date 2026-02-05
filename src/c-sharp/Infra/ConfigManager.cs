@@ -49,7 +49,7 @@ public class ConfigManager(string _path)
 #pragma warning restore CS8632
     }
 
-    public async Task<(ParserOptions, RenderOptions, SnapshotOptions)> LoadAsync(CancellationToken ct = default)
+    public async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> LoadAsync(CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_path))
             throw new ArgumentException("Config path is null/empty.", nameof(_path));
@@ -68,13 +68,13 @@ public class ConfigManager(string _path)
 
         var baseDir = Path.GetDirectoryName(configFile) ?? Environment.CurrentDirectory;
 
-        var options = MapBaseOptions(dto, baseDir);
+        var baseOptions = MapBaseOptions(dto, baseDir);
 
-        var parserOptions = MapParserOptions(dto, options);
-        var renderOptions = MapRenderOptions(dto, baseDir, options);
-        var snapshotOptions = MapSnapshotOptions(dto, baseDir, options);
+        var parserOptions = MapParserOptions(dto, baseOptions);
+        var renderOptions = MapRenderOptions(dto, baseDir, baseOptions);
+        var snapshotOptions = MapSnapshotOptions(dto, baseDir, baseOptions);
 
-        return (parserOptions, renderOptions, snapshotOptions);
+        return (baseOptions, parserOptions, renderOptions, snapshotOptions);
     }
 
     private static BaseOptions MapBaseOptions(ConfigDto dto, string baseDir)
