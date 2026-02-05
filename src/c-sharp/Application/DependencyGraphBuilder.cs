@@ -46,6 +46,9 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         };
         nodes[PathNormaliser.RelativeRoot] = rootNode;
 
+        // It uses `nodes` as a cache: if a directory node already exists, it returns it;
+        // otherwise it creates it once, stores it, and then reuses that same node next time.
+        // It also recursively creates/links any missing parent directory nodes.
         DependencyGraphNode EnsureDirectoryNode(string dirPath)
         {
             var abs = PathNormaliser.CombinePaths(rootFull, dirPath);
