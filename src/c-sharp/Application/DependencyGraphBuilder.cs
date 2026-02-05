@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Application;
 
-public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, Options _options)
+public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, RenderOptions _options)
 {
     private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
     
@@ -40,8 +40,8 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
 
         var rootNode = new DependencyGraphNode(rootFull)
         {
-            Name = _options.ProjectName,
-            Path = _options.ProjectRoot,
+            Name = _options.BaseOptions.ProjectName,
+            Path = _options.BaseOptions.ProjectRoot,
             LastWriteTime = File.GetLastWriteTimeUtc(rootFull)
         };
         nodes[PathNormaliser.RelativeRoot] = rootNode;
