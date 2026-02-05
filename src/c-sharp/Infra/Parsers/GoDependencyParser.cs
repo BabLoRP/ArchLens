@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra.Parsers;
 
-public class GoDependencyParser(Options _options) : IDependencyParser
+public class GoDependencyParser(ParserOptions _options) : IDependencyParser
 {
     readonly string _projectImportPrefix =
-        string.IsNullOrWhiteSpace(_options.ProjectName)
+        string.IsNullOrWhiteSpace(_options.BaseOptions.ProjectName)
             ? string.Empty
-            : _options.ProjectName.TrimEnd('/') + "/";
+            : _options.BaseOptions.ProjectName.TrimEnd('/') + "/";
 
     public async Task<IReadOnlyList<string>> ParseFileDependencies(
         string path,

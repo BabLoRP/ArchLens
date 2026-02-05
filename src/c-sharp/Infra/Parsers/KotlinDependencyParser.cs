@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra.Parsers;
 
-public class KotlinDependencyParser(Options _options) : IDependencyParser
+public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
 {
-    readonly string _rootPackage = _options.ProjectName;
+    readonly string _rootPackage = _options.BaseOptions.ProjectName;
 
     public async Task<IReadOnlyList<string>> ParseFileDependencies(
         string path,
