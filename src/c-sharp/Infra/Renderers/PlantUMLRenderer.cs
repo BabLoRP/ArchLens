@@ -10,7 +10,7 @@ namespace Archlens.Infra.Renderers;
 
 public sealed class PlantUMLRenderer : IRenderer
 {
-    public string RenderGraph(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public string RenderGraph(DependencyGraph graph, RenderOptions options, CancellationToken ct = default)
     {
         string title = graph.Name;
         List<string> graphString = ToPlantUML(graph); //TODO: diff
@@ -28,7 +28,7 @@ public sealed class PlantUMLRenderer : IRenderer
         return uml_str;
     }
 
-    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, Options options, CancellationToken ct = default)
+    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, RenderOptions options, CancellationToken ct = default)
     {
         List<string> graphString = [];
         foreach (var graph in graphs)
