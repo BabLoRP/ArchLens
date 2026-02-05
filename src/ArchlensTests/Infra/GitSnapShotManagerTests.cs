@@ -12,17 +12,13 @@ public sealed class GitSnapShotManagerTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
-    private Options MakeOptions(string gitUrl) => new(
-        ProjectRoot: _fs.Root,
-        ProjectName: "Archlens",
-        Language: Language.CSharp,
+    private SnapshotOptions MakeOptions(string gitUrl) => new(
+        BaseOptions: new(
+            ProjectRoot: _fs.Root,
+            ProjectName: "Archlens",
+            FullRootPath: _fs.Root
+        ),
         SnapshotManager: SnapshotManager.Git,
-        Format: RenderFormat.Json,
-        Exclusions: [],
-        Views: [],
-        SaveLocation: null,
-        FileExtensions: [".cs"],
-        FullRootPath: _fs.Root,
         SnapshotDir: ".archlens",
         SnapshotFile: "snapshot.json",
         GitUrl: gitUrl

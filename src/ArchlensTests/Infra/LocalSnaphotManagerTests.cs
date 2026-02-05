@@ -10,17 +10,16 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
 
-    private Options MakeOptions() => new(
-        ProjectRoot: _fs.Root,
-        ProjectName: "Archlens",
-        Language: default,
+    private SnapshotOptions MakeOptions() => new(
+        BaseOptions: new(
+            ProjectRoot: _fs.Root,
+            ProjectName: "Archlens",
+            FullRootPath: _fs.Root
+        ),
         SnapshotManager: default,
-        Format: default,
-        Exclusions: [],
-        Views: [],
-        SaveLocation: null,
-        FileExtensions: [".cs"],
-        FullRootPath: _fs.Root
+        SnapshotDir: ".archlens",
+        SnapshotFile: "snapshot.json",
+        GitUrl: string.Empty
     );
 
     private static DependencyGraphNode MakeGraph(string rootPath)
