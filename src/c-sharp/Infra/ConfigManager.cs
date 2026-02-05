@@ -1,3 +1,6 @@
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models.Enums;
+using Archlens.Domain.Models.Records;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -5,8 +8,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Archlens.Domain.Models.Enums;
-using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra;
 
@@ -22,6 +23,9 @@ public class ConfigManager(string _path)
         public string Language { get; set; }
         public string SnapshotManager { get; set; }
         public string Format { get; set; }
+        public string GitUrl { get; set; }
+        public string SnapshotDir { get; set; }
+        public string SnapshotFile { get; set; }
         public string[] Exclusions { get; set; }
         public string[] FileExtensions { get; set; }
         public Dictionary<string, ViewDto> Views { get; set; }
@@ -45,7 +49,7 @@ public class ConfigManager(string _path)
 #pragma warning restore CS8632
     }
 
-    public async Task<Options> LoadAsync(CancellationToken ct = default)
+    public async Task<(ParserOptions, RenderOptions, SnapshotOptions)> LoadAsync(CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_path))
             throw new ArgumentException("Config path is null/empty.", nameof(_path));
@@ -64,50 +68,78 @@ public class ConfigManager(string _path)
 
         var baseDir = Path.GetDirectoryName(configFile) ?? Environment.CurrentDirectory;
 
-        var options = MapOptions(dto, baseDir);
+        var options = MapBaseOptions(dto, baseDir);
 
-        return options;
+        var parserOptions = MapParserOptions(dto, options);
+        var renderOptions = MapRenderOptions(dto, baseDir, options);
+        var snapshotOptions = MapSnapshotOptions(dto, baseDir, options);
+
+        return (parserOptions, renderOptions, snapshotOptions);
     }
 
-    private static Options MapOptions(ConfigDto dto, string baseDir)
+    private static BaseOptions MapBaseOptions(ConfigDto dto, string baseDir)
     {
         var projectRoot = MapProjectRoot(dto) ?? baseDir;
-        var projectName = MapName(dto) ?? baseDir.Split("\\").Last();
-        var language = MapLanguage(dto.Language ?? "c#");
-        var snapshotManager = MapSnapshotManager(dto.SnapshotManager ?? "git");
-        var format = MapFormat(dto.Format ?? "json");
-        var exclusions = (dto.Exclusions ?? []).Select(s => s.Trim())
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .ToArray();
-        var saveLoc = MapSaveLocation(dto, baseDir);
-
-        var fileExts = (dto.FileExtensions ?? DefaultExtensions(language)).Select(NormalizeExtension).ToArray();
-
-        var fullRootPath = GetFullRootPath(projectRoot, baseDir);
+        var projectName = MapName(dto) ?? baseDir.Split("\\").Last();      
+        var fullRootPath = GetFullRootPath(projectRoot);
 
         if (!Directory.Exists(fullRootPath))
             throw new DirectoryNotFoundException($"projectRoot does not exist: {projectRoot}");
 
+        return new BaseOptions(
+            FullRootPath: fullRootPath,
+            ProjectRoot: projectRoot,
+            ProjectName: projectName
+        );
+    }
+
+    private static ParserOptions MapParserOptions(ConfigDto dto, BaseOptions options)
+    {
+        var language = MapLanguage(dto.Language ?? "c#");
+
+        var exclusions = (dto.Exclusions ?? []).Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToArray();
+
+        var fileExts = (dto.FileExtensions ?? DefaultExtensions(language)).Select(NormalizeExtension).ToArray();
         if (fileExts.Length == 0)
             throw new InvalidOperationException("fileExtensions resolved to an empty list.");
 
-        var views = MapViews(dto.Views);
-
-        return new Options(
-            ProjectRoot: projectRoot,
-            ProjectName: projectName,
+        return new ParserOptions(
+            BaseOptions: options,
             Language: language,
-            SnapshotManager: snapshotManager,
-            Format: format,
             Exclusions: fileExts.Length == 0 ? [] : exclusions,
-            FileExtensions: fileExts,
-            FullRootPath: fullRootPath,
+            FileExtensions: fileExts
+        );
+    }
+
+    private static RenderOptions MapRenderOptions(ConfigDto dto, string baseDir, BaseOptions options)
+    {
+        var format = MapFormat(dto.Format ?? "json");
+        var views = MapViews(dto.Views);
+        var saveLoc = MapPath(baseDir, dto.SaveLocation);
+
+        return new RenderOptions(
+            BaseOptions: options,
+            Format: format,
             Views: views,
             SaveLocation: saveLoc
         );
     }
 
-    private static string GetFullRootPath(string root, string baseDir)
+    private static SnapshotOptions MapSnapshotOptions(ConfigDto dto, string baseDir, BaseOptions options)
+    {
+        var snapshotManager = MapSnapshotManager(dto.SnapshotManager ?? "local");
+        return new SnapshotOptions(
+            BaseOptions: options,
+            SnapshotManager: snapshotManager,
+            GitUrl: dto.GitUrl,
+            SnapshotDir: dto.SnapshotDir ?? ".archlens",
+            SnapshotFile: dto.SnapshotFile ?? "snapshot"
+        );
+    }
+
+    private static string GetFullRootPath(string root)
     {
         if (string.IsNullOrWhiteSpace(root))
             throw new ArgumentException("Path is required.", nameof(root));
@@ -186,9 +218,9 @@ public class ConfigManager(string _path)
         };
     }
 
-    private static string MapSaveLocation(ConfigDto dto, string baseDir)
+    private static string MapPath(string baseDir, string relpath)
     {
-        return baseDir + dto.SaveLocation;
+        return $"{baseDir}/{relpath}";
     }
 
     private static List<View> MapViews(Dictionary<string, ViewDto> viewDtos)
