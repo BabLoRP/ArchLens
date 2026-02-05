@@ -53,7 +53,7 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
-        var (asModule, asFile) = NormaliseQueryPathBothWays(path);
+        var (asModule, asFile) = GetNormalisedModuleAndFilePaths(path);
 
         return GetChildren().FirstOrDefault(child =>
             PathComparer.Equals(child.Path, asModule) || PathComparer.Equals(child.Path, asFile));
@@ -69,7 +69,7 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
-        var (asModule, asFile) = NormaliseQueryPathBothWays(path);
+        var (asModule, asFile) = GetNormalisedModuleAndFilePaths(path);
 
         var stack = new Stack<DependencyGraph>();
         stack.Push(this);
@@ -89,7 +89,7 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         return null;
     }
 
-    private (string asModule, string asFile) NormaliseQueryPathBothWays(string path)
+    private (string asModule, string asFile) GetNormalisedModuleAndFilePaths(string path)
     {
         var asModule = PathNormaliser.NormaliseModule(_projectRoot, path);
         var asFile = PathNormaliser.NormaliseFile(_projectRoot, path);
