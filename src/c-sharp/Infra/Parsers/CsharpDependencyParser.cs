@@ -9,7 +9,7 @@ using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Parsers;
 
-class CsharpDependencyParser(Options _options) : IDependencyParser
+class CsharpDependencyParser(ParserOptions _options) : IDependencyParser
 {
     public async Task<IReadOnlyList<string>> ParseFileDependencies(string path, CancellationToken ct = default)
     {
@@ -29,7 +29,7 @@ class CsharpDependencyParser(Options _options) : IDependencyParser
 
             while (line != null)
             {
-                string regex = $$"""using\s+{{_options.ProjectName}}\.(.+);""";
+                string regex = $$"""using\s+{{_options.BaseOptions.ProjectName}}\.(.+);""";
                 var match = Regex.Match(line, regex);
                 if (match.Success)
                 {
