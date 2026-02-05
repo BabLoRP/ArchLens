@@ -50,6 +50,7 @@ public sealed class ChangeDetector
                 if (TrimMilliseconds(currentWriteTime) > TrimMilliseconds(lastNodeWriteTime))
                     changed.Add(pair.Key, pair.Value);
             }
+            ct.ThrowIfCancellationRequested();
         }
         return changed;
     }
