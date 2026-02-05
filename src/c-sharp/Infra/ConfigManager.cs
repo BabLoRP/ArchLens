@@ -81,7 +81,7 @@ public class ConfigManager(string _path)
     {
         var projectRoot = MapProjectRoot(dto) ?? baseDir;
         var projectName = MapName(dto) ?? baseDir.Split("\\").Last();      
-        var fullRootPath = GetFullRootPath(projectRoot);
+        var fullRootPath = GetFullRootPath(projectRoot, baseDir);
 
         if (!Directory.Exists(fullRootPath))
             throw new DirectoryNotFoundException($"projectRoot does not exist: {projectRoot}");
@@ -139,7 +139,7 @@ public class ConfigManager(string _path)
         );
     }
 
-    private static string GetFullRootPath(string root)
+    private static string GetFullRootPath(string root, string baseDir)
     {
         if (string.IsNullOrWhiteSpace(root))
             throw new ArgumentException("Path is required.", nameof(root));

@@ -12,15 +12,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
 
-    private RenderOptions MakeOptions() => new(
-        BaseOptions: new (
-            ProjectRoot: _fs.Root,
-            ProjectName: "Archlens",
-            FullRootPath: _fs.Root
-        ),
-        Format: default,
-        Views: [],
-        SaveLocation: null        
+    private BaseOptions MakeOptions() => new(
+        ProjectRoot: _fs.Root,
+        ProjectName: "Archlens",
+        FullRootPath: _fs.Root
     );
 
     private void SetupMockProject()

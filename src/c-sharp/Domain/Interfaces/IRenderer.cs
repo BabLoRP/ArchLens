@@ -22,7 +22,7 @@ public interface IRenderer
         foreach (var view in options.Views)
         {
             var fileExtension = options.Format.ToFileExtension();
-            var filename = $"{options.ProjectName}-{view.ViewName}.{fileExtension}";
+            var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.{fileExtension}";
             var path = Path.Combine(dir, filename);
 
             if (view.Packages.Count == 0)
