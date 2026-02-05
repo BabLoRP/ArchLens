@@ -35,7 +35,7 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
         CancellationToken ct)
     {
-        var rootFull = _options.FullRootPath;
+        var rootFull = _options.BaseOptions.FullRootPath;
         var nodes = new Dictionary<string, DependencyGraphNode>(PathComparer);
 
         var rootNode = new DependencyGraphNode(rootFull)
@@ -59,7 +59,7 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
 
             var node = new DependencyGraphNode(rootFull)
             {
-                Name = key == PathNormaliser.RelativeRoot ? _options.ProjectName : PathNormaliser.GetFileOrModuleName(key),
+                Name = key == PathNormaliser.RelativeRoot ? _options.BaseOptions.ProjectName : PathNormaliser.GetFileOrModuleName(key),
                 Path = dirPath,
                 LastWriteTime = File.GetLastWriteTimeUtc(abs)
             };
