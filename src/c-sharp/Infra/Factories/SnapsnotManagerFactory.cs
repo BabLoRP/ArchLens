@@ -8,7 +8,7 @@ namespace Archlens.Infra.Factories;
 
 public sealed class SnapsnotManagerFactory
 {
-    public static ISnapshotManager SelectSnapshotManager(Options o) => o.SnapshotManager switch
+    public static ISnapshotManager SelectSnapshotManager(SnapshotOptions o) => o.SnapshotManager switch
     {
         SnapshotManager.Git   => new GitSnaphotManager(o.SnapshotDir, o.SnapshotFile),
         SnapshotManager.Local => new LocalSnaphotManager(o.SnapshotDir, o.SnapshotFile),
