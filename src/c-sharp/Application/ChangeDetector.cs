@@ -19,14 +19,14 @@ public sealed class ChangeDetector
     );
 
     public static async Task<IReadOnlyDictionary<string, IEnumerable<string>>> GetChangedProjectPathsAsync(
-        Options options,
+        ParserOptions parserOptions,
         DependencyGraph lastSavedGraph,
         CancellationToken ct = default)
     {
-        var projectRoot = string.IsNullOrEmpty(options.FullRootPath) ? Path.GetFullPath(options.ProjectRoot) : options.FullRootPath;
+        var projectRoot = string.IsNullOrEmpty(parserOptions.BaseOptions.FullRootPath) ? Path.GetFullPath(parserOptions.BaseOptions.ProjectRoot) : parserOptions.BaseOptions.FullRootPath;
 
-        var rules = CompileExclusions(options.Exclusions);
-        var paths = EnumeratePathsInRoot(projectRoot, options.FileExtensions, rules);
+        var rules = CompileExclusions(parserOptions.Exclusions);
+        var paths = EnumeratePathsInRoot(projectRoot, parserOptions.FileExtensions, rules);
         if (lastSavedGraph == null) return paths;
 
         var changed = new Dictionary<string, IEnumerable<string>>();
@@ -102,7 +102,6 @@ public sealed class ChangeDetector
         }
         return paths;
     }
-
 
     private static ExclusionRule CompileExclusions(IReadOnlyList<string> exclusions)
     {
