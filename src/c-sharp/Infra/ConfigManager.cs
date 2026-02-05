@@ -112,14 +112,12 @@ public class ConfigManager(string _path)
         if (string.IsNullOrWhiteSpace(root))
             throw new ArgumentException("Path is required.", nameof(root));
 
-        var full = root;
+        if (!Path.IsPathFullyQualified(root))
+            root = Path.Join(baseDir, root);
 
-        if (!Path.IsPathFullyQualified(full))
-            full = Path.Join(baseDir, root);
-
-        var dir = Directory.Exists(full)
-            ? new DirectoryInfo(full)
-            : new FileInfo(full).Directory!;
+        var dir = Directory.Exists(root)
+            ? new DirectoryInfo(root)
+            : new FileInfo(root).Directory!;
 
         return dir.FullName;
     }
