@@ -45,17 +45,15 @@ public sealed class RendererTests : IDisposable
         return root;
     }
 
-    private Options MakeOptions() => new(
-        ProjectRoot: _fs.Root,
-        ProjectName: "Archlens",
-        Language: default,
-        SnapshotManager: default,
+    private RenderOptions MakeOptions() => new(
+        BaseOptions: new(
+            ProjectRoot: _fs.Root,
+            ProjectName: "Archlens",
+            FullRootPath: _fs.Root
+        ),
         Format: default,
-        Exclusions: [],
         Views: [],
-        SaveLocation: null,
-        FileExtensions: [".cs"],
-        FullRootPath: _fs.Root
+        SaveLocation: null
     );
 
 
@@ -65,7 +63,7 @@ public sealed class RendererTests : IDisposable
         JsonRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.ProjectRoot);
+        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
         string result = renderer.RenderGraph(root, opts);
 
         Assert.NotEmpty(result);
@@ -82,7 +80,7 @@ public sealed class RendererTests : IDisposable
         PlantUMLRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.ProjectRoot);
+        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
         string result = renderer.RenderGraph(root, opts);
 
         Assert.NotEmpty(result);

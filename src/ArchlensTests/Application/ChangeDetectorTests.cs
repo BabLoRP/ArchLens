@@ -8,18 +8,16 @@ namespace ArchlensTests.Application;
 public sealed class ChangeDetectorTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
-    private Options MakeOptions(IReadOnlyList<string>? exclusions = null, IReadOnlyList<string>? extensions = null)
+    private ParserOptions MakeOptions(IReadOnlyList<string>? exclusions = null, IReadOnlyList<string>? extensions = null)
         => new(
-            ProjectRoot: _fs.Root,
-            ProjectName: "TestProject",
+            BaseOptions: new BaseOptions(
+                FullRootPath: _fs.Root,
+                ProjectRoot: _fs.Root,
+                ProjectName: "TestProject"
+            ),
             Language: default,
-            SnapshotManager: default,
-            Format: default,
             Exclusions: exclusions ?? [],
-            Views: [],
-            SaveLocation: null,
-            FileExtensions: extensions ?? [".cs"],
-            FullRootPath: _fs.Root
+            FileExtensions: extensions ?? [".cs"]
         );
 
     public void Dispose() => _fs.Dispose();
