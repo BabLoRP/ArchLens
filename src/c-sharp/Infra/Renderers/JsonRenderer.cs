@@ -9,7 +9,7 @@ namespace Archlens.Infra.Renderers;
 
 public sealed class JsonRenderer : IRenderer
 {
-    public string RenderGraph(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public string RenderGraph(DependencyGraph graph, RenderOptions options, CancellationToken ct = default)
     {
         var childrenJson = "";
         var childrenRelations = "";
@@ -50,7 +50,7 @@ public sealed class JsonRenderer : IRenderer
         return str;
     }
 
-    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, Options options, CancellationToken ct = default)
+    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, RenderOptions options, CancellationToken ct = default)
     {
         var childrenJson = "";
         var childrenRelations = "";
