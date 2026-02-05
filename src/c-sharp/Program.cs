@@ -15,13 +15,14 @@ public class Program
         try
         {
             var path = args.Length == 0 ? string.Empty : args[0].Trim();
-            var (parserOptions, renderOptions, snapshotOptions) = await GetOptions(path);
+            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path);
 
             var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
             var parser = DependencyParserFactory.SelectDependencyParser(parserOptions);
             var renderer = RendererFactory.SelectRenderer(renderOptions);
 
-            var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(parserOptions,
+            var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(
+                                                        parserOptions,
                                                         renderOptions,
                                                         snapshotOptions,
                                                         parser,
@@ -37,7 +38,7 @@ public class Program
 
     }
 
-    private async static Task<(ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args)
+    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args)
     {
         var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
 

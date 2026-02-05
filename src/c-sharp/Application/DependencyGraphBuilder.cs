@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Application;
 
-public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, RenderOptions _options)
+public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, BaseOptions _options)
 {
     private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
     
@@ -35,13 +35,13 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
         IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
         CancellationToken ct)
     {
-        var rootFull = _options.BaseOptions.FullRootPath;
+        var rootFull = _options.FullRootPath;
         var nodes = new Dictionary<string, DependencyGraphNode>(PathComparer);
 
         var rootNode = new DependencyGraphNode(rootFull)
         {
-            Name = _options.BaseOptions.ProjectName,
-            Path = _options.BaseOptions.ProjectRoot,
+            Name = _options.ProjectName,
+            Path = _options.ProjectRoot,
             LastWriteTime = File.GetLastWriteTimeUtc(rootFull)
         };
         nodes[PathNormaliser.RelativeRoot] = rootNode;
@@ -59,7 +59,7 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
 
             var node = new DependencyGraphNode(rootFull)
             {
-                Name = key == PathNormaliser.RelativeRoot ? _options.BaseOptions.ProjectName : PathNormaliser.GetFileOrModuleName(key),
+                Name = key == PathNormaliser.RelativeRoot ? _options.ProjectName : PathNormaliser.GetFileOrModuleName(key),
                 Path = dirPath,
                 LastWriteTime = File.GetLastWriteTimeUtc(abs)
             };
