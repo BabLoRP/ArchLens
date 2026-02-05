@@ -7,7 +7,7 @@ namespace Archlens.Domain.Interfaces;
 public interface ISnapshotManager
 {
     Task SaveGraphAsync(DependencyGraph graph,
-                   Options options,
+                   SnapshotOptions options,
                    CancellationToken ct = default);
-    Task<DependencyGraph> GetLastSavedDependencyGraphAsync(Options options, CancellationToken ct = default);
+    Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default);
 }
