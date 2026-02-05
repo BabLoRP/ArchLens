@@ -15,7 +15,7 @@ public sealed class UpdateDependencyGraphUseCase(Options options,
     {
         var snapshotGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(options, ct);
         var projectChanges = await ChangeDetector.GetChangedProjectPathsAsync(options, snapshotGraph, ct);
-        var graph = await new DependencyGraphBuilder(parser, options).GetGraphAsync(projectChanges, ct);
+        var graph = await new DependencyGraphBuilder(parser, options).GetGraphAsync(projectChanges, snapshotGraph, ct);
 
         await renderer.SaveGraphToFileAsync(graph, options, ct);
         await snapshotManager.SaveGraphAsync(graph, options, ct);
