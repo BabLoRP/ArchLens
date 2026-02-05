@@ -1,30 +1,32 @@
+﻿using Archlens.Domain.Models.Enums;
 using System.Collections.Generic;
-using Archlens.Domain.Models.Enums;
+
 namespace Archlens.Domain.Models.Records;
 
-public sealed record Options(
+public sealed record BaseOptions(
+    string FullRootPath,
     string ProjectRoot,
-    string ProjectName,
+    string ProjectName
+);
+
+public sealed record ParserOptions(
+    BaseOptions BaseOptions,
     Language Language,
-    SnapshotManager SnapshotManager,
-    RenderFormat Format,
     IReadOnlyList<string> Exclusions,
-    IReadOnlyList<string> FileExtensions,
+    IReadOnlyList<string> FileExtensions
+);
+
+public sealed record RenderOptions(
+    BaseOptions BaseOptions,
+    RenderFormat Format,
     IReadOnlyList<View> Views,
-    string SaveLocation,
+    string SaveLocation
+);
+
+public sealed record SnapshotOptions(
+    BaseOptions BaseOptions,
+    SnapshotManager SnapshotManager,
+    string GitUrl,
     string SnapshotDir = ".archlens",
-    string SnapshotFile = "snaphot",
-    string GitUrl = "",
-    string FullRootPath = ""
-);
-
-public sealed record View(
-    string ViewName,
-    IReadOnlyList<Package> Packages,
-    IReadOnlyList<string> IgnorePackages
-);
-
-public sealed record Package(
-    string Path,
-    int Depth
+    string SnapshotFile = "snaphot"
 );
