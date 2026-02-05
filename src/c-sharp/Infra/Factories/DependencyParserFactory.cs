@@ -8,7 +8,7 @@ namespace Archlens.Infra.Factories;
 
 public sealed class DependencyParserFactory
 {
-    public static IDependencyParser SelectDependencyParser(Options o) => o.Language switch
+    public static IDependencyParser SelectDependencyParser(ParserOptions o) => o.Language switch
     {
         Language.CSharp => new CsharpDependencyParser(o),
         Language.Go => new GoDependencyParser(o),
