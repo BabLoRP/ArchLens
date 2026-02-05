@@ -83,7 +83,7 @@ public class ConfigManager(string _path)
 
         var fileExts = (dto.FileExtensions ?? DefaultExtensions(language)).Select(NormalizeExtension).ToArray();
 
-        var fullRootPath = GetFullRootPath(projectRoot);
+        var fullRootPath = GetFullRootPath(projectRoot, baseDir);
 
         if (!Directory.Exists(fullRootPath))
             throw new DirectoryNotFoundException($"projectRoot does not exist: {projectRoot}");
@@ -107,26 +107,19 @@ public class ConfigManager(string _path)
         );
     }
 
-    private static string GetFullRootPath(string root)
+    private static string GetFullRootPath(string root, string baseDir)
     {
         if (string.IsNullOrWhiteSpace(root))
             throw new ArgumentException("Path is required.", nameof(root));
 
-        var full = Path.GetFullPath(root);
+        var full = root;
+
+        if (!Path.IsPathFullyQualified(full))
+            full = Path.Join(baseDir, root);
 
         var dir = Directory.Exists(full)
             ? new DirectoryInfo(full)
             : new FileInfo(full).Directory!;
-
-        var comp = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-
-        while (dir is not null && dir.FullName.Contains("bin", comp))
-            dir = dir.Parent;
-
-        if (dir is null || dir.Parent is null)
-            throw new InvalidOperationException($"Root not found segment not found in '{full}'.");
 
         return dir.FullName;
     }
