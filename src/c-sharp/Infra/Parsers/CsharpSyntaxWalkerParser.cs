@@ -11,13 +11,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Archlens.Infra.Parsers;
 
-class CsharpSyntaxWalkerParser(BaseOptions _options) : CSharpSyntaxWalker, IDependencyParser
+class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalker, IDependencyParser
 {
     public ICollection<UsingDirectiveSyntax> Usings { get; set; } = [];
 
     public override void VisitUsingDirective(UsingDirectiveSyntax node)
     {
-        if (node.Name.ToString().StartsWith(_options.ProjectName))
+        if (node.Name.ToString().StartsWith(_options.BaseOptions.ProjectName))
         {
             Usings.Add(node);
         }
