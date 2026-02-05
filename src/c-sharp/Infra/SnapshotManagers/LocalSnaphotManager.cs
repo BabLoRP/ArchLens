@@ -10,11 +10,11 @@ namespace Archlens.Infra.SnapshotManagers;
 
 public sealed class LocalSnaphotManager(string _localDirName, string _localFileName) : ISnapshotManager
 {
-    public async Task SaveGraphAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public async Task SaveGraphAsync(DependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
     {
-        var root = string.IsNullOrEmpty(options.FullRootPath)
-            ? Path.GetFullPath(options.ProjectRoot)
-            : options.FullRootPath;
+        var root = string.IsNullOrEmpty(options.BaseOptions.FullRootPath)
+            ? Path.GetFullPath(options.BaseOptions.ProjectRoot)
+            : options.BaseOptions.FullRootPath;
 
         var dir = Path.Combine(root, _localDirName);
         Directory.CreateDirectory(dir);
@@ -24,11 +24,11 @@ public sealed class LocalSnaphotManager(string _localDirName, string _localFileN
         await File.WriteAllTextAsync(path, json, ct);
     }
 
-    public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(Options options, CancellationToken ct = default)
+    public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default)
     {
-        var root = string.IsNullOrEmpty(options.FullRootPath)
-            ? Path.GetFullPath(options.ProjectRoot)
-            : options.FullRootPath;
+        var root = string.IsNullOrEmpty(options.BaseOptions.FullRootPath)
+            ? Path.GetFullPath(options.BaseOptions.ProjectRoot)
+            : options.BaseOptions.FullRootPath;
 
         var path = Path.Combine(root, _localDirName, _localFileName);
 

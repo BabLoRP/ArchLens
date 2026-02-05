@@ -30,10 +30,10 @@ public sealed class GitSnaphotManager : ISnapshotManager
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("Archlens-GitSnapshot/1.0");
     }
 
-    public async Task SaveGraphAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public async Task SaveGraphAsync(DependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
         => await _localManager.SaveGraphAsync(graph, options, ct);
     
-    public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(Options options, CancellationToken ct)
+    public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.GitUrl))
             throw new ArgumentException("GitUrl must be provided for GitSnaphotManager. Options has registered GitUrl as Null or Whitespace - has it been correctly configured in .archlens json?");
@@ -53,7 +53,7 @@ public sealed class GitSnaphotManager : ISnapshotManager
                 if (string.IsNullOrWhiteSpace(json))
                     continue;
 
-                var graph = DependencyGraphSerializer.Deserialize(json, options.FullRootPath);
+                var graph = DependencyGraphSerializer.Deserialize(json, options.BaseOptions.FullRootPath);
                 if (graph is not null) return graph;
             }
             catch (OperationCanceledException) { throw; }
