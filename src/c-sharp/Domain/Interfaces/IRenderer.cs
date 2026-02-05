@@ -10,11 +10,11 @@ namespace Archlens.Domain.Interfaces;
 
 public interface IRenderer
 {
-    public string RenderGraph(DependencyGraph graph, Options options, CancellationToken ct = default);
+    public string RenderGraph(DependencyGraph graph, RenderOptions options, CancellationToken ct = default);
 
-    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string ViewName, Options options, CancellationToken ct = default);
+    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string ViewName, RenderOptions options, CancellationToken ct = default);
 
-    public async Task SaveGraphToFileAsync(DependencyGraph graph, Options options, CancellationToken ct = default)
+    public async Task SaveGraphToFileAsync(DependencyGraph graph, RenderOptions options, CancellationToken ct = default)
     {
         var dir = options.SaveLocation;
         Directory.CreateDirectory(dir);
@@ -38,7 +38,7 @@ public interface IRenderer
                 {
                     var packagePath = package.Path;
 
-                    var graphPath = Path.Combine(options.FullRootPath, packagePath);
+                    var graphPath = Path.Combine(options.BaseOptions.FullRootPath, packagePath);
                     var g = graph.FindByPath(graphPath); //TODO: Debug why this only works on second run
                     if (g != null) graphs.Add(g);
                 }
