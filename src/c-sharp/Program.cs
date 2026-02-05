@@ -15,13 +15,18 @@ public class Program
         try
         {
             var path = args.Length == 0 ? string.Empty : args[0].Trim();
-            var options = await GetOptions(path);
+            var (parserOptions, renderOptions, snapshotOptions) = await GetOptions(path);
 
-            var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(options);
-            var parser = DependencyParserFactory.SelectDependencyParser(options);
-            var renderer = RendererFactory.SelectRenderer(options.Format);
+            var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
+            var parser = DependencyParserFactory.SelectDependencyParser(parserOptions);
+            var renderer = RendererFactory.SelectRenderer(renderOptions);
 
-            var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(options, snapshotManager, parser, renderer);
+            var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(parserOptions,
+                                                        renderOptions,
+                                                        snapshotOptions,
+                                                        parser,
+                                                        renderer,
+                                                        snapshotManager);
 
             await updateDepGraphUseCase.RunAsync();
         }
@@ -32,7 +37,7 @@ public class Program
 
     }
 
-    private async static Task<Options> GetOptions(string args)
+    private async static Task<(ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args)
     {
         var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
 
