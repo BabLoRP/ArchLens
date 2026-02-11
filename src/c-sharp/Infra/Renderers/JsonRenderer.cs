@@ -1,159 +1,166 @@
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using System;
+using Archlens.Domain.Utils;
 using System.Collections.Generic;
-using System.Threading;
+using System.IO;
+using System.Linq;
 
 namespace Archlens.Infra.Renderers;
 
 public sealed class JsonRenderer : IRenderer
 {
-    public string RenderGraph(DependencyGraph graph, RenderOptions options, CancellationToken ct = default)
+    private string packagesJson = "";
+    private List<string> packageNames = [];
+    private string edgesJson = "";
+
+    public string RenderView(DependencyGraph graph, View view, RenderOptions options)
     {
-        var childrenJson = "";
-        var childrenRelations = "";
-        var children = graph.GetChildren();
-        for (int i = 0; i < children.Count; i++)
+        packagesJson = "";
+        packageNames = [];
+        edgesJson = "";
+
+        if (view.Packages.Count > 0)
         {
-            var child = children[i];
-
-            if (childrenJson.Contains(child.Name)) continue;
-            if (!childrenJson.EndsWith(",\n") && !string.IsNullOrEmpty(childrenJson)) childrenJson += ",\n";
-            if (!childrenRelations.EndsWith(",\n") && !string.IsNullOrEmpty(childrenRelations) && !string.IsNullOrEmpty(ToJson(child))) childrenRelations += ",\n";
-
-            childrenJson +=
-                $$"""
-                
-                {
-                    "name": "{{child.Name}}",
-                    "state": "NEUTRAL"
-                }
-            """;
-
-            childrenRelations += ToJson(child);
-        }
-
-        var str =
-        $$"""
-        {
-            "title": "{{graph.Name}}",
-            "packages": [
-                {{childrenJson}}
-            ],
-
-            "edges": [
-                {{childrenRelations}}
-            ]
-        }
-        """;
-        return str;
-    }
-
-    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string viewName, RenderOptions options, CancellationToken ct = default)
-    {
-        var childrenJson = "";
-        var childrenRelations = "";
-
-        foreach (var graph in graphs)
-        {
-            var children = graph.GetChildren();
-            for (int i = 0; i < children.Count; i++)
+            foreach (var package in view.Packages)
             {
-                var child = children[i];
+                var graphPath = Path.Combine(options.BaseOptions.FullRootPath, package.Path);
+                var packageGraph = graph.FindByPath(graphPath);
+                if (packageGraph != null)
+                {
+                    foreach (var child in packageGraph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c)))
+                    {
+                        packagesJson += //TODO: diff view (state)
+                        $$"""
+                
+                            {
+                                "name": "{{child.Name}}",
+                                "state": "NEUTRAL"
+                            },
+                        """;
 
-                if (childrenJson.Contains(child.Name)) continue;
-                if (!childrenJson.EndsWith(",\n") && !string.IsNullOrEmpty(childrenJson)) childrenJson += ",\n";
-                if (!childrenRelations.EndsWith(",\n") && !string.IsNullOrEmpty(childrenRelations) && !string.IsNullOrEmpty(ToJson(child))) childrenRelations += ",\n";
+                        packageNames.Add(PathNormaliser.GetPathDotSeparated(child.Path));
+                    }
+                }
+            }
 
-                childrenJson +=
-                    $$"""
-                    
+            foreach (var package in view.Packages)
+            {
+                var graphPath = Path.Combine(options.BaseOptions.FullRootPath, package.Path);
+                var packageGraph = graph.FindByPath(graphPath);
+                if (packageGraph != null)
+                {
+                    foreach (var child in packageGraph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c)))
+                    {
+                        edgesJson += GetEdge(child as DependencyGraphNode);
+                    }
+                }
+            }
+
+        }
+        else
+        {
+            var children = graph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c));
+            foreach (var child in children)
+            {
+                packagesJson += //TODO: diff view (state)
+                $$"""
+        
                     {
                         "name": "{{child.Name}}",
                         "state": "NEUTRAL"
-                    }
-                    """;
+                    },
+                """;
 
-                childrenRelations += ToJson(child);
+                packageNames.Add(PathNormaliser.GetPathDotSeparated(child.Path));
+            }
+
+            foreach (var child in children)
+            {
+                edgesJson += GetEdge(child as DependencyGraphNode);
             }
         }
 
         var str =
         $$"""
         {
-            "title": "{{viewName}}",
+            "title": "{{view.ViewName}}",
             "packages": [
-                {{childrenJson}}
+                {{packagesJson.TrimEnd(',')}}
             ],
 
             "edges": [
-                {{childrenRelations}}
+                {{edgesJson.TrimEnd(',')}}
             ]
         }
         """;
         return str;
     }
 
-    private static string ToJson(DependencyGraph graph)
-    {
-        return graph switch
-        {
-            DependencyGraphNode node => NodeToJson(node),
-            DependencyGraphLeaf => "",
-            _ => throw new InvalidOperationException("Unknown DependencyGraph type"),
-        };
-    }
-
-    private static string NodeToJson(DependencyGraphNode node)
+    private string GetEdge(DependencyGraphNode node)
     {
         var str = "";
-        var relations = "";
-        var children = node.GetChildren();
 
-        foreach (var (dep, count) in node.GetDependencies())
+        foreach (var (dep, count) in node.GetDependencies().Where(d => packageNames.Contains(d.Key)))
         {
-            foreach (var child in children)
-            {
-                if (child.GetDependencies().TryGetValue(dep, out int val))
-                {
-                    var childName = child.Name.Replace("\\", ".");
-                    if (!relations.EndsWith(",\n") && !string.IsNullOrEmpty(relations)) relations += ",\n";
-
-                    relations +=
-                        $$"""
-                            {
-                                "from_file": {
-                                    "name": "{{childName}}",
-                                    "path": "{{childName}}"
-                                },
-                                "to_file": {
-                                    "name": "{{dep}}",
-                                    "path": "{{dep}}"
-                                }
-                            }
-                        """;
-                }
-            }
-
-            if (!str.EndsWith(",\n") && !string.IsNullOrEmpty(str)) str += ",\n";
+            var relations = GetChildrenDependencyRelations(node, dep);
 
             str += //TODO: diff view (state)
                 $$"""
-                        {
-                            "state": "NEUTRAL",
-                            "fromPackage": "{{node.Name}}",
-                            "toPackage": "{{dep}}",
-                            "label": "{{count}}",
-                            "relations": [
-                                {{relations}}
-                            ]
-                        }
-                    """;
+                    {
+                        "state": "NEUTRAL",
+                        "fromPackage": "{{node.Name}}",
+                        "toPackage": "{{dep.Split('.').Last()}}",
+                        "label": "{{relations.Split("from_file").Length - 1}}",
+                        "relations": [
+                            {{relations.TrimEnd(',')}}
+                        ]
+                    },
+                """;
         }
 
         return str;
-
     }
 
+    private string GetChildrenDependencyRelations(DependencyGraphNode node, string dep)
+    {
+        string relations = "";
+
+        foreach (var child in node.GetChildren())
+        {
+            if (child is DependencyGraphLeaf)
+            {
+                var subDependencies = child.GetDependencies().Where((d) => d.Key.StartsWith(dep));
+
+                foreach (var subDependency in subDependencies)
+                {
+                    relations +=
+                    $$"""
+                        {
+                            "from_file": {
+                                "name": "{{child.Name}}",
+                                "path": "{{child.Path}}"
+                            },
+                            "to_file": {
+                                "name": "{{subDependency.Key.Split('.').Last()}}",
+                                "path": "{{subDependency.Key}}"
+                            }
+                        },
+                    """;
+                }
+
+            }
+            else if (child is DependencyGraphNode childNode)
+            {
+                relations += GetChildrenDependencyRelations(childNode, dep);
+            }
+        }
+
+        return relations;
+    }
+
+    private static bool IsIgnored(IEnumerable<string> ignorePackages, DependencyGraph graph)
+    {
+        return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
+    }
 }
