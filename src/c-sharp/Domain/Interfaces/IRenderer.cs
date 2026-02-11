@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,9 +9,7 @@ namespace Archlens.Domain.Interfaces;
 
 public interface IRenderer
 {
-    public string RenderGraph(DependencyGraph graph, RenderOptions options, CancellationToken ct = default);
-
-    public string RenderGraphs(IEnumerable<DependencyGraph> graphs, string ViewName, RenderOptions options, CancellationToken ct = default);
+    public string RenderView(DependencyGraph graph, View view, RenderOptions options);
 
     public async Task SaveGraphToFileAsync(DependencyGraph graph, RenderOptions options, CancellationToken ct = default)
     {
@@ -25,29 +22,8 @@ public interface IRenderer
             var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.{fileExtension}";
             var path = Path.Combine(dir, filename);
 
-            if (view.Packages.Count == 0)
-            {
-                var content = RenderGraph(graph, options, ct);
-                await File.WriteAllTextAsync(path, content, ct);
-            }
-            else
-            {
-                List<DependencyGraph> graphs = [];
-
-                foreach (var package in view.Packages)
-                {
-                    var packagePath = package.Path;
-
-                    var graphPath = Path.Combine(options.BaseOptions.FullRootPath, packagePath);
-                    var g = graph.FindByPath(graphPath); //TODO: Debug why this only works on second run
-                    if (g != null) graphs.Add(g);
-                }
-
-                var content = RenderGraphs(graphs, view.ViewName, options, ct);
-
-                if (content != "")
-                    await File.WriteAllTextAsync(path, content, ct);
-            }
+            var content = RenderView(graph, view, options);
+            await File.WriteAllTextAsync(path, content, ct);
         }
     }
 }
