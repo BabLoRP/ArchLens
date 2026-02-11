@@ -40,4 +40,9 @@ public static class PathNormaliser
         var trimmed = normalisedPath.TrimEnd('/');
         return Path.GetFileName(trimmed);
     }
+
+    public static string GetPathDotSeparated(string path)
+    {
+        return path.Replace("/", ".").TrimStart('.').TrimEnd('.');
+    }
 }
