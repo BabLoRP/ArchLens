@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Archlens.Infra.Renderers;
 
@@ -15,6 +16,26 @@ public sealed class PlantUMLRenderer : IRenderer
     private string packagesPuml = "";
     private List<string> packageNames = [];
     private string dependenciesPuml = "";
+
+    public async Task RenderViewsAndSaveToFiles(DependencyGraph graph, RenderOptions options)
+    {
+        foreach (var view in options.Views)
+        {
+            string content = RenderView(graph, view, options);
+            await SaveViewToFileAsync(content, view, options);
+        }
+    }
+
+    public async Task RenderDiffViewsAndSaveToFiles(DependencyGraph localGraph, DependencyGraph remoteGraph, RenderOptions options)
+    {
+        foreach (var view in options.Views)
+        {
+            string localContent = RenderView(localGraph, view, options);
+            string remoteContent = RenderView(remoteGraph, view, options);
+            string content = CompareAndMerge(localContent, remoteContent);
+            await SaveViewToFileAsync(content, view, options);
+        }
+    }
 
     public string RenderView(DependencyGraph rootGraph, View view, RenderOptions options)
     {
@@ -172,5 +193,45 @@ public sealed class PlantUMLRenderer : IRenderer
         {
             dependenciesPuml += $"{fromName}-->{toName} : {count}\n"; //TODO: Add color depending on diff   
         }
+    }
+
+    private string CompareAndMerge(string localContent, string remoteContent)
+    {
+        var merged = localContent;
+
+        var regex = $@"(.+)-->(.+) : (\d+)";
+
+        foreach (Match match in Regex.Matches(localContent, regex))
+        {
+            var from = match.Groups[1].Value;
+            var to = match.Groups[2].Value;
+            var count = int.Parse(match.Groups[3].Value);
+
+            var dependencyRegex = $@"{from}-->{to} : (\d+)";
+            if (Regex.IsMatch(remoteContent, dependencyRegex))
+            {
+                //Update count, add (+x) or (-x)
+                var remoteMatch = Regex.Match(remoteContent, dependencyRegex);
+                var remoteCount = int.Parse(remoteMatch.Groups[1].Value);
+                var diff = count - remoteCount;
+                if (diff != 0)
+                {
+                    var sign = diff > 0 ? "+" : "";
+                    var color = diff > 0 ? "#Green" : "#Red";
+                    merged = merged.Replace(match.Value, $"{from}-->{to} {color} : {count} ({sign}{diff})");
+                }
+            }
+        }
+        return merged;
+    }
+
+    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options)
+    {
+        var dir = options.SaveLocation;
+        Directory.CreateDirectory(dir);
+        var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.puml";
+        var path = Path.Combine(dir, filename);
+
+        await File.WriteAllTextAsync(path, content);
     }
 }
