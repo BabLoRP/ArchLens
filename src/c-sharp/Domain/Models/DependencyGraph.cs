@@ -90,6 +90,53 @@ public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
         return null;
     }
 
+    public static bool RemovePath(DependencyGraph graph, string path)
+    {
+        if (graph is not DependencyGraphNode root || string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var asModule = PathNormaliser.NormaliseModule(root.ProjectRoot, path);
+        var asFile = PathNormaliser.NormaliseFile(root.ProjectRoot, path);
+
+        var removed = root.RemoveMatching(
+            child => PathComparer.Equals(child.Path, asModule) || PathComparer.Equals(child.Path, asFile)
+        );
+
+        root.PruneEmptyDirectories(isRoot: true);
+        return removed;
+    }
+
+    public static bool RemoveSubtree(DependencyGraph graph, string path)
+    {
+        if (graph is not DependencyGraphNode root || string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var asModule = PathNormaliser.NormaliseModule(root.ProjectRoot, path);
+        var prefix = EnsureTrailingSlash(asModule);
+
+        var removedCount = root.RemoveMatching(child => IsSubtree(child, prefix));
+
+        root.PruneEmptyDirectories(isRoot: true);
+        return removedCount;
+    }
+
+    private static string EnsureTrailingSlash(string p)
+    {
+        p = (p ?? string.Empty).Replace('\\', '/');
+        return p.EndsWith("/", StringComparison.Ordinal) ? p : p + "/";
+    }
+
+    private static bool IsSubtree(DependencyGraph node, string dirPrefix)
+    {
+        var p = (node.Path ?? string.Empty).Replace('\\', '/');
+
+        if (node is DependencyGraphNode)
+            p = EnsureTrailingSlash(p);
+
+        return p.StartsWith(dirPrefix, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(p.TrimEnd('/'), dirPrefix.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+    }
+
     private (string asModule, string asFile) GetNormalisedModuleAndFilePaths(string path)
     {
         var asModule = PathNormaliser.NormaliseModule(_projectRoot, path);
@@ -141,6 +188,43 @@ public class DependencyGraphNode(string projectRoot) : DependencyGraph(projectRo
 
         _children.Add(replacement);
     }
+
+    internal bool RemoveMatching(Func<DependencyGraph, bool> predicate)
+    {
+        var removedAny = false;
+
+        for (int i = _children.Count - 1; i >= 0; i--)
+        {
+            if (predicate(_children[i]))
+            {
+                _children.RemoveAt(i);
+                removedAny = true;
+            }
+        }
+
+        for (int i = 0; i < _children.Count; i++)
+        {
+            if (_children[i] is DependencyGraphNode n)
+                removedAny |= n.RemoveMatching(predicate);
+        }
+
+        return removedAny;
+    }
+
+    internal void PruneEmptyDirectories(bool isRoot)
+    {
+        for (int i = _children.Count - 1; i >= 0; i--)
+        {
+            if (_children[i] is not DependencyGraphNode n)
+                continue;
+
+            n.PruneEmptyDirectories(isRoot: false);
+
+            if (!isRoot && n._children.Count == 0)
+                _children.RemoveAt(i);
+        }
+    }
+
 
     internal void ReplaceDependencies(IDictionary<string, int> newDeps)
     {
