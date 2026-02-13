@@ -5,6 +5,8 @@ using Archlens.Domain.Utils;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Archlens.Infra.Renderers;
 
@@ -13,6 +15,26 @@ public sealed class JsonRenderer : IRenderer
     private string packagesJson = "";
     private List<string> packageNames = [];
     private string edgesJson = "";
+
+    public async Task RenderViewsAndSaveToFiles(DependencyGraph graph, RenderOptions options)
+    {
+        foreach (var view in options.Views)
+        {
+            string content = RenderView(graph, view, options);
+            await SaveViewToFileAsync(content, view, options);
+        }
+    }
+
+    public async Task RenderDiffViewsAndSaveToFiles(DependencyGraph localGraph, DependencyGraph remoteGraph, RenderOptions options)
+    {
+        foreach (var view in options.Views)
+        {
+            string localContent = RenderView(localGraph, view, options);
+            string remoteContent = RenderView(remoteGraph, view, options);
+            string content = CompareAndMerge(localContent, remoteContent);
+            await SaveViewToFileAsync(content, view, options);
+        }
+    }
 
     public string RenderView(DependencyGraph graph, View view, RenderOptions options)
     {
@@ -162,5 +184,59 @@ public sealed class JsonRenderer : IRenderer
     private static bool IsIgnored(IEnumerable<string> ignorePackages, DependencyGraph graph)
     {
         return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
+    }
+
+    private string CompareAndMerge(string localContent, string remoteContent)
+    {
+        var merged = localContent;
+
+        var regex = $@"""state"": NEUTRAL,
+                        ""fromPackage"": ""(.+)"",
+                        ""toPackage"": ""(.+)"",
+                        ""label"": ""(\d+)""";
+
+        foreach (Match match in Regex.Matches(localContent, regex))
+        {
+            var from = match.Groups[1].Value;
+            var to = match.Groups[2].Value;
+            var count = int.Parse(match.Groups[3].Value);
+
+            var dependencyRegex = $@"""state"": NEUTRAL,
+                                    ""fromPackage"": ""{from}"",
+                                    ""toPackage"": ""{to}"",
+                                    ""label"": ""(\d+)""";
+
+            if (Regex.IsMatch(remoteContent, dependencyRegex))
+            {
+                //Update count, add (+x) or (-x)
+                var remoteMatch = Regex.Match(remoteContent, dependencyRegex);
+                var remoteCount = int.Parse(remoteMatch.Groups[1].Value);
+                var diff = count - remoteCount;
+                if (diff != 0)
+                {
+                    var sign = diff > 0 ? "+" : "";
+                    var color = diff > 0 ? "#Green" : "#Red";
+
+                    var mergedValue = $@"""state"": {color},
+                                    ""fromPackage"": ""{from}"",
+                                    ""toPackage"": ""{to}"",
+                                    ""label"": ""{count} ({sign}{diff})""";
+
+                    merged = merged.Replace(match.Value, mergedValue);
+                }
+            }
+        }
+        return merged;
+    }
+
+
+    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options)
+    {
+        var dir = options.SaveLocation;
+        Directory.CreateDirectory(dir);
+        var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.json";
+        var path = Path.Combine(dir, filename);
+
+        await File.WriteAllTextAsync(path, content);
     }
 }
