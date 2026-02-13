@@ -8,6 +8,7 @@ namespace Archlens.Domain.Models;
 
 public class DependencyGraph(string _projectRoot) : IEnumerable<DependencyGraph>
 {
+    protected internal string ProjectRoot => _projectRoot;
     private readonly DateTime _lastWriteTime;
     private readonly string _path;
     private Dictionary<string, int> _dependencies { get; init; } = [];
