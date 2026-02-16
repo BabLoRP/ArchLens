@@ -123,22 +123,44 @@ public sealed class JsonRenderer : IRenderer
     {
         var str = "";
 
-        foreach (var (dep, count) in node.GetDependencies().Where(d => packageNames.Contains(d.Key)))
+        foreach (var (dep, count) in node.GetDependencies())
         {
-            var relations = GetChildrenDependencyRelations(node, dep);
+            if (packageNames.Contains(dep))
+            {
+                var relations = GetChildrenDependencyRelations(node, dep);
 
-            str += //TODO: diff view (state)
-                $$"""
-                    {
-                        "state": "NEUTRAL",
-                        "fromPackage": "{{node.Name}}",
-                        "toPackage": "{{dep.Split('.').Last()}}",
-                        "label": "{{relations.Split("from_file").Length - 1}}",
-                        "relations": [
-                            {{relations.TrimEnd(',')}}
-                        ]
-                    },
-                """;
+                str +=
+                    $$"""
+                        {
+                            "state": "NEUTRAL",
+                            "fromPackage": "{{node.Name}}",
+                            "toPackage": "{{dep}}",
+                            "label": "{{relations.Split("from_file").Length - 1}}",
+                            "relations": [
+                                {{relations.TrimEnd(',')}}
+                            ]
+                        },
+                    """;
+            }
+            else if (packageNames.Any(p => dep.StartsWith(p)))
+            {
+                var trimmedDep = packageNames.Find(p => dep.StartsWith(p));
+                var relations = GetChildrenDependencyRelations(node, trimmedDep);
+
+                str +=
+                    $$"""
+                        {
+                            "state": "NEUTRAL",
+                            "fromPackage": "{{node.Name}}",
+                            "toPackage": "{{trimmedDep}}",
+                            "label": "{{relations.Split("from_file").Length - 1}}",
+                            "relations": [
+                                {{relations.TrimEnd(',')}}
+                            ]
+                        },
+                    """;
+            }
+
         }
 
         return str;
@@ -253,7 +275,7 @@ public sealed class JsonRenderer : IRenderer
                         "state": "DELETED",
                         "fromPackage": "{{from}}",
                         "toPackage": "{{to}}",
-                        "label": "0 (-{{count}}}",
+                        "label": "0 (-{{count}})",
                         "relations": []
                     }
                 """;
