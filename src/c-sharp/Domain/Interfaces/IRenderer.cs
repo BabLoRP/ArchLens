@@ -9,5 +9,6 @@ public interface IRenderer
     public Task RenderViewsAndSaveToFiles(DependencyGraph graph, RenderOptions options);
     public Task RenderDiffViewsAndSaveToFiles(DependencyGraph localGraph, DependencyGraph remoteGraph, RenderOptions options);
     public string RenderView(DependencyGraph graph, View view, RenderOptions options);
+    public string RenderDiffView(DependencyGraph localGraph, DependencyGraph remoteGraph, View view, RenderOptions options);
     public Task SaveViewToFileAsync(string content, View view, RenderOptions options);
 }
