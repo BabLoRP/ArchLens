@@ -31,7 +31,7 @@ public sealed class JsonRenderer : IRenderer
         {
             string localContent = RenderView(localGraph, view, options);
             string remoteContent = RenderView(remoteGraph, view, options);
-            string content = CompareAndMerge(localContent, remoteContent);
+            string content = Merge(localContent, remoteContent);
             await SaveViewToFileAsync(content, view, options);
         }
     }
@@ -186,25 +186,22 @@ public sealed class JsonRenderer : IRenderer
         return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
     }
 
-    private string CompareAndMerge(string localContent, string remoteContent)
+    private static string Merge(string localContent, string remoteContent)
     {
         var merged = localContent;
 
-        var regex = $@"""state"": NEUTRAL,
-                        ""fromPackage"": ""(.+)"",
-                        ""toPackage"": ""(.+)"",
-                        ""label"": ""(\d+)""";
+        var regex = $@"""state"": "".+"",\s*""fromPackage"": ""(.+)"",\s*""toPackage"": ""(.+)"",\s*""label"": ""(\d+)(\s*\([+-]?\d+\))?""";
 
-        foreach (Match match in Regex.Matches(localContent, regex))
+        var localMatches = Regex.Matches(localContent, regex);
+        var remoteMatches = Regex.Matches(remoteContent, regex);
+
+        foreach (Match match in localMatches)
         {
             var from = match.Groups[1].Value;
             var to = match.Groups[2].Value;
             var count = int.Parse(match.Groups[3].Value);
 
-            var dependencyRegex = $@"""state"": NEUTRAL,
-                                    ""fromPackage"": ""{from}"",
-                                    ""toPackage"": ""{to}"",
-                                    ""label"": ""(\d+)""";
+            var dependencyRegex = $@"""state"": "".+"",\s*""fromPackage"": ""{from}"",\s*""toPackage"": ""{to}"",\s*""label"": ""(\d+)(\s*\([+-]?\d+\))?""";
 
             if (Regex.IsMatch(remoteContent, dependencyRegex))
             {
@@ -215,18 +212,58 @@ public sealed class JsonRenderer : IRenderer
                 if (diff != 0)
                 {
                     var sign = diff > 0 ? "+" : "";
-                    var color = diff > 0 ? "#Green" : "#Red";
+                    var state = diff > 0 ? "CREATED" : "DELETED";
 
-                    var mergedValue = $@"""state"": {color},
-                                    ""fromPackage"": ""{from}"",
-                                    ""toPackage"": ""{to}"",
-                                    ""label"": ""{count} ({sign}{diff})""";
+                    var mergedValue =
+                    $@"""state"": ""{state}"",
+                    ""fromPackage"": ""{from}"",
+                    ""toPackage"": ""{to}"",
+                    ""label"": ""{count} ({sign}{diff})""";
 
                     merged = merged.Replace(match.Value, mergedValue);
                 }
             }
+            else
+            {
+                //Fresh edge
+                var mergedValue =
+                    $@"""state"": ""CREATED"",
+                    ""fromPackage"": ""{from}"",
+                    ""toPackage"": ""{to}"",
+                    ""label"": ""{count} (+{count})""";
+
+                merged = merged.Replace(match.Value, mergedValue);
+            }
         }
-        return merged;
+
+        foreach (Match match in remoteMatches)
+        {
+            var from = match.Groups[1].Value;
+            var to = match.Groups[2].Value;
+            var count = int.Parse(match.Groups[3].Value);
+
+            var dependencyRegex = $@"""state"": "".+"",\s*""fromPackage"": ""{from}"",\s*""toPackage"": ""{to}"",\s*""label"": ""(\d+)(\s*\([+-]?\d+\))?""";
+
+            if (!Regex.IsMatch(localContent, dependencyRegex))
+            {
+                //Deleted edge
+                var newValue = $$"""
+                    ,
+                    {
+                        "state": "DELETED",
+                        "fromPackage": "{{from}}",
+                        "toPackage": "{{to}}",
+                        "label": "0 (-{{count}}}",
+                        "relations": []
+                    }
+                """;
+
+                merged = merged.TrimEnd('}').TrimEnd().TrimEnd(']');
+                merged += newValue;
+            }
+        }
+
+        return merged + "]\n}";
     }
 
 
