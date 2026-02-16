@@ -194,13 +194,13 @@ public sealed class PlantUMLRenderer : IRenderer
             var match = Regex.Match(dependenciesPuml, regex);
             var existingCount = int.Parse(match.Groups[1].Value);
             var newCount = existingCount + count;
-            var newPuml = $"{fromName}-->{toName} : {newCount}\n"; //TODO: Add color depending on diff
+            var newPuml = $"{fromName}-->{toName} : {newCount}\n";
 
             dependenciesPuml = Regex.Replace(dependenciesPuml, regex, newPuml);
         }
         else
         {
-            dependenciesPuml += $"{fromName}-->{toName} : {count}\n"; //TODO: Add color depending on diff   
+            dependenciesPuml += $"{fromName}-->{toName} : {count}\n";
         }
     }
 

@@ -58,7 +58,7 @@ public sealed class JsonRenderer : IRenderer
                 {
                     foreach (var child in packageGraph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c)))
                     {
-                        packagesJson += //TODO: diff view (state)
+                        packagesJson +=
                         $$"""
                 
                             {
@@ -91,7 +91,7 @@ public sealed class JsonRenderer : IRenderer
             var children = graph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c));
             foreach (var child in children)
             {
-                packagesJson += //TODO: diff view (state)
+                packagesJson +=
                 $$"""
         
                     {
