@@ -33,11 +33,17 @@ public sealed class PlantUMLRenderer : IRenderer
     {
         foreach (var view in options.Views)
         {
-            string localContent = RenderView(localGraph, view, options);
-            string remoteContent = RenderView(remoteGraph, view, options);
-            string content = Merge(localContent, remoteContent);
+            string content = RenderDiffView(localGraph, remoteGraph, view, options);
             await SaveViewToFileAsync(content, view, options);
         }
+    }
+
+    public string RenderDiffView(DependencyGraph localGraph, DependencyGraph remoteGraph, View view, RenderOptions options)
+    {
+        string localContent = RenderView(localGraph, view, options);
+        string remoteContent = RenderView(remoteGraph, view, options);
+        string content = Merge(localContent, remoteContent);
+        return content;
     }
 
     public string RenderView(DependencyGraph rootGraph, View view, RenderOptions options)
