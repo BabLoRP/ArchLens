@@ -13,6 +13,9 @@ namespace Archlens.Infra.Renderers;
 
 public sealed class PlantUMLRenderer : IRenderer
 {
+    private const string DELETED = "#Red";
+    private const string CREATED = "#Green";
+
     private string packagesPuml = "";
     private List<string> packageNames = [];
     private string dependenciesPuml = "";
@@ -32,7 +35,7 @@ public sealed class PlantUMLRenderer : IRenderer
         {
             string localContent = RenderView(localGraph, view, options);
             string remoteContent = RenderView(remoteGraph, view, options);
-            string content = CompareAndMerge(localContent, remoteContent);
+            string content = Merge(localContent, remoteContent);
             await SaveViewToFileAsync(content, view, options);
         }
     }
@@ -195,19 +198,22 @@ public sealed class PlantUMLRenderer : IRenderer
         }
     }
 
-    private string CompareAndMerge(string localContent, string remoteContent)
+    private static string Merge(string localContent, string remoteContent)
     {
         var merged = localContent;
 
-        var regex = $@"(.+)-->(.+) : (\d+)";
+        var regex = $@"(.+)-->(.+) .* ?: (\d+)(\s*\([+-]?\d+\))?";
 
-        foreach (Match match in Regex.Matches(localContent, regex))
+        var localMatches = Regex.Matches(localContent, regex);
+        var remoteMatches = Regex.Matches(remoteContent, regex);
+
+        foreach (Match match in localMatches)
         {
             var from = match.Groups[1].Value;
             var to = match.Groups[2].Value;
             var count = int.Parse(match.Groups[3].Value);
 
-            var dependencyRegex = $@"{from}-->{to} : (\d+)";
+            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
             if (Regex.IsMatch(remoteContent, dependencyRegex))
             {
                 //Update count, add (+x) or (-x)
@@ -217,12 +223,35 @@ public sealed class PlantUMLRenderer : IRenderer
                 if (diff != 0)
                 {
                     var sign = diff > 0 ? "+" : "";
-                    var color = diff > 0 ? "#Green" : "#Red";
+                    var color = diff > 0 ? CREATED : DELETED;
                     merged = merged.Replace(match.Value, $"{from}-->{to} {color} : {count} ({sign}{diff})");
                 }
             }
+            else
+            {
+                //Fresh edge
+                merged = merged.Replace(match.Value, $"{from}-->{to} {CREATED} : {count} (+{count})");
+            }
+
         }
-        return merged;
+
+        foreach (Match match in remoteMatches)
+        {
+            var from = match.Groups[1].Value;
+            var to = match.Groups[2].Value;
+            var count = int.Parse(match.Groups[3].Value);
+
+            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
+
+            if (!Regex.IsMatch(localContent, dependencyRegex))
+            {
+                //Deleted edge
+                merged = merged.Replace("@enduml", "");
+                merged += $"{from}-->{to} {DELETED} : 0 (-{count})";
+            }
+        }
+
+        return merged + "\n@enduml";
     }
 
     public async Task SaveViewToFileAsync(string content, View view, RenderOptions options)
