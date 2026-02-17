@@ -35,31 +35,23 @@ public sealed class GitSnaphotManager : ISnapshotManager
     
     public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(options.GitUrl))
+        if (string.IsNullOrWhiteSpace(options.GitInfo.Url))
             throw new ArgumentException("GitUrl must be provided for GitSnaphotManager. Options has registered GitUrl as Null or Whitespace - has it been correctly configured in .archlens json?");
 
-        if (!TryParseGitHubRepo(options.GitUrl, out var owner, out var repo))
+        if (!TryParseGitHubRepo(options.GitInfo.Url, out var owner, out var repo))
             throw new ArgumentException("Colud not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
+        
+        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, _gitDirName, _gitFileName);
 
-        var branches = new[] { "main", "master" };
-
-        foreach (var branch in branches)
+        try
         {
-            var url = BuildRawUrl(owner, repo, branch, _gitDirName, _gitFileName);
-
-            try
-            {
-                var json = await HttpGetAsync(url, ct).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(json))
-                    continue;
-
-                var graph = DependencyGraphSerializer.Deserialize(json, options.BaseOptions.FullRootPath);
-                if (graph is not null) return graph;
-            }
-            catch (OperationCanceledException) { throw; }
-            catch
-            { /* ignore */ }
+            var json = await HttpGetAsync(url, ct).ConfigureAwait(false);
+            var graph = DependencyGraphSerializer.Deserialize(json, options.BaseOptions.FullRootPath);
+            if (graph is not null) return graph;
         }
+        catch (OperationCanceledException) { throw; }
+        catch
+        { /* ignore */ }
         throw new Exception("Unable to find main branch's graph snapshot");
     }
 
