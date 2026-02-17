@@ -12,7 +12,7 @@ public sealed class GitSnapShotManagerTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
-    private SnapshotOptions MakeOptions(string gitUrl) => new(
+    private SnapshotOptions MakeOptions(string gitUrl, string branch = "main") => new(
         BaseOptions: new(
             ProjectRoot: _fs.Root,
             ProjectName: "Archlens",
@@ -21,7 +21,7 @@ public sealed class GitSnapShotManagerTests : IDisposable
         SnapshotManager: SnapshotManager.Git,
         SnapshotDir: ".archlens",
         SnapshotFile: "snapshot.json",
-        GitUrl: gitUrl
+        GitInfo: new (gitUrl, branch)
     );
 
     private static DependencyGraphNode MakeGraph(string rootPath)
@@ -106,26 +106,6 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var result = await manager.GetLastSavedDependencyGraphAsync(opts, default);
 
         Assert.Equal(graph.Name, result.Name);
-    }
-
-    [Fact]
-    public async Task Falls_Back_To_Master_When_Main_Missing()
-    {
-        var handler = new TestHttpHandler();
-        var manager = new GitSnaphotManager(".archlens", "snapshot.json", handler);
-
-        var mainUrl = "https://raw.githubusercontent.com/owner/repo/main/.archlens/snapshot.json";
-        var masterUrl = "https://raw.githubusercontent.com/owner/repo/master/.archlens/snapshot.json";
-
-        var graph = MakeGraph(_fs.Root);
-        handler.When(mainUrl, HttpStatusCode.NotFound);
-        handler.When(masterUrl, HttpStatusCode.OK, DependencyGraphSerializer.Serialize(graph));
-
-        var opts = MakeOptions("https://github.com/owner/repo");
-
-        var results = await manager.GetLastSavedDependencyGraphAsync(opts, default);
-
-        Assert.Equal(graph.Name, results.Name);
     }
 
     [Fact]

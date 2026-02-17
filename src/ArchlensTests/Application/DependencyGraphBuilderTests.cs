@@ -34,7 +34,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
                                                 IReadOnlyList<string> deletedDirectories) =>
         new(changedFilesByDirectory, deletedFiles, deletedDirectories);
 
-    private DependencyGraphBuilder CreateBuilder(IDependencyParser parser) =>
+    private DependencyGraphBuilder CreateBuilder(IReadOnlyList<IDependencyParser> parser) =>
         new(parser, MakeOptions());
 
     private static DependencyGraphNode RequireNode(DependencyGraph g, string anyPath)
@@ -83,7 +83,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SetupMockProject();
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changes = CreateProjectChanges(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), [], []);
 
@@ -132,7 +132,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         };
 
         var parser = new DependencyParserSpy(parseMap);
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
@@ -171,7 +171,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         };
 
         var parser = new DependencyParserSpy(parseMap);
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (moduleDir, new[] { cs, cs, cs })
@@ -200,7 +200,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [cs] = []
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (moduleDir, new[] { cs })
@@ -227,7 +227,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         // Note: modelsDir exists (SetupMockProject), but we do NOT include it as a module key.
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (_fs.Root, new[] { domainDir }),
@@ -305,7 +305,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [depFactoryAbs] = ["New.Dep", "Domain.Models.Enums"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (factoriesDirAbs, new[] { depFactoryAbs })
@@ -336,7 +336,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [optionsAbs] = ["Changed.Dep"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (recordsDirAbs, new[] { optionsAbs })
@@ -369,7 +369,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [newAbs] = ["Some.Dep"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (utilsDirAbs, new[] { newAbs })
@@ -397,7 +397,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [cs] = ["Dep"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (moduleDir, new[] { cs })
@@ -426,7 +426,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [depGraph] = ["X"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (_fs.Root, new[] { domainDir }),
@@ -456,7 +456,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var domainDotRel = "./Domain";
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -495,7 +495,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [depGraphAbs] = ["Changed.Node.Dep"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (modelsDir, new[] { depGraphAbs })
@@ -530,7 +530,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [depGraphAbs] = ["New.Dep"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (modelsDirAbs, new[] { depGraphAbs })
@@ -551,7 +551,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var moduleDir = Path.Combine(_fs.Root, "Domain");
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -592,7 +592,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var factoriesDir = Path.Combine(_fs.Root, "Domain", "Factories");
 
         var changedModules = ChangedModules(
-            (factoriesDir, new[] { f1 })
+            (factoriesDir, [f1])
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -601,7 +601,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [f1] = ["X", "Y"]
         });
 
-        var builder = CreateBuilder(parser);
+        var builder = CreateBuilder([parser]);
 
         var g1 = await builder.GetGraphAsync(changes, null);
         var g2 = await builder.GetGraphAsync(changes, null);

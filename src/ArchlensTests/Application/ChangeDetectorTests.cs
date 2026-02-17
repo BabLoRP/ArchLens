@@ -1,5 +1,6 @@
 ﻿using Archlens.Application;
 using Archlens.Domain.Models;
+using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
 
@@ -8,14 +9,14 @@ namespace ArchlensTests.Application;
 public sealed class ChangeDetectorTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
-    private ParserOptions MakeOptions(IReadOnlyList<string>? exclusions = null, IReadOnlyList<string>? extensions = null)
+    private ParserOptions MakeOptions(IReadOnlyList<string>? exclusions = null, IReadOnlyList<string>? extensions = null, IReadOnlyList<Language>? languages = default)
         => new(
             BaseOptions: new BaseOptions(
                 FullRootPath: _fs.Root,
                 ProjectRoot: _fs.Root,
                 ProjectName: "TestProject"
             ),
-            Language: default,
+            Languages: languages,
             Exclusions: exclusions ?? [],
             FileExtensions: extensions ?? [".cs"]
         );
@@ -171,6 +172,25 @@ public sealed class ChangeDetectorTests : IDisposable
 
         Assert.DoesNotContain("./src/A.dev.cs", changed.ChangedFilesByDirectory[srcKey]);
         Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory[srcKey]);
+    }
+
+    [Fact]
+    public async Task Detects_Changes_WithMultipleParsers()
+    {
+        _fs.File("src/A.cs", "class ACS {}");
+        _fs.File("src/A.go", "class AGO {}");
+        _fs.File("src/A.kt", "class AKT {}");
+
+        var opts = MakeOptions(extensions: [".cs", ".go"], languages: [Language.CSharp, Language.Go]);
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+
+        var srcKey = Path.Combine(_fs.Root, "src");
+        Assert.Contains(srcKey, changed.Keys);
+        Assert.Contains(Path.Combine(_fs.Root, "src", "A.cs"), changed[srcKey]);
+        Assert.Contains(Path.Combine(_fs.Root, "src", "A.go"), changed[srcKey]);
+        Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "A.kt"), changed[srcKey]);
     }
 
     [Fact]
