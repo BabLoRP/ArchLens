@@ -19,8 +19,9 @@ public sealed class UpdateDependencyGraphUseCase(
     public async Task RunAsync(CancellationToken ct = default)
     {
         var snapshotGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(snapshotOptions, ct);
-        var projectChanges = await ChangeDetector.GetChangedProjectPathsAsync(parserOptions, snapshotGraph, ct);
-        var graph = await new DependencyGraphBuilder(parser, baseOptions).GetGraphAsync(projectChanges, snapshotGraph, ct);
+        var projectChanges = await ChangeDetector.GetProjectChangesAsync(parserOptions, snapshotGraph, ct);
+        var graph = await new DependencyGraphBuilder(parser, baseOptions)
+            .GetGraphAsync(projectChanges, snapshotGraph, ct);
 
         if (snapshotOptions.SnapshotManager == SnapshotManager.Local)
             await renderer.RenderViewsAndSaveToFiles(graph, renderOptions);
