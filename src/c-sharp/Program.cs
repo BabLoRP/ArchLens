@@ -18,7 +18,7 @@ public class Program
             var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path);
 
             var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
-            var parser = DependencyParserFactory.SelectDependencyParser(parserOptions);
+            var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
             var renderer = RendererFactory.SelectRenderer(renderOptions);
 
             var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(
@@ -26,7 +26,7 @@ public class Program
                                                         parserOptions,
                                                         renderOptions,
                                                         snapshotOptions,
-                                                        parser,
+                                                        parsers,
                                                         renderer,
                                                         snapshotManager);
 
