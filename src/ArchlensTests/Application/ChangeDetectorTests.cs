@@ -64,10 +64,10 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Contains(Path.Combine(_fs.Root, "src"), changed.Keys);
-        Assert.Contains(Path.Combine(_fs.Root, "src", "A.cs"), changed[Path.Combine(_fs.Root, "src")]);
+        Assert.Contains("./src/", changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory["./src/"]);
     }
 
     [Fact]
@@ -80,9 +80,9 @@ public sealed class ChangeDetectorTests : IDisposable
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
         snap.AddFile("src/B.cs", t);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Empty(changed);
+        Assert.Empty(changed.ChangedFilesByDirectory);
     }
 
     [Fact]
@@ -97,12 +97,12 @@ public sealed class ChangeDetectorTests : IDisposable
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
         snap.AddFile("src/C.cs", oldT);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Single(changed);
-        var mod = changed.Single();
-        Assert.Equal(Path.Combine(_fs.Root, "src"), mod.Key);
-        Assert.Contains(Path.Combine(_fs.Root, "src", "C.cs"), mod.Value);
+        Assert.Single(changed.ChangedFilesByDirectory);
+        var mod = changed.ChangedFilesByDirectory.Single();
+        Assert.Equal("./src/", mod.Key);
+        Assert.Contains("./src/C.cs", mod.Value);
     }
 
     [Fact]
@@ -114,12 +114,13 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(extensions: [".cs"]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        var srcKey = Path.Combine(_fs.Root, "src");
-        Assert.Contains(srcKey, changed.Keys);
-        Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "A.txt"), changed[srcKey]);
-        Assert.Contains(Path.Combine(_fs.Root, "src", "B.cs"), changed[srcKey]);
+        var srcKey = "./src/";
+        Assert.DoesNotContain("./src/A.txt", changed.ChangedFilesByDirectory[srcKey]);
+
+        Assert.Contains(srcKey, changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains("./src/B.cs", changed.ChangedFilesByDirectory[srcKey]);
     }
 
     [Fact]
@@ -131,10 +132,10 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(exclusions: ["Tests/"]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.DoesNotContain(Path.Combine(_fs.Root, "Tests"), changed.Keys);
-        Assert.Contains(Path.Combine(_fs.Root, "src"), changed.Keys);
+        Assert.DoesNotContain("./Tests/", changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains("./src/", changed.ChangedFilesByDirectory.Keys);
     }
 
     [Fact]
@@ -146,12 +147,12 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(exclusions: ["bin"]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Contains(Path.Combine(_fs.Root, "src", "good"), changed.Keys);
-        Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "bin"), changed.Keys);
-        Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "bin", "Gen.cs"),
-                              changed.GetValueOrDefault(Path.Combine(_fs.Root, "src")) ?? Array.Empty<string>());
+        Assert.Contains("./src/good/", changed.ChangedFilesByDirectory.Keys);
+        Assert.DoesNotContain("./src/bin/", changed.ChangedFilesByDirectory.Keys);
+        Assert.DoesNotContain("./src/bin/Gen.cs",
+                              changed.ChangedFilesByDirectory.GetValueOrDefault("./src/") ?? []);
     }
 
     [Fact]
@@ -163,12 +164,13 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(exclusions: ["**.dev.cs."]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        var srcKey = Path.Combine(_fs.Root, "src");
-        Assert.Contains(srcKey, changed.Keys);
-        Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "A.dev.cs"), changed[srcKey]);
-        Assert.Contains(Path.Combine(_fs.Root, "src", "A.cs"), changed[srcKey]);
+        var srcKey = "./src/";
+        Assert.Contains(srcKey, changed.ChangedFilesByDirectory.Keys);
+
+        Assert.DoesNotContain("./src/A.dev.cs", changed.ChangedFilesByDirectory[srcKey]);
+        Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory[srcKey]);
     }
 
     [Fact]
@@ -182,6 +184,105 @@ public sealed class ChangeDetectorTests : IDisposable
 
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await ChangeDetector.GetChangedProjectPathsAsync(opts, snap, cts.Token));
+            await ChangeDetector.GetProjectChangesAsync(opts, snap, cts.Token));
     }
+
+    [Fact]
+    public async Task File_in_Root_Deleted_Recognised() 
+    {
+        _fs.Dir("src");
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+        snap.AddFile("src/Deleted.cs", DateTime.UtcNow.AddMinutes(-5)); // not in _fs (deleted)
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.Contains("./src/Deleted.cs", changes.DeletedFiles);
+    }
+
+    [Fact]
+    public async Task File_in_SubDir_Deleted_Recognised()
+    {
+        _fs.Dir("src");
+        _fs.Dir("src/Dir");
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+        snap.AddFile("src/Dir/Deleted.cs", DateTime.UtcNow.AddMinutes(-5));  // not in _fs (deleted)
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.Contains("./src/Dir/Deleted.cs", changes.DeletedFiles);
+    }
+
+    [Fact]
+    public async Task Dir_in_Root_Deleted_Recognised()
+    {
+        var t = DateTime.UtcNow.AddMinutes(-5);
+
+        _fs.File("src/Keep.cs", "class Keep {}", t);
+        _fs.File("src/Dir/Keep.cs", "class Keep {}", t);
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+        snap.AddFile("src/Keep.cs", t);
+        snap.AddFile("src/Dir/Keep.cs", t);
+        snap.AddFile("src/OldDir/Old.cs", t); // not in _fs (deleted)
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.DoesNotContain("./src/Keep.cs", changes.DeletedFiles);
+        Assert.DoesNotContain("./src/Dir/Keep.cs", changes.DeletedFiles);
+        Assert.DoesNotContain("./src/Dir/", changes.DeletedDirectories);
+
+        Assert.Contains("./src/OldDir/", changes.DeletedDirectories);
+    }
+
+    [Fact]
+    public async Task Dir_in_SubDir_Deleted_Recognised()
+    {
+        var t = DateTime.UtcNow.AddMinutes(-5);
+
+        _fs.File("src/Keep.cs", "class Keep {}", t);
+        _fs.File("src/Dir/Keep.cs", "class Keep {}", t);        
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        snap.AddFile("src/Keep.cs", t);
+        snap.AddFile("src/Dir/Keep.cs", t);
+        snap.AddFile("src/Dir/OldDir/Old.cs", t); // not in _fs (deleted)
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.DoesNotContain("./src/Keep.cs", changes.DeletedFiles);
+        Assert.DoesNotContain("./src/Dir/Keep.cs", changes.DeletedFiles);
+        Assert.DoesNotContain("./src/Dir/", changes.DeletedDirectories);
+
+        Assert.Contains("./src/Dir/OldDir/", changes.DeletedDirectories);
+        //Assert.Contains("./src/Dir/OldDir/Old.cs", changes.DeletedFiles); we are collapsing the dirs, so it doesnt show nested children of the dir
+    }
+
+
+    [Fact]
+    public async Task Removes_Files_And_SubDirs_Under_Deleted_Dir_Recognised()
+    {
+        _fs.Dir("src");
+        _fs.File("src/Keep.cs");
+
+        var t = DateTime.UtcNow.AddMinutes(-5);
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+        snap.AddFile("src/Keep.cs", t);
+        snap.AddFile("src/OldDir/Del1.cs", t);  // not in _fs (deleted)
+        snap.AddFile("src/OldDir/Del2.cs", t);  // not in _fs (deleted)
+        snap.AddFile("src/OldDir/SubDir/Del3.cs", t);  // not in _fs (deleted)
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.DoesNotContain("src/Keep.cs", changes.DeletedFiles);
+
+        Assert.Contains("./src/", changes.ChangedFilesByDirectory);
+        Assert.Contains("./src/OldDir/", changes.DeletedDirectories);
+    }
+
 }
