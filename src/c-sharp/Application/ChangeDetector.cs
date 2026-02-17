@@ -12,6 +12,13 @@ namespace Archlens.Application;
 
 public sealed class ChangeDetector
 {
+    private readonly record struct ParentMeta(string ParentDirRel, DateTime LastWriteUtc);
+
+    private sealed record ProjectFileStructure(
+        Dictionary<string, ParentMeta> Files,    // relFile -> (parentDirRel, lastWriteUtc)
+        HashSet<string> DirRels                // relDir set
+    );
+
     private sealed record ExclusionRule(
         string[] DirPrefixes,      // strings that end with a '/', to indicate that it is a dir, like: "src/legacy/", "Tests/"
         string[] Segments,         // folders that are often mid-path, like: "bin", "obj", ".git"
@@ -19,95 +26,39 @@ public sealed class ChangeDetector
     );
 
     public static Task<ProjectChanges> GetProjectChangesAsync(
-        ParserOptions parserOptions,
-        DependencyGraph lastSavedGraph,
-        CancellationToken ct = default)
+    ParserOptions parserOptions,
+    DependencyGraph? lastSavedGraph,
+    CancellationToken ct = default)
     {
-        var projectRoot = string.IsNullOrEmpty(parserOptions.BaseOptions.FullRootPath) ? Path.GetFullPath(parserOptions.BaseOptions.ProjectRoot) : parserOptions.BaseOptions.FullRootPath;
+        var projectRoot = string.IsNullOrEmpty(parserOptions.BaseOptions.FullRootPath)
+            ? Path.GetFullPath(parserOptions.BaseOptions.ProjectRoot)
+            : parserOptions.BaseOptions.FullRootPath;
 
         var rules = CompileExclusions(parserOptions.Exclusions);
-        var paths = EnumeratePathsInRoot(projectRoot, parserOptions.FileExtensions, rules);
-        if (lastSavedGraph == null) return paths;
 
-        var changed = new Dictionary<string, IEnumerable<string>>();
+        var current = ScanCurrentProjectFileStructure(projectRoot, parserOptions.FileExtensions, rules, ct);
 
-        foreach (var pair in paths)
-        {
-            var relativePath = PathNormaliser.NormaliseModule(projectRoot, pair.Key);
-            if (relativePath.Equals("./"))
-                continue;
-            var inLastGraph = lastSavedGraph.ContainsPath(relativePath);
-            if (!inLastGraph)
-            {
-                changed.Add(pair.Key, pair.Value);
-            }
-            else
-            {
-                var lastNodeWriteTime = lastSavedGraph.FindByPath(relativePath).LastWriteTime;
+        var changedByDir = ComputeUpsertedFilesByDirectory(current.Files, lastSavedGraph, ct);
 
-                var currentWriteTime = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(pair.Key));
+        var (deletedFiles, deletedDirs) = ComputeDeletedPaths(lastSavedGraph, current.Files, current.DirRels, ct);
 
-                if (TrimMilliseconds(currentWriteTime) > TrimMilliseconds(lastNodeWriteTime))
-                    changed.Add(pair.Key, pair.Value);
-            }
-            ct.ThrowIfCancellationRequested();
-        }
-        return changed;
-    }
+        var collapsedDeletedDirs = CollapseDeletedDirectories(deletedDirs);
+        var collapsedSet = new HashSet<string>(collapsedDeletedDirs, StringComparer.OrdinalIgnoreCase);
 
-    // Source - https://stackoverflow.com/a
-    // Posted by Dean Chalk, modified by community. See post 'Timeline' for change history
-    // Retrieved 2025-11-23, License - CC BY-SA 4.0
-    public static DateTime TrimMilliseconds(DateTime dt)
-    {
-        return new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0, dt.Kind);
-    }
+        deletedFiles.RemoveAll(f => IsUnderAnyDeletedDirectory(f, collapsedSet));
 
-
-    private static Dictionary<string, IEnumerable<string>> EnumeratePathsInRoot(string root, IReadOnlyList<string> extensions, ExclusionRule exclusions)
-    {
-        var dirs = new Stack<string>();
-        dirs.Push(root);
-
-        var paths = new Dictionary<string, IEnumerable<string>>
-        {
-            { root, [] }
-        };
-
-        while (dirs.Count > 0)
-        {
-            var dir = dirs.Pop();
-
-            try { 
-
-                var subdirs = Directory.EnumerateDirectories(dir).Where(d => !IsExcluded(root, d, exclusions));
-
-                foreach (var subdir in subdirs)
-                    dirs.Push(subdir);
-
-                paths[dir] = paths.TryGetValue(dir, out var contents)
-                    ? contents.Concat(subdirs).ToList()
-                    : [.. subdirs];
-            } catch { /* ignore */ }
-            
-            IEnumerable<string> files = [];
-            try { 
-                files = Directory.EnumerateFiles(dir).Where(f => !IsExcluded(root, f, exclusions));
-            } catch { /* ignore */ }
-
-            var includedFiles = files.Where(file => extensions.Contains(Path.GetExtension(file)));
-            paths[dir] = paths.TryGetValue(dir, out var existing)
-                ? existing.Concat(includedFiles).ToList()
-                : [.. includedFiles];
-        }
-        return paths;
+        return Task.FromResult(new ProjectChanges(
+            ChangedFilesByDirectory: FreezeChanged(changedByDir),
+            DeletedFiles: deletedFiles,
+            DeletedDirectories: collapsedDeletedDirs
+        ));
     }
 
     private static ExclusionRule CompileExclusions(IReadOnlyList<string> exclusions)
     {
-        var dirPrefixes = new List<string>();
-        var segments = new List<string>();
-        var suffixes = new List<string>();
+        List<string> dirPrefixes = [];
+        List<string> segments = [];
+        List<string> suffixes = [];
 
         foreach (var entry in exclusions)
         {
@@ -155,6 +106,185 @@ public sealed class ChangeDetector
         );
     }
 
+    private static ProjectFileStructure ScanCurrentProjectFileStructure(
+        string projectRoot,
+        IReadOnlyList<string> extensions,
+        ExclusionRule rules,
+        CancellationToken ct)
+    {
+        var extSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
+
+        var files = new Dictionary<string, ParentMeta>(StringComparer.OrdinalIgnoreCase);
+        var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var stack = new Stack<string>();
+        stack.Push(projectRoot);
+
+        while (stack.Count > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var dirAbs = stack.Pop();
+            var dirRel = PathNormaliser.NormaliseModule(projectRoot, dirAbs);
+            dirs.Add(dirRel);
+
+            IEnumerable<string> subdirs = [];
+            try { subdirs = Directory.EnumerateDirectories(dirAbs); } catch { /* ignore */ }
+
+            foreach (var subAbs in subdirs)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (IsExcluded(projectRoot, subAbs, rules)) continue;
+                stack.Push(subAbs);
+            }
+
+            IEnumerable<string> fileAbsList = Array.Empty<string>();
+            try { fileAbsList = Directory.EnumerateFiles(dirAbs); } catch { /* ignore */ }
+
+            foreach (var fileAbs in fileAbsList)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsExcluded(projectRoot, fileAbs, rules)) continue;
+
+                var ext = Path.GetExtension(fileAbs);
+                if (!extSet.Contains(ext)) continue;
+
+                var fileRel = PathNormaliser.NormaliseFile(projectRoot, fileAbs);
+                var writeUtc = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(fileAbs));
+
+                // If duplicates -> last one wins
+                files[fileRel] = new ParentMeta(dirRel, writeUtc);
+            }
+        }
+
+        return new ProjectFileStructure(files, dirs);
+    }
+
+    private static Dictionary<string, List<string>> ComputeUpsertedFilesByDirectory(
+        IReadOnlyDictionary<string, ParentMeta> files,
+        DependencyGraph? lastSavedGraph,
+        CancellationToken ct)
+    {
+        var changed = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (fileRel, meta) in files)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var lastNode = lastSavedGraph?.FindByPath(fileRel);
+            var isNew = lastNode is null;
+
+            var isModified = false;
+            if (!isNew)
+            {
+                var lastWrite = lastNode!.LastWriteTime;
+                isModified = TrimMilliseconds(meta.LastWriteUtc) > TrimMilliseconds(lastWrite);
+            }
+
+            if (!isNew && !isModified)
+                continue;
+
+            if (!changed.TryGetValue(meta.ParentDirRel, out var list))
+                changed[meta.ParentDirRel] = list = [];
+
+            list.Add(fileRel);
+        }
+
+        return changed;
+    }
+
+    private static (List<string> deletedFilesRel, List<string> deletedDirsRel) ComputeDeletedPaths(
+        DependencyGraph? lastSavedGraph,
+        IReadOnlyDictionary<string, ParentMeta> currentFiles,
+        IReadOnlySet<string> currentDirs,
+        CancellationToken ct)
+    {
+        List<string> deletedFiles = [];
+        HashSet<string> deletedDirs = [];
+
+        if (lastSavedGraph is null)
+            return (deletedFiles, deletedDirs.ToList());
+
+        foreach (var (relPath, isFile) in EnumerateGraphEntries(lastSavedGraph))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(relPath) || relPath.Equals("./", StringComparison.Ordinal))
+                continue;
+
+            if (isFile)
+            {
+                if (!currentFiles.ContainsKey(relPath))
+                    deletedFiles.Add(relPath);
+            }
+            else
+            {
+                if (!currentDirs.Contains(relPath))
+                    deletedDirs.Add(relPath);
+            }
+        }
+
+        return (deletedFiles, deletedDirs.ToList());
+    }
+
+    private static List<string> CollapseDeletedDirectories(IEnumerable<string> deletedDirsRel) 
+    { 
+        var ordered = deletedDirsRel
+            .Select(d => d.Replace('\\', '/'))
+            .Where(d => d.Length > 0 && !d.Equals("./", StringComparison.Ordinal))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(d => d.Length)
+            .ToList();
+
+        List<string> kept = []; 
+        
+        foreach (var d in ordered) 
+        { 
+            var dPrefix = d.EndsWith('/') ? d : d + "/"; 
+            
+            if (kept.Any(k => 
+            { 
+                var kPrefix = k.EndsWith('/') ? k : k + "/"; 
+                return dPrefix.StartsWith(kPrefix, StringComparison.OrdinalIgnoreCase); 
+            }))
+            { 
+                continue; 
+            } 
+            kept.Add(d); 
+        } 
+        return kept; 
+    }
+
+    private static bool IsUnderAnyDeletedDirectory(string fileRel, IReadOnlySet<string> deletedDirsRel)
+    {
+        var p = (fileRel ?? string.Empty).Replace('\\', '/');
+
+        var dir = Path.GetDirectoryName(p)?.Replace('\\', '/') ?? string.Empty;
+
+        while (!string.IsNullOrEmpty(dir))
+        {
+            if (deletedDirsRel.Contains(dir) || deletedDirsRel.Contains(dir.TrimEnd('/') + "/"))
+                return true;
+
+            var idx = dir.LastIndexOf('/');
+            if (idx < 0) break;
+
+            dir = dir[..idx];
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> FreezeChanged(Dictionary<string, List<string>> changed)
+    {
+        return changed.ToDictionary(
+            kvp => kvp.Key,
+            kvp => (IReadOnlyList<string>)[.. kvp.Value.Distinct(StringComparer.OrdinalIgnoreCase)],
+            StringComparer.OrdinalIgnoreCase
+        );
+    }
+
     private static bool IsExcluded(string projectRoot, string content, ExclusionRule rules)
     {
         var path = GetRelative(projectRoot, content);
@@ -181,6 +311,30 @@ public sealed class ChangeDetector
         return false;
     }
 
+    private static IEnumerable<(string RelPath, bool IsFile)> EnumerateGraphEntries(DependencyGraph root)
+    {
+        Stack<DependencyGraph> stack = [];
+        stack.Push(root);
+
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            var children = node.GetChildren() ?? [];
+
+            foreach (var child in children)
+            {
+                if (child is null) continue;
+
+                var rel = child.Path?.Replace('\\', '/') ?? "";
+                var isFile = child is DependencyGraphLeaf;
+                yield return (rel, isFile);
+
+                if (!isFile)
+                    stack.Push(child);
+            }
+        }
+    }
+
     public static bool MatchesSuffixPattern(string value, string pattern)
     {
         if (!pattern.Contains('*'))
@@ -190,6 +344,8 @@ public sealed class ChangeDetector
         return value.EndsWith(suffix, StringComparison.Ordinal);
     }
 
+    private static DateTime TrimMilliseconds(DateTime dt)
+        => new(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0, dt.Kind);
 
     private static string GetRelative(string root, string path)
     {
