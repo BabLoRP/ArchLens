@@ -19,7 +19,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         SnapshotManager: default,
         SnapshotDir: ".archlens",
         SnapshotFile: "snapshot.json",
-        GitUrl: string.Empty
+        GitInfo: new ("", "")
     );
 
     private static DependencyGraphNode MakeGraph(string rootPath)
