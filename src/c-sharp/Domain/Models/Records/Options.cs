@@ -11,7 +11,7 @@ public sealed record BaseOptions(
 
 public sealed record ParserOptions(
     BaseOptions BaseOptions,
-    Language Language,
+    IReadOnlyList<Language> Languages,
     IReadOnlyList<string> Exclusions,
     IReadOnlyList<string> FileExtensions
 );
