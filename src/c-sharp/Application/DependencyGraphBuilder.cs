@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Application;
 
-public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, BaseOptions _options)
+public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dependencyParsers, BaseOptions _options)
 {
     private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
     
@@ -105,7 +105,9 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
 
                 var parentNode = EnsureDirectoryNode(parentAbs);
 
-                var deps = await _dependencyParser.ParseFileDependencies(abs, ct).ConfigureAwait(false);
+                List<string> deps = [];
+                foreach (var parser in _dependencyParsers)
+                    deps = [.. await parser.ParseFileDependencies(abs, ct).ConfigureAwait(false)];
 
                 var leaf = new DependencyGraphLeaf(rootFull)
                 {
