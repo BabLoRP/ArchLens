@@ -29,6 +29,11 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Utils"));
     }
 
+    private ProjectChanges CreateProjectChanges(IReadOnlyDictionary<string, IReadOnlyList<string>> changedFilesByDirectory,
+                                                IReadOnlyList<string> deletedFiles,
+                                                IReadOnlyList<string> deletedDirectories) =>
+        new(changedFilesByDirectory, deletedFiles, deletedDirectories);
+
     private DependencyGraphBuilder CreateBuilder(IDependencyParser parser) =>
         new(parser, MakeOptions());
 
@@ -48,9 +53,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         return leaf;
     }
 
-    private static IReadOnlyDictionary<string, IEnumerable<string>> ChangedModules(params (string moduleAbs, IEnumerable<string> contentsAbs)[] entries)
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> ChangedModules(params (string moduleAbs, IReadOnlyList<string> contentsAbs)[] entries)
     {
-        var dict = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (m, c) in entries)
             dict[m] = c;
         return dict;
@@ -80,8 +85,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder(parser);
 
+        var changes = CreateProjectChanges(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), [], []);
+
         var graph = await builder.GetGraphAsync(
-            changedModules: new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase),
+            changes: changes,
             lastSavedDependencyGraph: null);
 
         Assert.Equal("Archlens", graph.Name);
@@ -105,7 +112,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var modelsDir = Path.Combine(domainDir, "Models");
         var recordsDir = Path.Combine(modelsDir, "Records");
 
-        var changedModules = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase)
+        var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
             [_fs.Root] = [domainDir],
             [domainDir] = [factoriesDir, Path.Combine(domainDir, "Interfaces"), modelsDir, Path.Combine(domainDir, "Utils")],
@@ -113,6 +120,8 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             [modelsDir] = [Path.Combine(modelsDir, "Enums"), recordsDir, depGraph],
             [recordsDir] = [options]
         };
+
+        var changes = CreateProjectChanges(changedModules, [], []);
 
         var parseMap = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -125,7 +134,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var parser = new DependencyParserSpy(parseMap);
         var builder = CreateBuilder(parser);
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var graph = await builder.GetGraphAsync(changes, null);
 
         var root = RequireNode(graph, _fs.Root);
         var domain = RequireNode(graph, domainDir);
@@ -168,7 +177,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             (moduleDir, new[] { cs, cs, cs })
         );
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var changes = CreateProjectChanges(changedModules, [], []);
+
+        var graph = await builder.GetGraphAsync(changes, null);
 
         var moduleNode = RequireNode(graph, moduleDir);
 
@@ -194,8 +205,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (moduleDir, new[] { cs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var graph = await builder.GetGraphAsync(changes, null);
 
         Assert.True(graph.ContainsPath(cs));
 
@@ -221,8 +233,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             (_fs.Root, new[] { domainDir }),
             (domainDir, new[] { modelsDir }) // modelsDir only appears as content
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var graph = await builder.GetGraphAsync(changes, null);
 
         Assert.True(graph.ContainsPath(domainDir));
         Assert.True(graph.ContainsPath(modelsDir));
@@ -297,8 +310,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (factoriesDirAbs, new[] { depFactoryAbs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changedModules, lastSavedGraph);
+        var merged = await builder.GetGraphAsync(changes, lastSavedGraph);
 
         // Find by either absolute or normalised path; the graph should resolve it.
         var leaf = RequireLeaf(merged, depFactoryAbs);
@@ -327,8 +341,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (recordsDirAbs, new[] { optionsAbs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changedModules, lastSavedGraph);
+        var merged = await builder.GetGraphAsync(changes, lastSavedGraph);
 
         // Something not in the changed set should still exist.
         Assert.True(merged.ContainsPath("./Domain/Factories/RendererFactory.cs"));
@@ -359,8 +374,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (utilsDirAbs, new[] { newAbs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changedModules, lastSavedGraph);
+        var merged = await builder.GetGraphAsync(changes, lastSavedGraph);
 
         Assert.True(merged.ContainsPath(newAbs));
 
@@ -386,12 +402,13 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (moduleDir, new[] { cs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            builder.GetGraphAsync(changedModules, null, cts.Token));
+            builder.GetGraphAsync(changes, null, cts.Token));
     }
 
     [Fact]
@@ -416,8 +433,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             (domainDir, new[] { modelsDir }),
             (modelsDir, new[] { depGraph })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var graph = await builder.GetGraphAsync(changes, null);
 
         var root = RequireNode(graph, _fs.Root);
         var domain = RequireNode(graph, domainDir);
@@ -440,13 +458,14 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder(parser);
 
-        var changedModules = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase)
+        var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
             [_fs.Root] = [domainAbs],
             [domainAbs] = [domainAbsTrailing, domainRel, domainDotRel]
         };
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var graph = await builder.GetGraphAsync(changes, null);
 
         var n1 = RequireNode(graph, domainAbs);
         var n2 = RequireNode(graph, domainAbsTrailing);
@@ -481,8 +500,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (modelsDir, new[] { depGraphAbs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changedModules, lastSaved);
+        var merged = await builder.GetGraphAsync(changes, lastSaved);
 
         var modelsNode = RequireNode(merged, modelsDir);
 
@@ -515,8 +535,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (modelsDirAbs, new[] { depGraphAbs })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changedModules, lastSaved);
+        var merged = await builder.GetGraphAsync(changes, lastSaved);
 
         var models = merged.FindByPath(modelsDirAbs);
         Assert.NotNull(models);
@@ -532,12 +553,13 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder(parser);
 
-        var changedModules = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase)
+        var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
             [moduleDir] = ["", "   ", "\t", "\n"]
         };
+        var changes = CreateProjectChanges(changedModules, [], []);
 
-        var graph = await builder.GetGraphAsync(changedModules, null);
+        var graph = await builder.GetGraphAsync(changes, null);
 
         Assert.Empty(parser.Calls);
         Assert.NotNull(graph);
@@ -572,6 +594,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var changedModules = ChangedModules(
             (factoriesDir, new[] { f1 })
         );
+        var changes = CreateProjectChanges(changedModules, [], []);
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -580,8 +603,8 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var builder = CreateBuilder(parser);
 
-        var g1 = await builder.GetGraphAsync(changedModules, null);
-        var g2 = await builder.GetGraphAsync(changedModules, null);
+        var g1 = await builder.GetGraphAsync(changes, null);
+        var g2 = await builder.GetGraphAsync(changes, null);
 
         var s1 = SnapshotPathsAndDeps(g1);
         var s2 = SnapshotPathsAndDeps(g2);
