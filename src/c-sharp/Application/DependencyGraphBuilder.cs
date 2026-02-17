@@ -17,22 +17,24 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
     private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
     
     public async Task<DependencyGraph> GetGraphAsync(
-        IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
-        DependencyGraph lastSavedDependencyGraph,
+        ProjectChanges changes,
+        DependencyGraph? lastSavedDependencyGraph,
         CancellationToken ct = default)
     {
-        var changedRoot = await BuildGraphAsync(changedModules, ct).ConfigureAwait(false);
+        var changedRoot = await BuildGraphAsync(changes.ChangedFilesByDirectory, ct);
 
         var merged = lastSavedDependencyGraph is null
             ? changedRoot
             : MergeGraphs(lastSavedDependencyGraph, changedRoot);
+
+        ApplyDeletions(merged, changes, _options.FullRootPath);
 
         DependencyAggregator.RecomputeAggregates(merged);
         return merged;
     }
 
     private async Task<DependencyGraphNode> BuildGraphAsync(
-        IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> changedModules,
         CancellationToken ct)
     {
         var rootFull = _options.FullRootPath;
@@ -119,6 +121,22 @@ public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, 
 
         return rootNode;
     }
+
+    private static void ApplyDeletions(DependencyGraph graph, ProjectChanges changes, string projectRoot)
+    {
+        foreach (var absFile in changes.DeletedFiles)
+        {
+            var rel = PathNormaliser.NormaliseModule(projectRoot, absFile);
+            DependencyGraph.RemovePath(graph, rel);
+        }
+
+        foreach (var absDir in changes.DeletedDirectories)
+        {
+            var rel = PathNormaliser.NormaliseModule(projectRoot, absDir);
+            DependencyGraph.RemoveSubtree(graph, rel);
+        }
+    }
+
 
     private static DependencyGraph MergeGraphs(DependencyGraph lastSaved, DependencyGraphNode changedRoot)
     {
