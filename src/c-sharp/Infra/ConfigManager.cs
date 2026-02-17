@@ -1,4 +1,3 @@
-using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using System;
@@ -6,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -22,13 +22,22 @@ public class ConfigManager(string _path)
         public string Name { get; set; }
         public string SnapshotManager { get; set; }
         public string Format { get; set; }
-        public string GitUrl { get; set; }
+        [JsonPropertyName("github")]
+        public GithubDto GitInfo { get; set; }
         public string SnapshotDir { get; set; }
         public string SnapshotFile { get; set; }
         public string[] Exclusions { get; set; }
         public string[] FileExtensions { get; set; }
         public Dictionary<string, ViewDto> Views { get; set; }
         public string SaveLocation { get; set; }
+#pragma warning restore CS8632
+    }
+
+    private sealed class GithubDto
+    {
+#pragma warning disable CS8632
+        public string Url { get; set; }
+        public string Branch { get; set; }
 #pragma warning restore CS8632
     }
 
@@ -101,7 +110,7 @@ public class ConfigManager(string _path)
         var fileExts = (dto.FileExtensions ?? [".cs"]).Select(NormalizeExtension).ToArray();
         if (fileExts.Length == 0)
             throw new InvalidOperationException("fileExtensions resolved to an empty list.");
-
+        
         var languages = MapLanguage(fileExts);
 
         return new ParserOptions(
@@ -132,7 +141,7 @@ public class ConfigManager(string _path)
         return new SnapshotOptions(
             BaseOptions: options,
             SnapshotManager: snapshotManager,
-            GitUrl: dto.GitUrl,
+            GitInfo: MapGitInfo(dto.GitInfo),
             SnapshotDir: dto.SnapshotDir ?? ".archlens",
             SnapshotFile: dto.SnapshotFile ?? "snapshot"
         );
@@ -189,7 +198,7 @@ public class ConfigManager(string _path)
                 ".go" => Language.Go,
                 ".kt" => Language.Kotlin,
                 _ => throw new NotSupportedException($"Unsupported language: '{ext}'.")
-        };
+            };
 
             languages.Add(language);
         }
@@ -197,7 +206,15 @@ public class ConfigManager(string _path)
         return languages;
     }
 
+    private static GitInfo MapGitInfo(GithubDto dto)
+    {
+        return new GitInfo
+        (
+            Url: dto.Url ?? "",
+            Branch: dto.Branch ?? ""
+        );
     }
+
 
     private static SnapshotManager MapSnapshotManager(string raw)
     {
