@@ -2,7 +2,6 @@
     "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
     "name": "Archlens",
     "rootFolder": "src/c-sharp/",
-    "language": "C#",
     "github": {
         "url": "https://github.com/BabLoRP/ArchLens/tree/master/src/c-sharp",
         "branch": "main"
