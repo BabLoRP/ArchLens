@@ -40,7 +40,7 @@ app = typer.Typer(add_completion=True)
 def render(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
     
-    if ("language" in config and config["language"] != "python"):
+    if ("fileExtensions" in config and not (len(config["fileExtensions"]) > 1) and (".py" not in config["fileExtensions"])):
         Program.Main([config_path])
 
         if (config["format"] == "puml" or config["format"] == "PlantUML"):
