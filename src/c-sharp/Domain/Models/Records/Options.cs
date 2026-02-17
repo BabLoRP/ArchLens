@@ -26,7 +26,7 @@ public sealed record RenderOptions(
 public sealed record SnapshotOptions(
     BaseOptions BaseOptions,
     SnapshotManager SnapshotManager,
-    string GitUrl,
+    GitInfo GitInfo,
     string SnapshotDir = ".archlens",
     string SnapshotFile = "snaphot"
 );
