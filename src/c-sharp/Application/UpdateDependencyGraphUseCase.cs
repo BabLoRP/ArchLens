@@ -1,6 +1,7 @@
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,7 +12,7 @@ public sealed class UpdateDependencyGraphUseCase(
     ParserOptions parserOptions,
     RenderOptions renderOptions,
     SnapshotOptions snapshotOptions,
-    IDependencyParser parser,
+    IReadOnlyList<IDependencyParser> parsers,
     IRenderer renderer,
     ISnapshotManager snapshotManager
     )
