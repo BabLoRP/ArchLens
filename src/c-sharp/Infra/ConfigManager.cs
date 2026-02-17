@@ -20,7 +20,6 @@ public class ConfigManager(string _path)
         public string RootFolder { get; set; }
         public string ProjectName { get; set; }
         public string Name { get; set; }
-        public string Language { get; set; }
         public string SnapshotManager { get; set; }
         public string Format { get; set; }
         public string GitUrl { get; set; }
@@ -95,19 +94,19 @@ public class ConfigManager(string _path)
 
     private static ParserOptions MapParserOptions(ConfigDto dto, BaseOptions options)
     {
-        var language = MapLanguage(dto.Language ?? "c#");
-
         var exclusions = (dto.Exclusions ?? []).Select(s => s.Trim())
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .ToArray();
 
-        var fileExts = (dto.FileExtensions ?? DefaultExtensions(language)).Select(NormalizeExtension).ToArray();
+        var fileExts = (dto.FileExtensions ?? [".cs"]).Select(NormalizeExtension).ToArray();
         if (fileExts.Length == 0)
             throw new InvalidOperationException("fileExtensions resolved to an empty list.");
 
+        var languages = MapLanguage(fileExts);
+
         return new ParserOptions(
             BaseOptions: options,
-            Language: language,
+            Languages: languages,
             Exclusions: fileExts.Length == 0 ? [] : exclusions,
             FileExtensions: fileExts
         );
@@ -160,12 +159,6 @@ public class ConfigManager(string _path)
         return ext.StartsWith('.') ? ext : "." + ext;
     }
 
-    private static IReadOnlyList<string> DefaultExtensions(Language lang) => lang switch
-    {
-        Language.CSharp => [".cs"],
-        _ => []
-    };
-
     private static string MapProjectRoot(ConfigDto dto)
     {
         if (!string.IsNullOrEmpty(dto.ProjectRoot))
@@ -184,16 +177,26 @@ public class ConfigManager(string _path)
         return string.Empty;
     }
 
-    private static Language MapLanguage(string raw)
+    private static IReadOnlyList<Language> MapLanguage(string[] fileExtensions)
     {
-        var s = raw.Trim().ToLowerInvariant();
-        return s switch
+        List<Language> languages = [];
+
+        foreach (var ext in fileExtensions)
         {
-            "c#" or "csharp" or "cs" or "c-sharp" or "c sharp" => Language.CSharp,
-            "go" or "golang" => Language.Go,
-            "kotlin" or "kt" => Language.Kotlin,
-            _ => throw new NotSupportedException($"Unsupported language: '{raw}'.")
+            var language = ext switch
+            {
+                ".cs" => Language.CSharp,
+                ".go" => Language.Go,
+                ".kt" => Language.Kotlin,
+                _ => throw new NotSupportedException($"Unsupported language: '{ext}'.")
         };
+
+            languages.Add(language);
+        }
+
+        return languages;
+    }
+
     }
 
     private static SnapshotManager MapSnapshotManager(string raw)
