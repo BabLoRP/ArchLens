@@ -151,7 +151,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         return lastSavedRoot;
     }
 
-    private static void UpsertChild(DependencyGraphNode parent, DependencyGraph newChild)
+    private static void UpsertChild(DependencyGraphNode parent, ProjectDependencyGraph newChild)
     {
         var existing = parent.GetChildren()
             .FirstOrDefault(c => string.Equals(c.Path, newChild.Path, StringComparison.OrdinalIgnoreCase));

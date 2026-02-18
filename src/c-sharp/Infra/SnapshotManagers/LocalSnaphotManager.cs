@@ -10,7 +10,7 @@ namespace Archlens.Infra.SnapshotManagers;
 
 public sealed class LocalSnaphotManager(string _localDirName, string _localFileName) : ISnapshotManager
 {
-    public async Task SaveGraphAsync(DependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
+    public async Task SaveGraphAsync(ProjectDependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
     {
         var root = string.IsNullOrEmpty(options.BaseOptions.FullRootPath)
             ? Path.GetFullPath(options.BaseOptions.ProjectRoot)
@@ -24,7 +24,7 @@ public sealed class LocalSnaphotManager(string _localDirName, string _localFileN
         await File.WriteAllTextAsync(path, json, ct);
     }
 
-    public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default)
+    public async Task<ProjectDependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default)
     {
         var root = string.IsNullOrEmpty(options.BaseOptions.FullRootPath)
             ? Path.GetFullPath(options.BaseOptions.ProjectRoot)

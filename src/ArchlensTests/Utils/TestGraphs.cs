@@ -19,5 +19,5 @@ public static class TestGraphs
         return leaf;
     }
 
-    public static IDictionary<string, int> Deps(this DependencyGraph g) => g.GetDependencies();
+    public static IDictionary<string, int> Deps(this ProjectDependencyGraph g) => g.GetDependencies();
 }

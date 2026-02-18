@@ -9,12 +9,12 @@ public static class DependencyAggregator
 {
     private static readonly StringComparer Cmp = StringComparer.OrdinalIgnoreCase;
 
-    public static void RecomputeAggregates(DependencyGraph root)
+    public static void RecomputeAggregates(ProjectDependencyGraph root)
     {
         _ = Fold(root);
     }
 
-    private static Dictionary<string, int> Fold(DependencyGraph node)
+    private static Dictionary<string, int> Fold(ProjectDependencyGraph node)
     {
         if (node is DependencyGraphLeaf)
         {
@@ -40,7 +40,7 @@ public static class DependencyAggregator
         return agg;
     }
 
-    private static bool IsInternal(DependencyGraph node, string dep)
+    private static bool IsInternal(ProjectDependencyGraph node, string dep)
     {
         var ns = node.Path.Replace("./", String.Empty).Replace('/', '.');
         if (dep.Equals(ns) || String.IsNullOrEmpty(ns)) return true;

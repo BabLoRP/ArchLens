@@ -37,7 +37,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     private DependencyGraphBuilder CreateBuilder(IReadOnlyList<IDependencyParser> parser) =>
         new(parser, MakeOptions());
 
-    private static DependencyGraphNode RequireNode(DependencyGraph g, string anyPath)
+    private static DependencyGraphNode RequireNode(ProjectDependencyGraph g, string anyPath)
     {
         var found = g.FindByPath(anyPath);
         Assert.NotNull(found);
@@ -45,7 +45,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         return node;
     }
 
-    private static DependencyGraphLeaf RequireLeaf(DependencyGraph g, string anyPath)
+    private static DependencyGraphLeaf RequireLeaf(ProjectDependencyGraph g, string anyPath)
     {
         var found = g.FindByPath(anyPath);
         Assert.NotNull(found);
@@ -565,10 +565,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Assert.NotNull(graph);
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyCollection<string>> SnapshotPathsAndDeps(DependencyGraph root)
+    private static IReadOnlyDictionary<string, IReadOnlyCollection<string>> SnapshotPathsAndDeps(ProjectDependencyGraph root)
     {
         var result = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
-        var stack = new Stack<DependencyGraph>();
+        var stack = new Stack<ProjectDependencyGraph>();
         stack.Push(root);
 
         while (stack.Count > 0)
