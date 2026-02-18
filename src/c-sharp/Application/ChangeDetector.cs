@@ -12,11 +12,11 @@ namespace Archlens.Application;
 
 public sealed class ChangeDetector
 {
-    private readonly record struct ParentMeta(string ParentDirRel, DateTime LastWriteUtc);
+    private readonly record struct ProjectItemMeta(string ParentDirRel, DateTime LastWriteUtc);
 
     private sealed record ProjectFileStructure(
-        Dictionary<string, ParentMeta> Files,    // relFile -> (parentDirRel, lastWriteUtc)
-        HashSet<string> DirRels                // relDir set
+        Dictionary<string, ProjectItemMeta> Files,    // fileRel -> (parentDirRel, lastWriteUtc)
+        HashSet<string> DirRels                // dirRel set
     );
 
     private sealed record ExclusionRule(
@@ -38,9 +38,9 @@ public sealed class ChangeDetector
 
         var current = ScanCurrentProjectFileStructure(projectRoot, parserOptions.FileExtensions, rules, ct);
 
-        var changedByDir = ComputeUpsertedFilesByDirectory(current.Files, lastSavedGraph, ct);
+        var changedByDir = FindUpsertedFilesByDirectory(current.Files, lastSavedGraph, ct);
 
-        var (deletedFiles, deletedDirs) = ComputeDeletedPaths(lastSavedGraph, current.Files, current.DirRels, ct);
+        var (deletedFiles, deletedDirs) = DiscoverDeletedPaths(lastSavedGraph, current.Files, current.DirRels, ct);
 
         var collapsedDeletedDirs = CollapseDeletedDirectories(deletedDirs);
         var collapsedSet = new HashSet<string>(collapsedDeletedDirs, StringComparer.OrdinalIgnoreCase);
@@ -112,9 +112,9 @@ public sealed class ChangeDetector
         ExclusionRule rules,
         CancellationToken ct)
     {
-        var extSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
+        var extensionsSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
 
-        var files = new Dictionary<string, ParentMeta>(StringComparer.OrdinalIgnoreCase);
+        var files = new Dictionary<string, ProjectItemMeta>(StringComparer.OrdinalIgnoreCase);
         var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var stack = new Stack<string>();
@@ -138,7 +138,7 @@ public sealed class ChangeDetector
                 stack.Push(subAbs);
             }
 
-            IEnumerable<string> fileAbsList = Array.Empty<string>();
+            IEnumerable<string> fileAbsList = [];
             try { fileAbsList = Directory.EnumerateFiles(dirAbs); } catch { /* ignore */ }
 
             foreach (var fileAbs in fileAbsList)
@@ -148,25 +148,25 @@ public sealed class ChangeDetector
                 if (IsExcluded(projectRoot, fileAbs, rules)) continue;
 
                 var ext = Path.GetExtension(fileAbs);
-                if (!extSet.Contains(ext)) continue;
+                if (!extensionsSet.Contains(ext)) continue;
 
                 var fileRel = PathNormaliser.NormaliseFile(projectRoot, fileAbs);
                 var writeUtc = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(fileAbs));
 
                 // If duplicates -> last one wins
-                files[fileRel] = new ParentMeta(dirRel, writeUtc);
+                files[fileRel] = new ProjectItemMeta(dirRel, writeUtc);
             }
         }
 
         return new ProjectFileStructure(files, dirs);
     }
 
-    private static Dictionary<string, List<string>> ComputeUpsertedFilesByDirectory(
-        IReadOnlyDictionary<string, ParentMeta> files,
+    private static Dictionary<string, List<string>> FindUpsertedFilesByDirectory(
+        IReadOnlyDictionary<string, ProjectItemMeta> files,
         DependencyGraph? lastSavedGraph,
         CancellationToken ct)
     {
-        var changed = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, List<string>> changed = [];
 
         foreach (var (fileRel, meta) in files)
         {
@@ -186,7 +186,10 @@ public sealed class ChangeDetector
                 continue;
 
             if (!changed.TryGetValue(meta.ParentDirRel, out var list))
-                changed[meta.ParentDirRel] = list = [];
+            {
+                list = [];
+                changed[meta.ParentDirRel] = list;
+            }
 
             list.Add(fileRel);
         }
@@ -194,9 +197,9 @@ public sealed class ChangeDetector
         return changed;
     }
 
-    private static (List<string> deletedFilesRel, List<string> deletedDirsRel) ComputeDeletedPaths(
+    private static (List<string> deletedFilesRel, List<string> deletedDirsRel) DiscoverDeletedPaths(
         DependencyGraph? lastSavedGraph,
-        IReadOnlyDictionary<string, ParentMeta> currentFiles,
+        IReadOnlyDictionary<string, ProjectItemMeta> currentFiles,
         IReadOnlySet<string> currentDirs,
         CancellationToken ct)
     {
@@ -243,11 +246,12 @@ public sealed class ChangeDetector
         { 
             var dPrefix = d.EndsWith('/') ? d : d + "/"; 
             
-            if (kept.Any(k => 
-            { 
-                var kPrefix = k.EndsWith('/') ? k : k + "/"; 
-                return dPrefix.StartsWith(kPrefix, StringComparison.OrdinalIgnoreCase); 
-            }))
+            if ( kept.Any( k => 
+                 { 
+                    var kPrefix = k.EndsWith('/') ? k : k + "/"; 
+                    return dPrefix.StartsWith(kPrefix, StringComparison.OrdinalIgnoreCase); 
+                 })
+               )
             { 
                 continue; 
             } 
