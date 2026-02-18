@@ -274,7 +274,7 @@ public sealed class JsonRenderer : Renderer
         return relations;
     }
 
-    private static bool IsIgnored(IEnumerable<string> ignorePackages, DependencyGraph graph)
+    private static bool IsIgnored(IEnumerable<string> ignorePackages, ProjectDependencyGraph graph)
     {
         return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
     }

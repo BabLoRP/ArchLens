@@ -30,18 +30,18 @@ public sealed class GitSnaphotManager : ISnapshotManager
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("Archlens-GitSnapshot/1.0");
     }
 
-    public async Task SaveGraphAsync(DependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
+    public async Task SaveGraphAsync(ProjectDependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
         => await _localManager.SaveGraphAsync(graph, options, ct);
-
-    public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
+    
+    public async Task<ProjectDependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.GitInfo.Url))
             throw new ArgumentException("GitUrl must be provided for GitSnaphotManager. Options has registered GitUrl as Null or Whitespace - has it been correctly configured in .archlens json?");
 
         if (!TryParseGitHubRepo(options.GitInfo.Url, out var owner, out var repo))
-            throw new ArgumentException("Could not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
-
-        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, options.BaseOptions.ProjectRoot, _gitDirName, _gitFileName);
+            throw new ArgumentException("Colud not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
+        
+        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, _gitDirName, _gitFileName);
 
         try
         {

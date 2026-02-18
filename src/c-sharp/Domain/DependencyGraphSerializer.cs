@@ -9,7 +9,7 @@ namespace Archlens.Domain;
 
 public static class DependencyGraphSerializer
 {
-    public static string Serialize(DependencyGraph graph)
+    public static string Serialize(ProjectDependencyGraph graph)
     {
         return graph switch
         {
@@ -19,7 +19,7 @@ public static class DependencyGraphSerializer
         };
     }
 
-    public static DependencyGraph Deserialize(string json, string rootPath)
+    public static ProjectDependencyGraph Deserialize(string json, string rootPath)
     {
         using var doc = JsonDocument.Parse(json);
         var rootEl = doc.RootElement;
@@ -71,7 +71,7 @@ public static class DependencyGraphSerializer
                 """;
     }
 
-    private static DependencyGraph ParseNode(JsonElement jsonNode, string rootPath)
+    private static ProjectDependencyGraph ParseNode(JsonElement jsonNode, string rootPath)
     {
         var name = jsonNode.TryGetProperty("name", out var nEl) ? nEl.GetString() : String.Empty;
         var path = jsonNode.TryGetProperty("path", out var pEl) ? pEl.GetString() : String.Empty;
@@ -102,7 +102,7 @@ public static class DependencyGraphSerializer
             }
         }
 
-        var children = new List<DependencyGraph>();
+        var children = new List<ProjectDependencyGraph>();
         if (jsonNode.TryGetProperty("children", out var jsonChildren) && jsonChildren.ValueKind == JsonValueKind.Array)
         {
             foreach (var child in jsonChildren.EnumerateArray())

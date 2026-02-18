@@ -134,7 +134,7 @@ public sealed class PlantUMLRenderer : Renderer
         packagesPuml += GetChildrenPackages(graph, view, package.Depth);
     }
 
-    private string GetChildrenPackages(DependencyGraph graph, View view, int depth)
+    private string GetChildrenPackages(ProjectDependencyGraph graph, View view, int depth)
     {
         if (!view.IgnorePackages.Contains(graph.Name) && !view.IgnorePackages.Contains(graph.Path))
         {
@@ -157,12 +157,12 @@ public sealed class PlantUMLRenderer : Renderer
         else return "";
     }
 
-    private void UpdateDependencies(DependencyGraph graph, View view, Package package)
+    private void UpdateDependencies(ProjectDependencyGraph graph, View view, Package package)
     {
         UpdateDependenciesForChildren(graph, view, package.Depth);
     }
 
-    private void UpdateDependenciesForChildren(DependencyGraph graph, View view, int depth)
+    private void UpdateDependenciesForChildren(ProjectDependencyGraph graph, View view, int depth)
     {
         if (!view.IgnorePackages.Contains(graph.Name) && !view.IgnorePackages.Contains(graph.Path))
         {

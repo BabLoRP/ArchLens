@@ -33,9 +33,9 @@ public sealed class ChangeDetectorTests : IDisposable
         };
     }
 
-    private sealed class SnapshotGraph(string projectRoot) : DependencyGraph(projectRoot)
+    private sealed class SnapshotGraph(string projectRoot) : ProjectDependencyGraph(projectRoot)
     {
-        private readonly Dictionary<string, DependencyGraph> _children = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ProjectDependencyGraph> _children = new(StringComparer.OrdinalIgnoreCase);
 
         public void AddFile(string relPath, DateTime lastWriteUtc)
         {
@@ -45,9 +45,9 @@ public sealed class ChangeDetectorTests : IDisposable
             _children[dir] = new DependencyGraphNode(projectRoot) { Name = dir, Path = dir, LastWriteTime = lastWriteUtc };
         }
 
-        public override IReadOnlyList<DependencyGraph> GetChildren() => [.. _children.Values];
+        public override IReadOnlyList<ProjectDependencyGraph> GetChildren() => [.. _children.Values];
 
-        public override DependencyGraph GetChild(string path)
+        public override ProjectDependencyGraph GetChild(string path)
         {
             var key = path.Replace('\\', '/');
             if (_children.TryGetValue(key, out var n)) return n;
