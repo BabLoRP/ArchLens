@@ -184,13 +184,13 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions(extensions: [".cs", ".go"], languages: [Language.CSharp, Language.Go]);
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        var changed = await ChangeDetector.GetChangedProjectPathsAsync(opts, snap);
+        var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        var srcKey = Path.Combine(_fs.Root, "src");
-        Assert.Contains(srcKey, changed.Keys);
-        Assert.Contains(Path.Combine(_fs.Root, "src", "A.cs"), changed[srcKey]);
-        Assert.Contains(Path.Combine(_fs.Root, "src", "A.go"), changed[srcKey]);
-        Assert.DoesNotContain(Path.Combine(_fs.Root, "src", "A.kt"), changed[srcKey]);
+        var srcKey = "./src/";
+        Assert.Contains(srcKey, changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory[srcKey]);
+        Assert.Contains("./src/A.go", changed.ChangedFilesByDirectory[srcKey]);
+        Assert.DoesNotContain("./src/A.kt", changed.ChangedFilesByDirectory[srcKey]);
     }
 
     [Fact]
