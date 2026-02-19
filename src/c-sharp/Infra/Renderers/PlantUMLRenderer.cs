@@ -1,18 +1,17 @@
-using Archlens.Domain.Interfaces;
+using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Domain.Utils;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Archlens.Infra.Renderers;
 
-public sealed class PlantUMLRenderer : IRenderer
+public sealed class PlantUMLRenderer : Renderer
 {
+    public override string FileExtension => "puml";
     private const string DELETED = "#Red";
     private const string CREATED = "#Green";
 
@@ -20,33 +19,7 @@ public sealed class PlantUMLRenderer : IRenderer
     private List<string> packageNames = [];
     private string dependenciesPuml = "";
 
-    public async Task RenderViewsAndSaveToFiles(DependencyGraph graph, RenderOptions options)
-    {
-        foreach (var view in options.Views)
-        {
-            string content = RenderView(graph, view, options);
-            await SaveViewToFileAsync(content, view, options);
-        }
-    }
-
-    public async Task RenderDiffViewsAndSaveToFiles(DependencyGraph localGraph, DependencyGraph remoteGraph, RenderOptions options)
-    {
-        foreach (var view in options.Views)
-        {
-            string content = RenderDiffView(localGraph, remoteGraph, view, options);
-            await SaveViewToFileAsync(content, view, options);
-        }
-    }
-
-    public string RenderDiffView(DependencyGraph localGraph, DependencyGraph remoteGraph, View view, RenderOptions options)
-    {
-        string localContent = RenderView(localGraph, view, options);
-        string remoteContent = RenderView(remoteGraph, view, options);
-        string content = Merge(localContent, remoteContent);
-        return content;
-    }
-
-    public string RenderView(DependencyGraph rootGraph, View view, RenderOptions options)
+    public override string RenderView(DependencyGraph rootGraph, View view, RenderOptions options)
     {
         packagesPuml = "";
         packageNames = [];
@@ -98,6 +71,62 @@ public sealed class PlantUMLRenderer : IRenderer
         """;
 
         return uml_str;
+    }
+
+    public override string Merge(string localContent, string remoteContent)
+    {
+        var merged = localContent;
+
+        var regex = $@"(.+)-->(.+) .* ?: (\d+)(\s*\([+-]?\d+\))?";
+
+        var localMatches = Regex.Matches(localContent, regex);
+        var remoteMatches = Regex.Matches(remoteContent, regex);
+
+        foreach (Match match in localMatches)
+        {
+            var from = match.Groups[1].Value;
+            var to = match.Groups[2].Value;
+            var count = int.Parse(match.Groups[3].Value);
+
+            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
+            if (Regex.IsMatch(remoteContent, dependencyRegex))
+            {
+                //Update count, add (+x) or (-x)
+                var remoteMatch = Regex.Match(remoteContent, dependencyRegex);
+                var remoteCount = int.Parse(remoteMatch.Groups[1].Value);
+                var diff = count - remoteCount;
+                if (diff != 0)
+                {
+                    var sign = diff > 0 ? "+" : "";
+                    var color = diff > 0 ? CREATED : DELETED;
+                    merged = merged.Replace(match.Value, $"{from}-->{to} {color} : {count} ({sign}{diff})");
+                }
+            }
+            else
+            {
+                //Fresh edge
+                merged = merged.Replace(match.Value, $"{from}-->{to} {CREATED} : {count} (+{count})");
+            }
+
+        }
+
+        foreach (Match match in remoteMatches)
+        {
+            var from = match.Groups[1].Value;
+            var to = match.Groups[2].Value;
+            var count = int.Parse(match.Groups[3].Value);
+
+            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
+
+            if (!Regex.IsMatch(localContent, dependencyRegex))
+            {
+                //Deleted edge
+                merged = merged.Replace("@enduml", "");
+                merged += $"{from}-->{to} {DELETED} : 0 (-{count})";
+            }
+        }
+
+        return merged + "\n@enduml";
     }
 
     private void UpdatePackages(DependencyGraph graph, View view, Package package)
@@ -202,71 +231,5 @@ public sealed class PlantUMLRenderer : IRenderer
         {
             dependenciesPuml += $"{fromName}-->{toName} : {count}\n";
         }
-    }
-
-    private static string Merge(string localContent, string remoteContent)
-    {
-        var merged = localContent;
-
-        var regex = $@"(.+)-->(.+) .* ?: (\d+)(\s*\([+-]?\d+\))?";
-
-        var localMatches = Regex.Matches(localContent, regex);
-        var remoteMatches = Regex.Matches(remoteContent, regex);
-
-        foreach (Match match in localMatches)
-        {
-            var from = match.Groups[1].Value;
-            var to = match.Groups[2].Value;
-            var count = int.Parse(match.Groups[3].Value);
-
-            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
-            if (Regex.IsMatch(remoteContent, dependencyRegex))
-            {
-                //Update count, add (+x) or (-x)
-                var remoteMatch = Regex.Match(remoteContent, dependencyRegex);
-                var remoteCount = int.Parse(remoteMatch.Groups[1].Value);
-                var diff = count - remoteCount;
-                if (diff != 0)
-                {
-                    var sign = diff > 0 ? "+" : "";
-                    var color = diff > 0 ? CREATED : DELETED;
-                    merged = merged.Replace(match.Value, $"{from}-->{to} {color} : {count} ({sign}{diff})");
-                }
-            }
-            else
-            {
-                //Fresh edge
-                merged = merged.Replace(match.Value, $"{from}-->{to} {CREATED} : {count} (+{count})");
-            }
-
-        }
-
-        foreach (Match match in remoteMatches)
-        {
-            var from = match.Groups[1].Value;
-            var to = match.Groups[2].Value;
-            var count = int.Parse(match.Groups[3].Value);
-
-            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
-
-            if (!Regex.IsMatch(localContent, dependencyRegex))
-            {
-                //Deleted edge
-                merged = merged.Replace("@enduml", "");
-                merged += $"{from}-->{to} {DELETED} : 0 (-{count})";
-            }
-        }
-
-        return merged + "\n@enduml";
-    }
-
-    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options)
-    {
-        var dir = options.SaveLocation;
-        Directory.CreateDirectory(dir);
-        var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.puml";
-        var path = Path.Combine(dir, filename);
-
-        await File.WriteAllTextAsync(path, content);
     }
 }

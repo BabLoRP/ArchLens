@@ -1,4 +1,4 @@
-using Archlens.Domain.Interfaces;
+using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Domain.Utils;
@@ -6,43 +6,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Archlens.Infra.Renderers;
 
-public sealed class JsonRenderer : IRenderer
+public sealed class JsonRenderer : Renderer
 {
+    public override string FileExtension => "json";
     private string packagesJson = "";
     private List<string> packageNames = [];
     private string edgesJson = "";
 
-    public async Task RenderViewsAndSaveToFiles(DependencyGraph graph, RenderOptions options)
-    {
-        foreach (var view in options.Views)
-        {
-            string content = RenderView(graph, view, options);
-            await SaveViewToFileAsync(content, view, options);
-        }
-    }
-
-    public async Task RenderDiffViewsAndSaveToFiles(DependencyGraph localGraph, DependencyGraph remoteGraph, RenderOptions options)
-    {
-        foreach (var view in options.Views)
-        {
-            string content = RenderDiffView(localGraph, remoteGraph, view, options);
-            await SaveViewToFileAsync(content, view, options);
-        }
-    }
-
-    public string RenderDiffView(DependencyGraph localGraph, DependencyGraph remoteGraph, View view, RenderOptions options)
-    {
-        string localContent = RenderView(localGraph, view, options);
-        string remoteContent = RenderView(remoteGraph, view, options);
-        string content = Merge(localContent, remoteContent);
-        return content;
-    }
-
-    public string RenderView(DependencyGraph graph, View view, RenderOptions options)
+    public override string RenderView(DependencyGraph graph, View view, RenderOptions options)
     {
         packagesJson = "";
         packageNames = [];
@@ -125,96 +99,7 @@ public sealed class JsonRenderer : IRenderer
         return str;
     }
 
-    private string GetEdge(DependencyGraphNode node)
-    {
-        var str = "";
-
-        foreach (var (dep, count) in node.GetDependencies())
-        {
-            if (packageNames.Contains(dep))
-            {
-                var relations = GetChildrenDependencyRelations(node, dep);
-
-                str +=
-                    $$"""
-                        {
-                            "state": "NEUTRAL",
-                            "fromPackage": "{{node.Name}}",
-                            "toPackage": "{{dep}}",
-                            "label": "{{relations.Split("from_file").Length - 1}}",
-                            "relations": [
-                                {{relations.TrimEnd(',')}}
-                            ]
-                        },
-                    """;
-            }
-            else if (packageNames.Any(p => dep.StartsWith(p)))
-            {
-                var trimmedDep = packageNames.Find(p => dep.StartsWith(p));
-                var relations = GetChildrenDependencyRelations(node, trimmedDep);
-
-                str +=
-                    $$"""
-                        {
-                            "state": "NEUTRAL",
-                            "fromPackage": "{{node.Name}}",
-                            "toPackage": "{{trimmedDep}}",
-                            "label": "{{relations.Split("from_file").Length - 1}}",
-                            "relations": [
-                                {{relations.TrimEnd(',')}}
-                            ]
-                        },
-                    """;
-            }
-
-        }
-
-        return str;
-    }
-
-    private string GetChildrenDependencyRelations(DependencyGraphNode node, string dep)
-    {
-        string relations = "";
-
-        foreach (var child in node.GetChildren())
-        {
-            if (child is DependencyGraphLeaf)
-            {
-                var subDependencies = child.GetDependencies().Where((d) => d.Key.StartsWith(dep));
-
-                foreach (var subDependency in subDependencies)
-                {
-                    relations +=
-                    $$"""
-                        {
-                            "from_file": {
-                                "name": "{{child.Name}}",
-                                "path": "{{child.Path}}"
-                            },
-                            "to_file": {
-                                "name": "{{subDependency.Key.Split('.').Last()}}",
-                                "path": "{{subDependency.Key}}"
-                            }
-                        },
-                    """;
-                }
-
-            }
-            else if (child is DependencyGraphNode childNode)
-            {
-                relations += GetChildrenDependencyRelations(childNode, dep);
-            }
-        }
-
-        return relations;
-    }
-
-    private static bool IsIgnored(IEnumerable<string> ignorePackages, DependencyGraph graph)
-    {
-        return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
-    }
-
-    private static string Merge(string localContent, string remoteContent)
+    public override string Merge(string localContent, string remoteContent)
     {
         var merged = localContent;
 
@@ -305,14 +190,92 @@ public sealed class JsonRenderer : IRenderer
         return merged;
     }
 
-
-    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options)
+    private string GetEdge(DependencyGraphNode node)
     {
-        var dir = options.SaveLocation;
-        Directory.CreateDirectory(dir);
-        var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.json";
-        var path = Path.Combine(dir, filename);
+        var str = "";
 
-        await File.WriteAllTextAsync(path, content);
+        foreach (var (dep, count) in node.GetDependencies())
+        {
+            if (packageNames.Contains(dep))
+            {
+                var relations = GetChildrenDependencyRelations(node, dep);
+
+                str +=
+                    $$"""
+                        {
+                            "state": "NEUTRAL",
+                            "fromPackage": "{{node.Name}}",
+                            "toPackage": "{{dep}}",
+                            "label": "{{relations.Split("from_file").Length - 1}}",
+                            "relations": [
+                                {{relations.TrimEnd(',')}}
+                            ]
+                        },
+                    """;
+            }
+            else if (packageNames.Any(p => dep.StartsWith(p)))
+            {
+                var trimmedDep = packageNames.Find(p => dep.StartsWith(p));
+                var relations = GetChildrenDependencyRelations(node, trimmedDep);
+
+                str +=
+                    $$"""
+                        {
+                            "state": "NEUTRAL",
+                            "fromPackage": "{{node.Name}}",
+                            "toPackage": "{{trimmedDep}}",
+                            "label": "{{relations.Split("from_file").Length - 1}}",
+                            "relations": [
+                                {{relations.TrimEnd(',')}}
+                            ]
+                        },
+                    """;
+            }
+
+        }
+
+        return str;
+    }
+
+    private string GetChildrenDependencyRelations(DependencyGraphNode node, string dep)
+    {
+        string relations = "";
+
+        foreach (var child in node.GetChildren())
+        {
+            if (child is DependencyGraphLeaf)
+            {
+                var subDependencies = child.GetDependencies().Where((d) => d.Key.StartsWith(dep));
+
+                foreach (var subDependency in subDependencies)
+                {
+                    relations +=
+                    $$"""
+                        {
+                            "from_file": {
+                                "name": "{{child.Name}}",
+                                "path": "{{child.Path}}"
+                            },
+                            "to_file": {
+                                "name": "{{subDependency.Key.Split('.').Last()}}",
+                                "path": "{{subDependency.Key}}"
+                            }
+                        },
+                    """;
+                }
+
+            }
+            else if (child is DependencyGraphNode childNode)
+            {
+                relations += GetChildrenDependencyRelations(childNode, dep);
+            }
+        }
+
+        return relations;
+    }
+
+    private static bool IsIgnored(IEnumerable<string> ignorePackages, DependencyGraph graph)
+    {
+        return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
     }
 }
