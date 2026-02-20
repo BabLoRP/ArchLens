@@ -15,13 +15,17 @@ public class Program
         try
         {
             var path = args.Length == 0 ? string.Empty : args[0].Trim();
-            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path);
+            var diff = args.Length < 2 ? false : args[1] == "diff";
+
+            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path, diff);
 
             var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
             var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
             var renderer = RendererFactory.SelectRenderer(renderOptions);
 
-            var updateDepGraphUseCase = new UpdateDependencyGraphUseCase(
+            if (diff)
+            {
+                var updateDiffGraphUseCase = new UpdateDiffGraphUseCase(
                                                         baseOptions,
                                                         parserOptions,
                                                         renderOptions,
@@ -30,7 +34,21 @@ public class Program
                                                         renderer,
                                                         snapshotManager);
 
-            await updateDepGraphUseCase.RunAsync();
+                await updateDiffGraphUseCase.RunAsync();
+            }
+            else
+            {
+                var updateGraphUseCase = new UpdateGraphUseCase(
+                                                        baseOptions,
+                                                        parserOptions,
+                                                        renderOptions,
+                                                        snapshotOptions,
+                                                        parsers,
+                                                        renderer,
+                                                        snapshotManager);
+
+                await updateGraphUseCase.RunAsync();
+            }
         }
         catch (Exception e)
         {
@@ -39,11 +57,11 @@ public class Program
 
     }
 
-    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args)
+    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff)
     {
         var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
 
-        var configManager = new ConfigManager(configPath);
+        var configManager = new ConfigManager(configPath, diff);
 
         return await configManager.LoadAsync();
     }
