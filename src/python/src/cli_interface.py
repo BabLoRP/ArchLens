@@ -40,7 +40,7 @@ app = typer.Typer(add_completion=True)
 def render(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
     
-    if ("fileExtensions" in config and not (len(config["fileExtensions"]) > 1) and (".py" not in config["fileExtensions"])):
+    if (should_run_dotnet(config)):
         Program.Main([config_path])
 
         if (config["format"] == "puml" or config["format"] == "PlantUML"):
@@ -64,7 +64,7 @@ def render(config_path: str = "./archlens.json"):
 def render_json(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
 
-    if ("language" in config and config["language"] != "python"):
+    if (should_run_dotnet(config)):
         Program.Main([config_path])
     else:
         mt_path_manager = PathManagerSingleton()
@@ -85,58 +85,73 @@ def _create_astroid():
 
 @app.command()
 def render_diff(config_path: str = "archlens.json"):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        print("Created temporary directory:", tmp_dir)
-        config = read_config_file(config_path)
+    config = read_config_file(config_path)
 
-        fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
+    if (should_run_dotnet(config)):
+        Program.Main([config_path, "diff"])
 
-        shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
+        if (config["format"] == "puml" or config["format"] == "PlantUML"):
+            for view in config["views"]:
+                file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-{view}.puml"
+                puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
+                subprocess.run(["powershell", puml_command], shell=True)
 
-        config_git = read_config_file(os.path.join(tmp_dir, "archlens.json"))
+    else:     
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            print("Created temporary directory:", tmp_dir)
 
-        path_manager = PathManagerSingleton()
-        path_manager.setup(config, config_git)
+            fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
 
-        local_am = _create_astroid()
-        local_graph = BTGraph(local_am)
-        local_graph.build_graph(config)
-        # verify_config_options(config, g)
+            shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
 
-        remote_am = _create_astroid()
-        remote_graph = BTGraph(remote_am)
-        remote_graph.build_graph(config_git)
-        # verify_config_options(config_git, g_git)
+            config_git = read_config_file(os.path.join(tmp_dir, "archlens.json"))
 
-        render_diff_views(local_graph, remote_graph, config, save_plant_uml_diff)
+            path_manager = PathManagerSingleton()
+            path_manager.setup(config, config_git)
+
+            local_am = _create_astroid()
+            local_graph = BTGraph(local_am)
+            local_graph.build_graph(config)
+            # verify_config_options(config, g)
+
+            remote_am = _create_astroid()
+            remote_graph = BTGraph(remote_am)
+            remote_graph.build_graph(config_git)
+            # verify_config_options(config_git, g_git)
+
+            render_diff_views(local_graph, remote_graph, config, save_plant_uml_diff)
 
 
 @app.command()
 def render_diff_json(config_path: str = "archlens.json"):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        print("Created temporary directory:", tmp_dir)
-        config = read_config_file(config_path)
+    config = read_config_file(config_path)
+    
+    if (should_run_dotnet(config)):
+        Program.Main([config_path, "diff"])
+    else:  
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            print("Created temporary directory:", tmp_dir)
+            
+            fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
 
-        fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
+            shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
 
-        shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
+            config_git = read_config_file(os.path.join(tmp_dir, "archlens.json"))
 
-        config_git = read_config_file(os.path.join(tmp_dir, "archlens.json"))
+            path_manager = PathManagerSingleton()
+            path_manager.setup(config, config_git)
 
-        path_manager = PathManagerSingleton()
-        path_manager.setup(config, config_git)
+            local_am = _create_astroid()
+            local_graph = BTGraph(local_am)
+            local_graph.build_graph(config)
+            # verify_config_options(config, g)
 
-        local_am = _create_astroid()
-        local_graph = BTGraph(local_am)
-        local_graph.build_graph(config)
-        # verify_config_options(config, g)
+            remote_am = _create_astroid()
+            remote_graph = BTGraph(remote_am)
+            remote_graph.build_graph(config_git)
+            # verify_config_options(config_git, g_git)
 
-        remote_am = _create_astroid()
-        remote_graph = BTGraph(remote_am)
-        remote_graph.build_graph(config_git)
-        # verify_config_options(config_git, g_git)
-
-        render_diff_views(local_graph, remote_graph, config, save_json_diff)
+            render_diff_views(local_graph, remote_graph, config, save_json_diff)
 
 
 @app.command()
@@ -190,6 +205,8 @@ def read_config_file(config_path):
 
     return config
 
+def should_run_dotnet(config):
+    return "fileExtensions" in config and not (len(config["fileExtensions"]) > 1) and (".py" not in config["fileExtensions"])
 
 def main():
     app()

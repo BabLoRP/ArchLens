@@ -3,10 +3,9 @@
     "name": "Archlens",
     "rootFolder": "src/c-sharp/",
     "github": {
-        "url": "https://github.com/BabLoRP/ArchLens/tree/master/src/c-sharp",
+        "url": "https://github.com/BabLoRP/ArchLens",
         "branch": "main"
     },
-    "snapshotManager": "local",
     "snapshotDir": ".archlens",
     "snapshotFile": "snaphot",
     "saveLocation": "/diagrams/",
