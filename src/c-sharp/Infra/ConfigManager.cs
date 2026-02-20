@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra;
 
-public class ConfigManager(string _path)
+public class ConfigManager(string _path, bool _diff)
 {
     private sealed class ConfigDto
     {
@@ -20,7 +20,6 @@ public class ConfigManager(string _path)
         public string RootFolder { get; set; }
         public string ProjectName { get; set; }
         public string Name { get; set; }
-        public string SnapshotManager { get; set; }
         public string Format { get; set; }
         [JsonPropertyName("github")]
         public GithubDto GitInfo { get; set; }
@@ -80,7 +79,7 @@ public class ConfigManager(string _path)
 
         var parserOptions = MapParserOptions(dto, baseOptions);
         var renderOptions = MapRenderOptions(dto, baseDir, baseOptions);
-        var snapshotOptions = MapSnapshotOptions(dto, baseDir, baseOptions);
+        var snapshotOptions = MapSnapshotOptions(dto, baseOptions, _diff);
 
         return (baseOptions, parserOptions, renderOptions, snapshotOptions);
     }
@@ -88,7 +87,7 @@ public class ConfigManager(string _path)
     private static BaseOptions MapBaseOptions(ConfigDto dto, string baseDir)
     {
         var projectRoot = MapProjectRoot(dto) ?? baseDir;
-        var projectName = MapName(dto) ?? baseDir.Split("\\").Last();      
+        var projectName = MapName(dto) ?? baseDir.Split("\\").Last();
         var fullRootPath = GetFullRootPath(projectRoot, baseDir);
 
         if (!Directory.Exists(fullRootPath))
@@ -110,7 +109,7 @@ public class ConfigManager(string _path)
         var fileExts = (dto.FileExtensions ?? [".cs"]).Select(NormalizeExtension).ToArray();
         if (fileExts.Length == 0)
             throw new InvalidOperationException("fileExtensions resolved to an empty list.");
-        
+
         var languages = MapLanguage(fileExts);
 
         return new ParserOptions(
@@ -135,9 +134,9 @@ public class ConfigManager(string _path)
         );
     }
 
-    private static SnapshotOptions MapSnapshotOptions(ConfigDto dto, string baseDir, BaseOptions options)
+    private static SnapshotOptions MapSnapshotOptions(ConfigDto dto, BaseOptions options, bool diff)
     {
-        var snapshotManager = MapSnapshotManager(dto.SnapshotManager ?? "local");
+        var snapshotManager = MapSnapshotManager(diff);
         return new SnapshotOptions(
             BaseOptions: options,
             SnapshotManager: snapshotManager,
@@ -216,15 +215,9 @@ public class ConfigManager(string _path)
     }
 
 
-    private static SnapshotManager MapSnapshotManager(string raw)
+    private static SnapshotManager MapSnapshotManager(bool diff)
     {
-        var s = raw.Trim().ToLowerInvariant();
-        return s switch
-        {
-            "git" => SnapshotManager.Git,
-            "local" => SnapshotManager.Local,
-            _ => throw new NotSupportedException($"Unsupported baseline: '{raw}'.")
-        };
+        return diff ? SnapshotManager.Git : SnapshotManager.Local;
     }
 
     private static RenderFormat MapFormat(string raw)
