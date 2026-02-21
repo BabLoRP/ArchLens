@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra;
 
-public class ConfigManager(string _path, bool _diff)
+public class ConfigManager(string _path, bool _diff, string _format)
 {
     private sealed class ConfigDto
     {
@@ -20,7 +20,6 @@ public class ConfigManager(string _path, bool _diff)
         public string RootFolder { get; set; }
         public string ProjectName { get; set; }
         public string Name { get; set; }
-        public string Format { get; set; }
         [JsonPropertyName("github")]
         public GithubDto GitInfo { get; set; }
         public string SnapshotDir { get; set; }
@@ -78,7 +77,7 @@ public class ConfigManager(string _path, bool _diff)
         var baseOptions = MapBaseOptions(dto, baseDir);
 
         var parserOptions = MapParserOptions(dto, baseOptions);
-        var renderOptions = MapRenderOptions(dto, baseDir, baseOptions);
+        var renderOptions = MapRenderOptions(dto, baseDir, baseOptions, _format);
         var snapshotOptions = MapSnapshotOptions(dto, baseOptions, _diff);
 
         return (baseOptions, parserOptions, renderOptions, snapshotOptions);
@@ -120,9 +119,9 @@ public class ConfigManager(string _path, bool _diff)
         );
     }
 
-    private static RenderOptions MapRenderOptions(ConfigDto dto, string baseDir, BaseOptions options)
+    private static RenderOptions MapRenderOptions(ConfigDto dto, string baseDir, BaseOptions options, string? formatString)
     {
-        var format = MapFormat(dto.Format ?? "json");
+        var format = MapFormat(formatString ?? "puml");
         var views = MapViews(dto.Views);
         var saveLoc = MapPath(baseDir, dto.SaveLocation);
 
