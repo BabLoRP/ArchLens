@@ -1,0 +1,486 @@
+{
+    "type": "node",
+    "name": "Archlens",
+    "path": "./src/c-sharp/",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain": 8 },
+{ "Domain.Interfaces": 11 },
+{ "Domain.Models": 6 },
+{ "Domain.Models.Records": 17 },
+{ "Domain.Utils": 4 },
+{ "Domain.Models.Enums": 4 },
+{ "Application": 1 },
+{ "Infra": 1 },
+{ "Infra.Factories": 1 }
+],
+    "children": [
+        {
+    "type": "node",
+    "name": "Infra",
+    "path": "./Infra/",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain": 5 },
+{ "Domain.Interfaces": 8 },
+{ "Domain.Models": 4 },
+{ "Domain.Models.Records": 12 },
+{ "Domain.Utils": 2 },
+{ "Domain.Models.Enums": 4 }
+],
+    "children": [
+        {
+    "type": "node",
+    "name": "SnapshotManagers",
+    "path": "./Infra/SnapshotManagers/",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain": 2 },
+{ "Domain.Interfaces": 2 },
+{ "Domain.Models": 2 },
+{ "Domain.Models.Records": 2 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "GitSnaphotManager.cs",
+    "path": "./Infra/SnapshotManagers/GitSnaphotManager.cs",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "LocalSnaphotManager.cs",
+    "path": "./Infra/SnapshotManagers/LocalSnaphotManager.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 }
+]
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Renderers",
+    "path": "./Infra/Renderers/",
+    "lastWriteTime": "18-02-2026 14:34:10",
+    "relations": [
+{ "Domain": 2 },
+{ "Domain.Models": 2 },
+{ "Domain.Models.Records": 2 },
+{ "Domain.Utils": 2 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "JsonRenderer.cs",
+    "path": "./Infra/Renderers/JsonRenderer.cs",
+    "lastWriteTime": "19-02-2026 12:15:28",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Domain.Utils": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "PlantUMLRenderer.cs",
+    "path": "./Infra/Renderers/PlantUMLRenderer.cs",
+    "lastWriteTime": "19-02-2026 12:15:28",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Domain.Utils": 1 }
+]
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Parsers",
+    "path": "./Infra/Parsers/",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Interfaces": 4 },
+{ "Domain.Models.Records": 4 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "CsharpDependencyParser.cs",
+    "path": "./Infra/Parsers/CsharpDependencyParser.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Records": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "CsharpSyntaxWalkerParser.cs",
+    "path": "./Infra/Parsers/CsharpSyntaxWalkerParser.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Records": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "GoDependencyParser.cs",
+    "path": "./Infra/Parsers/GoDependencyParser.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Records": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "KotlinDependencyParser.cs",
+    "path": "./Infra/Parsers/KotlinDependencyParser.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Records": 1 }
+]
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Factories",
+    "path": "./Infra/Factories/",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain.Interfaces": 2 },
+{ "Domain.Models.Enums": 3 },
+{ "Domain.Models.Records": 3 },
+{ "Infra.Parsers": 1 },
+{ "Domain": 1 },
+{ "Infra.Renderers": 1 },
+{ "Infra.SnapshotManagers": 1 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "DependencyParserFactory.cs",
+    "path": "./Infra/Factories/DependencyParserFactory.cs",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Enums": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Infra.Parsers": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "RendererFactory.cs",
+    "path": "./Infra/Factories/RendererFactory.cs",
+    "lastWriteTime": "19-02-2026 12:15:28",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Models.Enums": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Infra.Renderers": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "SnapsnotManagerFactory.cs",
+    "path": "./Infra/Factories/SnapsnotManagerFactory.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Enums": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Infra.SnapshotManagers": 1 }
+]
+}
+    ]
+},
+{
+    "type": "leaf",
+    "name": "ConfigManager.cs",
+    "path": "./Infra/ConfigManager.cs",
+    "lastWriteTime": "20-02-2026 11:35:57",
+    "relations": [
+{ "Domain.Models.Enums": 1 },
+{ "Domain.Models.Records": 1 }
+]
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Domain",
+    "path": "./Domain/",
+    "lastWriteTime": "02-12-2025 10:26:24",
+    "relations": [],
+    "children": [
+        {
+    "type": "node",
+    "name": "Utils",
+    "path": "./Domain/Utils/",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "DateTimeNormaliser.cs",
+    "path": "./Domain/Utils/DateTimeNormaliser.cs",
+    "lastWriteTime": "23-11-2025 14:48:59",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "PathNormaliser.cs",
+    "path": "./Domain/Utils/PathNormaliser.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": []
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Models",
+    "path": "./Domain/Models/",
+    "lastWriteTime": "18-02-2026 14:34:10",
+    "relations": [
+{ "Domain.Utils": 1 }
+],
+    "children": [
+        {
+    "type": "node",
+    "name": "Records",
+    "path": "./Domain/Models/Records/",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain.Models.Enums": 1 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "GitInfo.cs",
+    "path": "./Domain/Models/Records/GitInfo.cs",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "Options.cs",
+    "path": "./Domain/Models/Records/Options.cs",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain.Models.Enums": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "Package.cs",
+    "path": "./Domain/Models/Records/Package.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "ProjectChanges.cs",
+    "path": "./Domain/Models/Records/ProjectChanges.cs",
+    "lastWriteTime": "18-02-2026 14:34:10",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "View.cs",
+    "path": "./Domain/Models/Records/View.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": []
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Enums",
+    "path": "./Domain/Models/Enums/",
+    "lastWriteTime": "05-02-2026 13:17:44",
+    "relations": [],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "Language.cs",
+    "path": "./Domain/Models/Enums/Language.cs",
+    "lastWriteTime": "19-01-2026 08:31:04",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "RenderFormat.cs",
+    "path": "./Domain/Models/Enums/RenderFormat.cs",
+    "lastWriteTime": "05-02-2026 13:17:44",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "SnapshotManager.cs",
+    "path": "./Domain/Models/Enums/SnapshotManager.cs",
+    "lastWriteTime": "23-11-2025 14:48:59",
+    "relations": []
+}
+    ]
+},
+{
+    "type": "leaf",
+    "name": "DependencyGraph.cs",
+    "path": "./Domain/Models/DependencyGraph.cs",
+    "lastWriteTime": "18-02-2026 14:34:10",
+    "relations": [
+{ "Domain.Utils": 1 }
+]
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Interfaces",
+    "path": "./Domain/Interfaces/",
+    "lastWriteTime": "19-02-2026 10:16:16",
+    "relations": [
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "IDependencyParser.cs",
+    "path": "./Domain/Interfaces/IDependencyParser.cs",
+    "lastWriteTime": "24-11-2025 10:06:09",
+    "relations": []
+},
+{
+    "type": "leaf",
+    "name": "ISnapshotManager.cs",
+    "path": "./Domain/Interfaces/ISnapshotManager.cs",
+    "lastWriteTime": "18-02-2026 11:37:53",
+    "relations": [
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 }
+]
+}
+    ]
+},
+{
+    "type": "leaf",
+    "name": "DependencyAggregator.cs",
+    "path": "./Domain/DependencyAggregator.cs",
+    "lastWriteTime": "25-11-2025 16:14:22",
+    "relations": [
+{ "Domain.Models": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "DependencyGraphSerializer.cs",
+    "path": "./Domain/DependencyGraphSerializer.cs",
+    "lastWriteTime": "25-11-2025 16:14:22",
+    "relations": [
+{ "Domain.Models": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "Renderer.cs",
+    "path": "./Domain/Renderer.cs",
+    "lastWriteTime": "19-02-2026 12:15:28",
+    "relations": [
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 }
+]
+}
+    ]
+},
+{
+    "type": "node",
+    "name": "Application",
+    "path": "./Application/",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain.Models": 2 },
+{ "Domain.Models.Records": 4 },
+{ "Domain.Utils": 2 },
+{ "Domain": 3 },
+{ "Domain.Interfaces": 3 }
+],
+    "children": [
+        {
+    "type": "leaf",
+    "name": "ChangeDetector.cs",
+    "path": "./Application/ChangeDetector.cs",
+    "lastWriteTime": "18-02-2026 14:34:10",
+    "relations": [
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Domain.Utils": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "DependencyGraphBuilder.cs",
+    "path": "./Application/DependencyGraphBuilder.cs",
+    "lastWriteTime": "19-02-2026 09:08:33",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Domain.Utils": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "UpdateDiffGraphUseCase.cs",
+    "path": "./Application/UpdateDiffGraphUseCase.cs",
+    "lastWriteTime": "20-02-2026 10:55:44",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Records": 1 }
+]
+},
+{
+    "type": "leaf",
+    "name": "UpdateGraphUseCase.cs",
+    "path": "./Application/UpdateGraphUseCase.cs",
+    "lastWriteTime": "20-02-2026 10:55:37",
+    "relations": [
+{ "Domain": 1 },
+{ "Domain.Interfaces": 1 },
+{ "Domain.Models.Records": 1 }
+]
+}
+    ]
+},
+{
+    "type": "leaf",
+    "name": "Program.cs",
+    "path": "./Program.cs",
+    "lastWriteTime": "20-02-2026 11:36:58",
+    "relations": [
+{ "Application": 1 },
+{ "Domain.Models.Records": 1 },
+{ "Infra": 1 },
+{ "Infra.Factories": 1 }
+]
+}
+    ]
+}
