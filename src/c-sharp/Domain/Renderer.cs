@@ -16,7 +16,7 @@ public abstract class Renderer
         foreach (var view in options.Views)
         {
             string content = RenderView(graph, view, options);
-            await SaveViewToFileAsync(content, view, options);
+            await SaveViewToFileAsync(content, view, options, false);
         }
     }
 
@@ -25,7 +25,7 @@ public abstract class Renderer
         foreach (var view in options.Views)
         {
             string content = RenderDiffView(localGraph, remoteGraph, view, options);
-            await SaveViewToFileAsync(content, view, options);
+            await SaveViewToFileAsync(content, view, options, true);
         }
     }
 
@@ -37,11 +37,12 @@ public abstract class Renderer
         return content;
     }
 
-    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options)
+    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options, bool diff)
     {
         var dir = options.SaveLocation;
         Directory.CreateDirectory(dir);
-        var filename = $"{options.BaseOptions.ProjectName}-{view.ViewName}.{FileExtension}";
+        var diffString = diff ? "-diff" : "";
+        var filename = $"{options.BaseOptions.ProjectName}{diffString}-{view.ViewName}.{FileExtension}";
         var path = Path.Combine(dir, filename);
 
         await File.WriteAllTextAsync(path, content);

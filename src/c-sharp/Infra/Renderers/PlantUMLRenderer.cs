@@ -126,7 +126,7 @@ public sealed class PlantUMLRenderer : Renderer
             }
         }
 
-        return merged + "\n@enduml";
+        return merged.EndsWith("@enduml") ? merged : merged + "\n@enduml";
     }
 
     private void UpdatePackages(DependencyGraph graph, View view, Package package)

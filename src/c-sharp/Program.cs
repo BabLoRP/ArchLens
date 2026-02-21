@@ -15,9 +15,10 @@ public class Program
         try
         {
             var path = args.Length == 0 ? string.Empty : args[0].Trim();
-            var diff = args.Length < 2 ? false : args[1] == "diff";
+            var format = args.Length < 2 ? "puml" : args[1].Trim();
+            var diff = args.Length < 3 ? false : args[2] == "diff";
 
-            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path, diff);
+            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path, diff, format);
 
             var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
             var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
@@ -57,11 +58,11 @@ public class Program
 
     }
 
-    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff)
+    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff, string format)
     {
         var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
 
-        var configManager = new ConfigManager(configPath, diff);
+        var configManager = new ConfigManager(configPath, diff, format);
 
         return await configManager.LoadAsync();
     }
