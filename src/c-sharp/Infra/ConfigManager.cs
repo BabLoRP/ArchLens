@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra;
 
-public class ConfigManager(string _path, bool _diff, string _format)
+public class ConfigManager(string _path)
 {
     private sealed class ConfigDto
     {
@@ -55,7 +55,7 @@ public class ConfigManager(string _path, bool _diff, string _format)
 #pragma warning restore CS8632
     }
 
-    public async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> LoadAsync(CancellationToken ct = default)
+    public async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> LoadAsync(bool diff = false, string format = "puml", CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_path))
             throw new ArgumentException("Config path is null/empty.", nameof(_path));
@@ -77,8 +77,8 @@ public class ConfigManager(string _path, bool _diff, string _format)
         var baseOptions = MapBaseOptions(dto, baseDir);
 
         var parserOptions = MapParserOptions(dto, baseOptions);
-        var renderOptions = MapRenderOptions(dto, baseDir, baseOptions, _format);
-        var snapshotOptions = MapSnapshotOptions(dto, baseOptions, _diff);
+        var renderOptions = MapRenderOptions(dto, baseDir, baseOptions, format);
+        var snapshotOptions = MapSnapshotOptions(dto, baseOptions, diff);
 
         return (baseOptions, parserOptions, renderOptions, snapshotOptions);
     }
@@ -119,9 +119,9 @@ public class ConfigManager(string _path, bool _diff, string _format)
         );
     }
 
-    private static RenderOptions MapRenderOptions(ConfigDto dto, string baseDir, BaseOptions options, string? formatString)
+    private static RenderOptions MapRenderOptions(ConfigDto dto, string baseDir, BaseOptions options, string formatString)
     {
-        var format = MapFormat(formatString ?? "puml");
+        var format = MapFormat(formatString);
         var views = MapViews(dto.Views);
         var saveLoc = MapPath(baseDir, dto.SaveLocation);
 
