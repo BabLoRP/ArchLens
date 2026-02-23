@@ -15,10 +15,36 @@ public class Program
         try
         {
             var path = args.Length == 0 ? string.Empty : args[0].Trim();
-            var format = args.Length < 2 ? "puml" : args[1].Trim();
-            var diff = args.Length < 3 ? false : args[2] == "diff";
 
-            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path, diff, format);
+            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(path);
+
+            var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
+            var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
+            var renderer = RendererFactory.SelectRenderer(renderOptions);
+
+            var updateGraphUseCase = new UpdateGraphUseCase(
+                                                    baseOptions,
+                                                    parserOptions,
+                                                    renderOptions,
+                                                    snapshotOptions,
+                                                    parsers,
+                                                    renderer,
+                                                    snapshotManager);
+
+            await updateGraphUseCase.RunAsync();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"EXCEPTION: {e.Message}\n{e.StackTrace}");
+        }
+
+    }
+
+    public static async Task CLI(string config_path, string format = "puml", bool diff = false)
+    {
+        try
+        {
+            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(config_path, diff, format);
 
             var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
             var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
@@ -58,13 +84,13 @@ public class Program
 
     }
 
-    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff, string format)
+    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff = false, string format = "puml")
     {
         var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
 
-        var configManager = new ConfigManager(configPath, diff, format);
+        var configManager = new ConfigManager(configPath);
 
-        return await configManager.LoadAsync();
+        return await configManager.LoadAsync(diff, format);
     }
 
     private static string FindConfigFile(string fileName)

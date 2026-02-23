@@ -41,12 +41,14 @@ def render(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
     
     if (should_run_dotnet(config)):
-        Program.Main([config_path, "puml"])
+        format = config.get("format", "puml") #default to puml if no format specified
+        Program.CLI(config_path, format)
 
-        for view in config["views"]:
-            file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-{view}.puml"
-            puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
-            subprocess.run(["powershell", puml_command], shell=True)
+        if format == "puml":
+            for view in config["views"]:
+                file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-{view}.puml"
+                puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
+                subprocess.run(["powershell", puml_command], shell=True)
 
     else:
         mt_path_manager = PathManagerSingleton()
@@ -64,7 +66,7 @@ def render_json(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
-        Program.Main([config_path, "json"])
+        Program.CLI(config_path, "json")
     else:
         mt_path_manager = PathManagerSingleton()
         mt_path_manager.setup(config)
@@ -87,8 +89,10 @@ def render_diff(config_path: str = "archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
-        Program.Main([config_path, "puml", "diff"])
+        format = config.get("format", "puml") #default to puml if no format specified
+        Program.CLI(config_path, format, True)
 
+    if format == "puml":
         for view in config["views"]:
             file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-diff-{view}.puml"
             puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
@@ -125,7 +129,7 @@ def render_diff_json(config_path: str = "archlens.json"):
     config = read_config_file(config_path)
     
     if (should_run_dotnet(config)):
-        Program.Main([config_path, "json", "diff"])
+        Program.CLI(config_path, "json", True)
     else:  
         with tempfile.TemporaryDirectory() as tmp_dir:
             print("Created temporary directory:", tmp_dir)
