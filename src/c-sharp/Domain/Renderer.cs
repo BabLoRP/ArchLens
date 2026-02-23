@@ -16,7 +16,7 @@ public abstract class Renderer
         foreach (var view in options.Views)
         {
             string content = RenderView(graph, view, options);
-            await SaveViewToFileAsync(content, view, options, false);
+            await SaveViewToFileAsync(content, view, options);
         }
     }
 
@@ -37,7 +37,7 @@ public abstract class Renderer
         return content;
     }
 
-    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options, bool diff)
+    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options, bool diff = false)
     {
         var dir = options.SaveLocation;
         Directory.CreateDirectory(dir);
