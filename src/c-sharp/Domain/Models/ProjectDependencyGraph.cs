@@ -1,21 +1,19 @@
-using Archlens.Domain.Utils;
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using Archlens.Domain.Utils;
 
 namespace Archlens.Domain.Models;
-
-public readonly record struct NodeId(Guid Id);
 
 public enum ProjectItemType { Directory, File }
 
 public sealed record ProjectItem(
-    NodeId Id,
+    RelativePath Path, // path is unique - works as Id
     string Name,
-    string RelativePath,
     DateTime LastWriteTime,
-    ProjectItemType Kind
+    ProjectItemType Type
 );
 
 public enum DependencyType { Uses }
@@ -25,153 +23,168 @@ public sealed record Dependency(
     DependencyType Type
 );
 
-public sealed class ProjectDependencyGraph(
-    Dictionary<NodeId, ProjectItem> nodes,
-    Dictionary<NodeId, List<NodeId>> contains,
-    Dictionary<NodeId, Dictionary<NodeId, Dependency>> dependsOn)
+public sealed class ProjectDependencyGraph(string projectRoot)
 {
-    private readonly Dictionary<NodeId, ProjectItem> _nodes = nodes;
-    private readonly Dictionary<NodeId, List<NodeId>> _contains = contains; // directory -> children
-    private readonly Dictionary<NodeId, Dictionary<NodeId, Dependency>> _dependsOn = dependsOn; // from -> (to, count, type)
+    private readonly string _projectRoot = projectRoot ?? throw new ArgumentNullException(nameof(projectRoot));
 
-    public Dependency AddDependency(NodeId dependendId, NodeId dependeeId)
+    private readonly Dictionary<RelativePath, ProjectItem> _projectItems = [];
+    private readonly Dictionary<RelativePath, HashSet<RelativePath>> _contains = [];
+    private readonly Dictionary<RelativePath, Dictionary<RelativePath, Dependency>> _dependsOn = [];
+    private readonly Dictionary<RelativePath, RelativePath> _parentOf = [];
+
+    public ProjectItem? GetItem(RelativePath id) => _projectItems.TryGetValue(id, out var item) ? item : null;
+
+    public IReadOnlyDictionary<RelativePath, ProjectItem> Items => new ReadOnlyDictionary<RelativePath, ProjectItem>(_projectItems);
+
+    public IReadOnlyList<RelativePath> ChildrenOf(RelativePath directoryId) => _contains.TryGetValue(directoryId, out var children) ? [.. children] : [];
+
+    public RelativePath? ParentOf(RelativePath childId) => _parentOf.TryGetValue(childId, out var parent) ? parent : null;
+
+    public IReadOnlyDictionary<RelativePath, Dependency> DependenciesFrom(RelativePath fromId) =>_dependsOn.TryGetValue(fromId, out var deps)
+            ? new ReadOnlyDictionary<RelativePath, Dependency>(deps)
+            : new ReadOnlyDictionary<RelativePath, Dependency>(new Dictionary<RelativePath, Dependency>());
+
+    public RelativePath AddProjectItem(RelativePath relPath, ProjectItemType type)
     {
-        if (_dependsOn.TryGetValue(dependendId, out Dictionary<NodeId, Dependency> dependencies)) 
-        {
-            if (dependencies.TryGetValue(dependeeId, out Dependency dependency))
-            {
-                var updated = dependency with { Count = dependency.Count + 1 };
-                _dependsOn[dependendId][dependeeId] = updated;
+        var id = NormalisePath(relPath, type);
 
-            }
+        if (_projectItems.ContainsKey(id))
+            return id;
+
+        var absPath = PathNormaliser.GetAbsolutePath(_projectRoot, id.Value);
+        var name = type == ProjectItemType.Directory
+            ? Path.GetFileName(id.Value.TrimEnd('/', '\\'))
+            : Path.GetFileName(id.Value);
+
+        var lastWriteTime = File.GetLastWriteTimeUtc(absPath);
+
+        _projectItems[id] = new ProjectItem(
+            Path: id,
+            Name: name,
+            LastWriteTime: lastWriteTime,
+            Type: type
+        );
+
+        return id;
+    }
+
+    public ProjectItem UpdateProjectItem(RelativePath id, DateTime? lastWriteTime = null)
+    {
+        var item = GetItem(id);
+        var updated = item with { LastWriteTime = lastWriteTime ?? item.LastWriteTime };
+        _projectItems[id] = updated;
+        return updated;
+    }
+
+    public void AddChild(RelativePath parentId, RelativePath childId)
+    {
+        if (!_projectItems.TryGetValue(parentId, out var parent))
+            throw new InvalidOperationException($"Parent '{parentId}' does not exist in the graph.");
+
+        if (parent.Type != ProjectItemType.Directory)
+            throw new InvalidOperationException($"Parent '{parentId}' is not a directory.");
+
+        if (!_projectItems.ContainsKey(childId))
+            throw new InvalidOperationException($"Child '{childId}' does not exist in the graph.");
+
+        if (!_contains.TryGetValue(parentId, out var children))
+        {
+            children = new HashSet<RelativePath>();
+            _contains[parentId] = children;
         }
+
+        if (children.Add(childId))
+            _parentOf[childId] = parentId;
+    }
+
+    public void AddChildrenRange(RelativePath parentId, IEnumerable<RelativePath> childIds)
+    {
+        foreach (var childId in childIds)
+            AddChild(parentId, childId);
+    }
+
+    public void SetDependencies(RelativePath dependentId, IReadOnlyList<RelativePath> dependencyPaths, DependencyType type = DependencyType.Uses)
+    {
+        if (!_projectItems.ContainsKey(dependentId))
+            throw new InvalidOperationException($"Dependent '{dependentId}' does not exist in the graph.");
+
+        var canonicalDeps = dependencyPaths.Select(p => NormalisePath(p, ProjectItemType.File)); // or infer, but be consistent
+
+        var grouped = canonicalDeps
+            .GroupBy(p => p)
+            .ToDictionary(g => g.Key, g => new Dependency(g.Count(), type));
+
+        _dependsOn[dependentId] = grouped;
+    }
+
+    public void AddDependency(RelativePath dependentId, RelativePath dependeeId, DependencyType type = DependencyType.Uses)
+    {
+        if (!_dependsOn.TryGetValue(dependentId, out var deps))
+        {
+            deps = [];
+            _dependsOn[dependentId] = deps;
+        }
+
+        if (deps.TryGetValue(dependeeId, out var existing))
+            deps[dependeeId] = existing with { Count = existing.Count + 1 };
         else
-            _dependsOn[dependendId][dependeeId] = new Dependency(Count: 1, Type: DependencyType.Uses ); // TODO: support other types
-
-        return _dependsOn[dependendId][dependeeId];
+            deps[dependeeId] = new Dependency(1, type);
     }
 
-    public IEnumerable<Dependency> AddDependencyRange(NodeId dependendId, IReadOnlyList<NodeId> dependenciesId)
+    public void AddDependencyRange(RelativePath dependentId, IEnumerable<RelativePath> dependeeIds, DependencyType type = DependencyType.Uses)
     {
-        foreach (var depId in dependenciesId)
+        foreach (var dependeeId in dependeeIds)
+            AddDependency(dependentId, dependeeId, type);
+    }
+
+
+    public ProjectDependencyGraph Merge(ProjectDependencyGraph other)
+    {
+        if (other is null) return this;
+        if (!StringComparer.Ordinal.Equals(_projectRoot, other._projectRoot))
+            throw new InvalidOperationException("Cannot merge graphs with different project roots.");
+
+        var merged = new ProjectDependencyGraph(_projectRoot);
+
+        foreach (var kv in _projectItems)
+            merged._projectItems[kv.Key] = kv.Value;
+        foreach (var kv in other._projectItems)
+            merged._projectItems[kv.Key] = kv.Value;
+
+        foreach (var kv in _contains)
+            merged._contains[kv.Key] = [.. kv.Value];
+        foreach (var kv in other._contains)
+            merged._contains[kv.Key] = [.. kv.Value];
+
+        foreach (var kv in _dependsOn)
+            merged._dependsOn[kv.Key] = kv.Value.ToDictionary(x => x.Key, x => x.Value);
+        foreach (var kv in other._dependsOn)
+            merged._dependsOn[kv.Key] = kv.Value.ToDictionary(x => x.Key, x => x.Value);
+
+        foreach (var kv in merged._contains)
         {
-            yield return AddDependency(dependendId, depId);
+            foreach (var child in kv.Value)
+                merged._parentOf[child] = kv.Key;
         }
+
+        return merged;
     }
 
-    public ProjectItem? GetNode(NodeId nodeId)
+    public RelativePath AddParent(RelativePath parent, RelativePath child)
     {
-        if (_nodes.TryGetValue(nodeId, out ProjectItem node))
-            return node;
+        if(!_parentOf.TryAdd(child, parent))
+            _parentOf[child] = parent;
+
+        if (_contains.TryGetValue(parent, out var children))
+            children.Add(child);
         else
-            return null;
+            _contains[parent] = [child];
+
+        return parent;
     }
 
-    public NodeId GetChildId(NodeId parent, NodeId childId)
-    {
-        if (_nodes.TryGetValue(parent, out ProjectItem node))
-            return node;
-        else
-            return null;
-    }
-
-    public virtual IReadOnlyList<ProjectDependencyGraph> GetChildren() => [];
-    public override string ToString() => $"{Name} ({Path})";
-
-    public bool ContainsPath(string path) => FindByPath(path) is not null;
-
-    public ProjectDependencyGraph? FindByPath(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return null;
-
-        var (asModule, asFile) = GetNormalisedModuleAndFilePaths(path);
-
-        var stack = new Stack<ProjectDependencyGraph>();
-        stack.Push(this);
-
-        while (stack.Count > 0)
-        {
-            var current = stack.Pop();
-
-            if (PathComparer.Equals(current.Path, asModule) || PathComparer.Equals(current.Path, asFile))
-                return current;
-
-            var children = current.GetChildren();
-            for (int i = children.Count - 1; i >= 0; i--)
-                stack.Push(children[i]);
-        }
-
-        return null;
-    }
-
-    private (string asModule, string asFile) GetNormalisedModuleAndFilePaths(string path)
-    {
-        var asModule = PathNormaliser.NormaliseModule(_projectRoot, path);
-        var asFile = PathNormaliser.NormaliseFile(_projectRoot, path);
-        return (asModule, asFile);
-    }
-
-    public IEnumerator<ProjectDependencyGraph> GetEnumerator() =>
-        GetChildren().GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-}
-
-public class DependencyGraphNode(string projectRoot) : ProjectDependencyGraph(projectRoot)
-{
-    private List<ProjectDependencyGraph> _children { get; init; } = [];
-
-    protected override string NormaliseOwnPath(string value) =>
-        PathNormaliser.NormaliseModule(projectRoot, value);
-
-    public override IReadOnlyList<ProjectDependencyGraph> GetChildren() => _children;
-    public void AddChildren(IEnumerable<ProjectDependencyGraph> childr)
-    {
-        foreach (var child in childr)
-        {
-            AddChild(child);
-        }
-    }
-
-    public void AddChild(ProjectDependencyGraph child)
-    {
-        if (_children.Any(c => ReferenceEquals(c, child) || PathComparer.Equals(c.Path, child.Path)))
-            return;
-
-        _children.Add(child);
-    }
-
-    public void ReplaceChild(ProjectDependencyGraph replacement)
-    {
-        for (var i = 0; i < _children.Count; i++)
-        {
-            if (PathComparer.Equals(_children[i].Path, replacement.Path))
-            {
-                _children[i] = replacement;
-                return;
-            }
-        }
-
-        _children.Add(replacement);
-    }
-
-    internal void ReplaceDependencies(IDictionary<string, int> newDeps)
-    {
-        var dict = GetDependencies();
-        dict.Clear();
-        foreach (var kv in newDeps)
-            dict[kv.Key] = kv.Value;
-    }
-
-    public override string ToString() => $"{Name} ({Path})";
-}
-
-public class DependencyGraphLeaf(string projectRoot) : ProjectDependencyGraph(projectRoot)
-{
-    protected override string NormaliseOwnPath(string value) =>
-        PathNormaliser.NormaliseFile(projectRoot, value);
-
-    public override string ToString() => $"{Name} ({Path}) deps={GetDependencies().Count}";
+    private RelativePath NormalisePath(RelativePath path, ProjectItemType type) =>
+        type == ProjectItemType.Directory
+            ? RelativePath.Directory(_projectRoot, path.Value)
+            : RelativePath.File(_projectRoot, path.Value);
 }

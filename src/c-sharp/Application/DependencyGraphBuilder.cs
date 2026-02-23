@@ -19,13 +19,18 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
     public async Task<DependencyGraph> GetGraphAsync(
         ProjectChanges changes,
         DependencyGraph? lastSavedDependencyGraph,
+public sealed class DependencyGraphBuilder(IDependencyParser _dependencyParser, BaseOptions _options)
+{    
+    public async Task<ProjectDependencyGraph> GetGraphAsync(
+        IReadOnlyDictionary<string, IEnumerable<string>> changedModules,
+        ProjectDependencyGraph lastSavedDependencyGraph,
         CancellationToken ct = default)
     {
         var changedRoot = await BuildGraphAsync(changes.ChangedFilesByDirectory, ct);
 
         var merged = lastSavedDependencyGraph is null
             ? changedRoot
-            : MergeGraphs(lastSavedDependencyGraph, changedRoot);
+            : lastSavedDependencyGraph.Merge(changedRoot);
 
         ApplyDeletions(merged, changes, _options.FullRootPath);
 
@@ -38,62 +43,35 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         CancellationToken ct)
     {
         var rootFull = _options.FullRootPath;
-        var nodes = new Dictionary<string, DependencyGraphNode>(PathComparer);
+        var graph = new ProjectDependencyGraph(rootFull);
 
-        var rootNode = new DependencyGraphNode(rootFull)
+        var root = RelativePath.Directory(rootFull, _options.ProjectRoot);
+        graph.AddProjectItem(root, ProjectItemType.Directory);
+
+        
+        foreach (var moduleRelPath in changedModules.Keys)
         {
-            Name = _options.ProjectName,
-            Path = _options.ProjectRoot,
-            LastWriteTime = File.GetLastWriteTimeUtc(rootFull)
-        };
-        nodes[PathNormaliser.RelativeRoot] = rootNode;
-
-        // It uses `nodes` as a cache: if a directory node already exists, it returns it;
-        // otherwise it creates it once, stores it, and then reuses that same node next time.
-        // It also recursively creates/links any missing parent directory nodes.
-        DependencyGraphNode EnsureDirectoryNode(string dirPath)
-        {
-            var abs = PathNormaliser.CombinePaths(rootFull, dirPath);
-            var key = PathNormaliser.NormaliseModule(rootFull, abs);
-
-            if (nodes.TryGetValue(key, out var existing))
-                return existing;
-
-            var node = new DependencyGraphNode(rootFull)
-            {
-                Name = key == PathNormaliser.RelativeRoot ? _options.ProjectName : PathNormaliser.GetFileOrModuleName(key),
-                Path = dirPath,
-                LastWriteTime = File.GetLastWriteTimeUtc(abs)
-            };
-
-            nodes[key] = node;
-
-            var parentAbs = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(abs));
-            var parent = parentAbs is null || PathComparer.Equals(parentAbs, rootFull)
-                ? rootNode
-                : EnsureDirectoryNode(parentAbs);
-
-            parent.AddChild(node);
-            return node;
+            var module = RelativePath.Directory(rootFull, moduleRelPath);
+            graph.AddProjectItem(module, ProjectItemType.Directory);
         }
 
-        // we need to process modules first to ensure their directory nodes exist
-        foreach (var module in changedModules.Keys)
-            EnsureDirectoryNode(module);
-
-        foreach (var (_, contents) in changedModules) // changedModules is a Dictionary where keys are module paths and values are list of file AND module paths (contents) that have changed within those modules
+        foreach (var (parentRelPath, itemRelPaths) in changedModules) // changedModules is a Dictionary where keys are module paths and values are list of file AND module paths (contents) that have changed within those modules
         {
+            ct.ThrowIfCancellationRequested();
             // The keys (module paths) have already been processed in the previous loop, so we only care about the values (contents paths).
-            foreach (var item in contents) // contents contain both file paths and module (directory) paths -> hence we call it item
+            foreach (var itemRelPath in itemRelPaths) // contents contain both file paths and module (directory) paths -> hence we call it item
             {
-                if (string.IsNullOrWhiteSpace(item))
-                    continue;
-
-                var abs = PathNormaliser.CombinePaths(rootFull, item);
-
-                if (!(Path.GetExtension(abs).Length != 0))
+                var abs = PathNormaliser.GetAbsolutePath(rootFull, itemRelPath);
+                if (Path.GetExtension(abs).Length == 0)
                 {
-                    EnsureDirectoryNode(abs);
+                    if (!dirIds.Any(id => string.Equals(projectDependencyGraph.GetProjectItemById(id).RelativePath, itemRelPath)))
+                    {
+                        var id = projectDependencyGraph.AddProjectItem(
+                             relPath: itemRelPath,
+                             type: ProjectItemType.Directory
+                        );
+                        dirIds = dirIds.Append(id);
+                    }
                     continue;
                 }
 
@@ -117,9 +95,8 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
                 };
                 leaf.AddDependencyRange(deps);
 
-                UpsertChild(parentNode, leaf);
-            }
-        }
+                var paresedDependencies = await _dependencyParser.ParseFileDependencies(abs, ct).ConfigureAwait(false);
+                projectDependencyGraph.AddDependencyRange(fileId, dependenciesPaths: paresedDependencies);
 
         return rootNode;
     }
@@ -151,28 +128,14 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         return lastSavedRoot;
     }
 
-    private static void UpsertChild(DependencyGraphNode parent, ProjectDependencyGraph newChild)
+        return projectDependencyGraph;
+    }
+
+    private static ProjectDependencyGraph MergeGraphs(ProjectDependencyGraph lastSaved, ProjectDependencyGraph updated)
     {
-        var existing = parent.GetChildren()
-            .FirstOrDefault(c => string.Equals(c.Path, newChild.Path, StringComparison.OrdinalIgnoreCase));
+        lastSaved.MergeWith(updated);
 
-        if (existing is null)
-        {
-            parent.AddChild(newChild);
-            return;
-        }
-
-        if (existing is DependencyGraphNode existingNode && newChild is DependencyGraphNode incomingNode)
-        {
-            existingNode.ReplaceDependencies(incomingNode.GetDependencies());
-
-            foreach (var grandChild in incomingNode.GetChildren())
-                UpsertChild(existingNode, grandChild);
-
-            return;
-        }
-
-        parent.ReplaceChild(newChild);
+        return lastSaved;
     }
 }
 
