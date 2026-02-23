@@ -2,6 +2,25 @@
 
 namespace Archlens.Domain.Utils;
 
+public readonly record struct RelativePath
+{
+    public string Value { get; }
+
+    private RelativePath(string value) => Value = value;
+
+    public static RelativePath File(string projectRoot, string input)
+        => new(PathNormaliser.NormaliseFile(projectRoot, input));
+
+    public static RelativePath Directory(string projectRoot, string input)
+        => new(PathNormaliser.NormaliseModule(projectRoot, input));
+
+    public string ToAbsolute(string projectRoot)
+        => PathNormaliser.GetAbsolutePath(projectRoot, Value);
+
+    public override string ToString() => Value;
+}
+
+
 public static class PathNormaliser
 {
     public const string RelativeRoot = "./";
@@ -14,7 +33,7 @@ public static class PathNormaliser
 
     public static string Normalise(string root, string path, bool isDirectory)
     {
-        var fullPath = CombinePaths(root, path);
+        var fullPath = GetAbsolutePath(root, path);
 
         var relative = Path
             .GetRelativePath(root, fullPath)
@@ -27,12 +46,18 @@ public static class PathNormaliser
         return isDirectory ? $"./{relative}/" : $"./{relative}";
     }
 
-    public static string CombinePaths(string fullRootPath, string relativePath)
+    public static string GetAbsolutePath(string fullRootPath, string relativePath)
     {
         var fullPath = Path.IsPathRooted(relativePath)
             ? relativePath
             : Path.GetFullPath(relativePath, fullRootPath);
         return fullPath;
+    }
+
+    public static bool IsDirectory(string fullRootPath, string relPath)
+    {
+        var abs = GetAbsolutePath(fullRootPath, relPath);
+        return Directory.Exists(abs);
     }
 
     public static string GetFileOrModuleName(string normalisedPath)
@@ -44,5 +69,15 @@ public static class PathNormaliser
     public static string GetPathDotSeparated(string path)
     {
         return path.Replace("/", ".").TrimStart('.').TrimEnd('.');
+    }
+}
+
+public static class PathComparer
+{
+    public static bool Equals(string path1, string path2)
+    {
+        var norm1 = path1.TrimEnd('/').ToLower();
+        var norm2 = path2.TrimEnd('/').ToLower();
+        return string.Equals(norm1, norm2);
     }
 }
