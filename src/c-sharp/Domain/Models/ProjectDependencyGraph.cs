@@ -19,6 +19,7 @@ public sealed record ProjectItem(
 public enum DependencyType { Uses }
 
 public sealed record Dependency(
+    RelativePath To, // the item being depended on
     int Count,
     DependencyType Type
 );
@@ -29,20 +30,22 @@ public sealed class ProjectDependencyGraph(string projectRoot)
 
     private readonly Dictionary<RelativePath, ProjectItem> _projectItems = [];
     private readonly Dictionary<RelativePath, HashSet<RelativePath>> _contains = [];
-    private readonly Dictionary<RelativePath, Dictionary<RelativePath, Dependency>> _dependsOn = [];
+    private readonly Dictionary<RelativePath, List<Dependency>> _dependsOn = [];
     private readonly Dictionary<RelativePath, RelativePath> _parentOf = [];
 
     public ProjectItem? GetItem(RelativePath id) => _projectItems.TryGetValue(id, out var item) ? item : null;
 
     public IReadOnlyDictionary<RelativePath, ProjectItem> Items => new ReadOnlyDictionary<RelativePath, ProjectItem>(_projectItems);
+    public IReadOnlyDictionary<RelativePath, IReadOnlySet<RelativePath>> Contains => new ReadOnlyDictionary<RelativePath, IReadOnlySet<RelativePath>>((IDictionary<RelativePath, IReadOnlySet<RelativePath>>)_contains);
+    public IReadOnlyDictionary<RelativePath, IReadOnlyList<Dependency>> Dependencies => (IReadOnlyDictionary<RelativePath, IReadOnlyList<Dependency>>)_dependsOn.ToDictionary(kv => kv.Key, kv => new ReadOnlyCollection<Dependency>(kv.Value));
 
     public IReadOnlyList<RelativePath> ChildrenOf(RelativePath directoryId) => _contains.TryGetValue(directoryId, out var children) ? [.. children] : [];
 
     public RelativePath? ParentOf(RelativePath childId) => _parentOf.TryGetValue(childId, out var parent) ? parent : null;
 
-    public IReadOnlyDictionary<RelativePath, Dependency> DependenciesFrom(RelativePath fromId) =>_dependsOn.TryGetValue(fromId, out var deps)
-            ? new ReadOnlyDictionary<RelativePath, Dependency>(deps)
-            : new ReadOnlyDictionary<RelativePath, Dependency>(new Dictionary<RelativePath, Dependency>());
+    public IReadOnlyList<Dependency> DependenciesFrom(RelativePath fromId) =>_dependsOn.TryGetValue(fromId, out var deps)
+            ? new ReadOnlyCollection<Dependency>(deps)
+            : [];
 
     public RelativePath AddProjectItem(RelativePath relPath, ProjectItemType type)
     {
@@ -53,7 +56,7 @@ public sealed class ProjectDependencyGraph(string projectRoot)
 
         var absPath = PathNormaliser.GetAbsolutePath(_projectRoot, id.Value);
         var name = type == ProjectItemType.Directory
-            ? Path.GetFileName(id.Value.TrimEnd('/', '\\'))
+            ? Path.GetFileName(id.Value.TrimEnd('/', '\\', Path.PathSeparator))
             : Path.GetFileName(id.Value);
 
         var lastWriteTime = File.GetLastWriteTimeUtc(absPath);
@@ -66,6 +69,23 @@ public sealed class ProjectDependencyGraph(string projectRoot)
         );
 
         return id;
+    }
+
+    public IEnumerable<RelativePath> AddProjectItemRange(IEnumerable<ProjectItem> items)
+    {
+        foreach (var item in items)
+        {
+            var id = item.Path;
+
+            if (_projectItems.ContainsKey(id))
+            {
+                yield return id;
+                continue;
+            }
+
+            _projectItems[id] = item;
+            yield return id;
+        }
     }
 
     public ProjectItem UpdateProjectItem(RelativePath id, DateTime? lastWriteTime = null)
@@ -89,7 +109,7 @@ public sealed class ProjectDependencyGraph(string projectRoot)
 
         if (!_contains.TryGetValue(parentId, out var children))
         {
-            children = new HashSet<RelativePath>();
+            children = [];
             _contains[parentId] = children;
         }
 
@@ -103,20 +123,6 @@ public sealed class ProjectDependencyGraph(string projectRoot)
             AddChild(parentId, childId);
     }
 
-    public void SetDependencies(RelativePath dependentId, IReadOnlyList<RelativePath> dependencyPaths, DependencyType type = DependencyType.Uses)
-    {
-        if (!_projectItems.ContainsKey(dependentId))
-            throw new InvalidOperationException($"Dependent '{dependentId}' does not exist in the graph.");
-
-        var canonicalDeps = dependencyPaths.Select(p => NormalisePath(p, ProjectItemType.File)); // or infer, but be consistent
-
-        var grouped = canonicalDeps
-            .GroupBy(p => p)
-            .ToDictionary(g => g.Key, g => new Dependency(g.Count(), type));
-
-        _dependsOn[dependentId] = grouped;
-    }
-
     public void AddDependency(RelativePath dependentId, RelativePath dependeeId, DependencyType type = DependencyType.Uses)
     {
         if (!_dependsOn.TryGetValue(dependentId, out var deps))
@@ -125,16 +131,36 @@ public sealed class ProjectDependencyGraph(string projectRoot)
             _dependsOn[dependentId] = deps;
         }
 
-        if (deps.TryGetValue(dependeeId, out var existing))
-            deps[dependeeId] = existing with { Count = existing.Count + 1 };
+        var existing = deps.FirstOrDefault(dep => dep.To == dependeeId, null);
+
+        if (existing is not null)
+            existing = existing with { Count = existing.Count + 1 };
         else
-            deps[dependeeId] = new Dependency(1, type);
+            deps.Add(new Dependency(dependeeId, 1, type));
     }
 
     public void AddDependencyRange(RelativePath dependentId, IEnumerable<RelativePath> dependeeIds, DependencyType type = DependencyType.Uses)
     {
         foreach (var dependeeId in dependeeIds)
             AddDependency(dependentId, dependeeId, type);
+    }
+
+    public void AddDependencyRange(RelativePath dependentId, IEnumerable<Dependency> dependencies)
+    {
+        if (!_dependsOn.TryGetValue(dependentId, out var deps))
+        {
+            deps = [];
+            _dependsOn[dependentId] = deps;
+        }
+
+        foreach (var dependency in dependencies)
+        {
+            var existing = deps.FirstOrDefault(dep => dep.To == dependency.To, null);
+            if (existing is not null)
+                existing = existing with { Count = existing.Count + dependency.Count };
+            else
+                deps.Add(dependency);
+        }
     }
 
 
@@ -157,9 +183,9 @@ public sealed class ProjectDependencyGraph(string projectRoot)
             merged._contains[kv.Key] = [.. kv.Value];
 
         foreach (var kv in _dependsOn)
-            merged._dependsOn[kv.Key] = kv.Value.ToDictionary(x => x.Key, x => x.Value);
+            merged.AddDependencyRange(kv.Key, kv.Value);
         foreach (var kv in other._dependsOn)
-            merged._dependsOn[kv.Key] = kv.Value.ToDictionary(x => x.Key, x => x.Value);
+            merged.AddDependencyRange(kv.Key, kv.Value);
 
         foreach (var kv in merged._contains)
         {
