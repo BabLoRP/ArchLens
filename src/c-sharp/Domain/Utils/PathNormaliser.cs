@@ -17,6 +17,8 @@ public readonly record struct RelativePath
     public string ToAbsolute(string projectRoot)
         => PathNormaliser.GetAbsolutePath(projectRoot, Value);
 
+    public int Length => Value.Length;
+
     public override string ToString() => Value;
 }
 
