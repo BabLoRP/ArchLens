@@ -12,22 +12,19 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        try
-        {
-            var path = args.Length == 0 ? string.Empty : args[0].Trim();
-            var format = args.Length < 2 ? "puml" : args[1].Trim();
-            var diff = args.Length < 3 ? false : args[2] == "diff";
+        var path = args.Length == 0 ? string.Empty : args[0].Trim();
+        var format = args.Length < 2 ? "puml" : args[1].Trim();
+        var diff = args.Length < 3 ? false : args[2] == "diff";
 
-            await CLI(path, format, diff);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"EXCEPTION: {e.Message}\n{e.StackTrace}");
-        }
-
+        await CLI(path, format, diff);
     }
 
-    public static async Task CLI(string config_path, string format = "puml", bool diff = false)
+    public static string CLISync(string config_path, string format = "puml", bool diff = false)
+    {
+        return CLI(config_path, format, diff).Result;
+    }
+
+    public static async Task<string> CLI(string config_path, string format = "puml", bool diff = false)
     {
         try
         {
@@ -63,12 +60,14 @@ public class Program
 
                 await updateGraphUseCase.RunAsync();
             }
+
+            return "";
         }
         catch (Exception e)
         {
             Console.WriteLine($"EXCEPTION: {e.Message}\n{e.StackTrace}");
+            return $"EXCEPTION: {e.Message}\n{e.StackTrace}";
         }
-
     }
 
     private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff = false, string format = "puml")
