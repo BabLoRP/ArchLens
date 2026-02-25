@@ -42,7 +42,8 @@ def render(config_path: str = "./archlens.json"):
     
     if (should_run_dotnet(config)):
         format = config.get("format", "puml") #default to puml if no format specified
-        Program.CLI(config_path, format)
+        result = Program.CLISync(config_path, format)
+        assert_result(result)
 
         if format == "puml":
             for view in config["views"]:
@@ -66,7 +67,8 @@ def render_json(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
-        Program.CLI(config_path, "json")
+        result = Program.CLISync(config_path, "json")
+        assert_result(result)
     else:
         mt_path_manager = PathManagerSingleton()
         mt_path_manager.setup(config)
@@ -90,7 +92,8 @@ def render_diff(config_path: str = "archlens.json"):
 
     if (should_run_dotnet(config)):
         format = config.get("format", "puml") #default to puml if no format specified
-        Program.CLI(config_path, format, True)
+        result = Program.CLISync(config_path, format, True)
+        assert_result(result)
 
     if format == "puml":
         for view in config["views"]:
@@ -129,7 +132,8 @@ def render_diff_json(config_path: str = "archlens.json"):
     config = read_config_file(config_path)
     
     if (should_run_dotnet(config)):
-        Program.CLI(config_path, "json", True)
+        result = Program.CLISync(config_path, "json", True)
+        assert_result(result)
     else:  
         with tempfile.TemporaryDirectory() as tmp_dir:
             print("Created temporary directory:", tmp_dir)
@@ -209,6 +213,10 @@ def read_config_file(config_path):
 
 def should_run_dotnet(config):
     return "fileExtensions" in config and not (len(config["fileExtensions"]) > 1) and (".py" not in config["fileExtensions"])
+
+def assert_result(result):
+    if result != "":
+        raise Exception(result)
 
 def main():
     app()
