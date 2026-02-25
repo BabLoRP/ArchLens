@@ -20,6 +20,7 @@ public class ConfigManager(string _path)
         public string RootFolder { get; set; }
         public string ProjectName { get; set; }
         public string Name { get; set; }
+        public string? Format { get; set; }
         [JsonPropertyName("github")]
         public GithubDto GitInfo { get; set; }
         public string SnapshotDir { get; set; }
@@ -121,7 +122,7 @@ public class ConfigManager(string _path)
 
     private static RenderOptions MapRenderOptions(ConfigDto dto, string baseDir, BaseOptions options, string formatString)
     {
-        var format = MapFormat(formatString);
+        var format = MapFormat(dto.Format ?? formatString);
         var views = MapViews(dto.Views);
         var saveLoc = MapPath(baseDir, dto.SaveLocation);
 
