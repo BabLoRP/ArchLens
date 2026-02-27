@@ -33,6 +33,7 @@ setup(
         "requests",
         "jsonschema",
         "gitpython",
+        "pythonnet",
     ],
     classifiers=[
         "Programming Language :: Python :: 3.10",

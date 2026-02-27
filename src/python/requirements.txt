@@ -18,3 +18,4 @@ jsonschema
 gitpython
 six
 pre-commit
+pythonnet
