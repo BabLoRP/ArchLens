@@ -1,8 +1,6 @@
 ﻿using Archlens.Domain;
-using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
 using System.Net;
@@ -49,7 +47,7 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var opts = MakeOptions(badUrl);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => manager.GetLastSavedDependencyGraphAsync(opts, default));
-        Assert.Contains("Colud not parse GitUrl", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Could not parse GitUrl", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -58,12 +56,11 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var handler = new TestHttpHandler();
         var manager = new GitSnaphotManager(".archlens", "snapshot.json", handler);
 
-        var mainUrl = "https://raw.githubusercontent.com/owner/repo/main/.archlens/snapshot.json";
-        var masterUrl = "https://raw.githubusercontent.com/owner/repo/master/.archlens/snapshot.json";
+        var cleanRoot = _fs.Root.Replace(Path.DirectorySeparatorChar, '/');
+        var mainUrl = $"https://raw.githubusercontent.com/owner/repo/refs/heads/main/{cleanRoot}/.archlens/snapshot.json";
 
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         handler.When(mainUrl, HttpStatusCode.OK, DependencyGraphSerializer.Serialize(graph));
-        handler.When(masterUrl, HttpStatusCode.NotFound);
 
         var opts = MakeOptions("https://github.com/owner/repo");
 

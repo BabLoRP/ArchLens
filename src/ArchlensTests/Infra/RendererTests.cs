@@ -80,22 +80,18 @@ public sealed class RendererTests : IDisposable
     public void JsonRendererRendersDiffCorrectly()
     {
         JsonRenderer renderer = new();
+        var rootPath = _fs.Root;
 
         var opts = MakeOptions();
         var remoteGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         var localGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
 
-        var domain = RelativePath.Directory(_fs.Root, "./Domain/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var dependencyParserFactory = RelativePath.File(rootPath, "./Infra/Factories/DependencyParserFactory.cs");
 
-        var infra = RelativePath.Directory(_fs.Root, "./Infra/");
-        remoteGraph.AddDependency(infra, domain);
-        remoteGraph.AddDependency(infra, domain);
-
-        localGraph.AddDependency(infra, domain);
-        localGraph.AddDependency(infra, domain);
-        localGraph.RemoveDependency(infra, domain); // local removes one Infra -> Domain
-        localGraph.AddDependency(domain, infra);
-        localGraph.AddDependency(domain, infra);
+        localGraph.RemoveDependency(dependencyParserFactory, records); // local removes one Infra -> Domain
+        localGraph.AddDependency(records, dependencyParserFactory);
+        localGraph.AddDependency(records, dependencyParserFactory);
 
         var result = renderer.RenderDiffView(localGraph, remoteGraph, opts.Views[0], opts);
 
@@ -110,7 +106,7 @@ public sealed class RendererTests : IDisposable
                         "state": "DELETED",
                         "fromPackage": "Infra",
                         "toPackage": "Domain",
-                        "label": "1 (-1)"
+                        "label": "4 (-1)"
                         """;
 
 
@@ -136,24 +132,20 @@ public sealed class RendererTests : IDisposable
 
         var opts = MakeOptions();
 
+        var rootPath = _fs.Root;
         var remoteGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         var localGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
 
-        var domain = RelativePath.Directory(_fs.Root, "./Domain/");
-        var infra = RelativePath.Directory(_fs.Root, "./Infra/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var dependencyParserFactory = RelativePath.File(rootPath, "./Infra/Factories/DependencyParserFactory.cs");
 
-        remoteGraph.AddDependency(domain, infra);
-        remoteGraph.AddDependency(infra, domain);
-        remoteGraph.AddDependency(infra, domain);
-
-        localGraph.AddDependency(domain, infra);
-        localGraph.AddDependency(domain, infra);
-        localGraph.AddDependency(infra, domain);// local only have one Infra -> Domain
+        localGraph.AddDependency(records, dependencyParserFactory);
+        localGraph.RemoveDependency(dependencyParserFactory, records);
 
         string result = renderer.RenderDiffView(localGraph, remoteGraph, opts.Views[0], opts);
 
-        var newEdge = "Domain --> Infra #Green : 2 (+1)";
-        var deletedEdge = "Infra --> Domain #Red : 1 (-1)";
+        var newEdge = "Domain --> Infra #Green : 1 (+1)";
+        var deletedEdge = "Infra --> Domain #Red : 4 (-1)";
 
         Assert.NotEmpty(result);
         Assert.StartsWith("@startuml", result);
