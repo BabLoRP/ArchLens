@@ -32,16 +32,16 @@ public sealed class GitSnaphotManager : ISnapshotManager
 
     public async Task SaveGraphAsync(DependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
         => await _localManager.SaveGraphAsync(graph, options, ct);
-    
+
     public async Task<DependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.GitInfo.Url))
             throw new ArgumentException("GitUrl must be provided for GitSnaphotManager. Options has registered GitUrl as Null or Whitespace - has it been correctly configured in .archlens json?");
 
         if (!TryParseGitHubRepo(options.GitInfo.Url, out var owner, out var repo))
-            throw new ArgumentException("Colud not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
-        
-        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, _gitDirName, _gitFileName);
+            throw new ArgumentException("Could not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
+
+        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, options.BaseOptions.ProjectRoot, _gitDirName, _gitFileName);
 
         try
         {
@@ -85,13 +85,14 @@ public sealed class GitSnaphotManager : ISnapshotManager
         }
     }
 
-    private static string BuildRawUrl(string owner, string repo, string branch, string dir, string file)
+    private static string BuildRawUrl(string owner, string repo, string branch, string rootFolder, string dir, string file)
     {
         // https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{dir}/{file}
         static string Seg(string s) => WebUtility.UrlEncode(s ?? string.Empty).Replace("+", "%20");
 
         var sb = new StringBuilder("https://raw.githubusercontent.com/");
-        sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append('/').Append(Seg(branch)).Append('/');
+        sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append("/refs/heads/").Append(branch).Append('/').Append(rootFolder);
+        if (!sb.ToString().EndsWith('/')) sb.Append('/');
         if (!string.IsNullOrWhiteSpace(dir))
         {
             var trimmed = dir.Trim('/', '\\');
