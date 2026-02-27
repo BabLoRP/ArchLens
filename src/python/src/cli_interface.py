@@ -30,8 +30,9 @@ astroid.MANAGER = None
 from pythonnet import load
 load("coreclr")
 import clr
-clr.AddReference(os.path.abspath(os.path.dirname(__file__)).replace('src\\python', '') + "\\c-sharp\\bin\\Debug\\net9.0\\Archlens.dll")
-from Archlens.CLI import Program
+clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Microsoft.CodeAnalysis.dll'))
+clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Archlens.dll'))
+from Archlens.CLI import Program # type: ignore
 
 app = typer.Typer(add_completion=True)
 
