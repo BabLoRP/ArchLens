@@ -39,7 +39,7 @@ public sealed class GitSnaphotManager : ISnapshotManager
             throw new ArgumentException("GitUrl must be provided for GitSnaphotManager. Options has registered GitUrl as Null or Whitespace - has it been correctly configured in .archlens json?");
 
         if (!TryParseGitHubRepo(options.GitInfo.Url, out var owner, out var repo))
-            throw new ArgumentException("Colud not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
+            throw new ArgumentException("Could not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
 
         var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, options.BaseOptions.ProjectRoot, _gitDirName, _gitFileName);
 
@@ -89,17 +89,18 @@ public sealed class GitSnaphotManager : ISnapshotManager
 
     private static string BuildRawUrl(string owner, string repo, string branch, string rootFolder, string dir, string file)
     {
+        // https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{dir}/{file}
         static string Seg(string s) => WebUtility.UrlEncode(s ?? string.Empty).Replace("+", "%20");
 
-        rootFolder = (rootFolder ?? string.Empty).Trim('/', '\\');
-        dir = (dir ?? string.Empty).Trim('/', '\\');
-
         var sb = new StringBuilder("https://raw.githubusercontent.com/");
-        sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append('/').Append(Seg(branch)).Append('/');
-
-        if (!string.IsNullOrEmpty(dir))
-            sb.Append(Seg(dir)).Append('/');
-
+        sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append("/refs/heads/").Append(branch).Append('/').Append(rootFolder);
+        if (!sb.ToString().EndsWith('/')) sb.Append('/');
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            var trimmed = dir.Trim('/', '\\');
+            if (!string.IsNullOrEmpty(trimmed))
+                sb.Append(Seg(trimmed)).Append('/');
+        }
         sb.Append(Seg(file));
         return sb.ToString();
     }
