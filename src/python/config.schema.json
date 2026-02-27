@@ -17,11 +17,6 @@
       "description": "Point to the root package of the project",
       "minLength": 1
     },
-    "language": {
-      "type": "string",
-      "description": "The programming language of the project (C# or Python)",
-      "minLength": 1
-    },
     "github": {
       "type": "object",
       "description": "Information about the GitHub repository for the project",
@@ -39,6 +34,37 @@
           "description": "The name of the branch to use for the GitHub repository"
         }
       }
+    },
+    "fileExtensions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\.[A-Za-z]+$"
+      },
+      "description": "Defines the file extensions to parse, i.e. '.cs'"
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9._\\-\\/*]+$"
+      },
+      "description": "Defines the files or folders to exclude"
+    },
+    "snapshotDir": {
+      "type": "string",
+      "description": "The name of the folder to save the snapshot file",
+      "default": ".archlens"
+    },
+    "snapshotFile": {
+      "type": "string",
+      "description": "The name of the file to save the snapshot in",
+      "default": "snaphot"
+    },
+    "format": {
+      "type": "string",
+      "description": "The format to save the diagram in",
+      "default": "puml"
     },
     "SaveLocation": {
       "type": "string",
