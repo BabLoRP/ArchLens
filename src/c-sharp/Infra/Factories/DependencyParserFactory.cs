@@ -17,7 +17,7 @@ public sealed class DependencyParserFactory
         {
             IDependencyParser parser = lang switch
             {
-                Language.CSharp => new CsharpDependencyParser(o),
+                Language.CSharp => new CsharpSyntaxWalkerParser(o),
                 Language.Go => new GoDependencyParser(o),
                 Language.Kotlin => new KotlinDependencyParser(o),
                 _ => throw new NotSupportedException(nameof(lang))
