@@ -20,6 +20,7 @@ public sealed class DependencyParserFactory
                 Language.CSharp => new CsharpSyntaxWalkerParser(o),
                 Language.Go => new GoDependencyParser(o),
                 Language.Kotlin => new KotlinDependencyParser(o),
+                Language.Java => new JavaDependencyParser(o),
                 _ => throw new NotSupportedException(nameof(lang))
             };
             parsers.Add(parser);
