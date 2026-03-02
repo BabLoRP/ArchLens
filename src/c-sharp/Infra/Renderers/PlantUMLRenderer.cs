@@ -1,235 +1,114 @@
+using System;
+using System.Linq;
+using System.Text;
 using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace Archlens.Infra.Renderers;
 
 public sealed class PlantUMLRenderer : Renderer
 {
     public override string FileExtension => "puml";
-    private const string DELETED = "#Red";
-    private const string CREATED = "#Green";
 
-    private string packagesPuml = "";
-    private List<string> packageNames = [];
-    private string dependenciesPuml = "";
-
-    public override string RenderView(DependencyGraph rootGraph, View view, RenderOptions options)
+    protected override string Render(RenderGraph graph, View view, RenderOptions options)
     {
-        packagesPuml = "";
-        packageNames = [];
-        dependenciesPuml = "";
+        var aliases = graph.Nodes.Values.ToDictionary(
+            n => n.Path,
+            n => ToAlias(n.Path.Value));
 
-        if (view.Packages.Count > 0)
+        var sb = new StringBuilder();
+
+        sb.AppendLine("@startuml");
+        sb.AppendLine("skinparam linetype ortho");
+        sb.AppendLine("skinparam backgroundColor GhostWhite");
+        sb.AppendLine($"title {Escape(view.ViewName)}");
+
+        foreach (var node in graph.Nodes.Values.OrderBy(n => n.Path.Value, StringComparer.OrdinalIgnoreCase))
         {
-            foreach (var package in view.Packages)
+            var alias = aliases[node.Path];
+            var colour = NodeColour(node.State);
+
+            if (node.Type == ProjectItemType.Directory)
             {
-                var graphPath = Path.Combine(options.BaseOptions.FullRootPath, package.Path);
-                var g = rootGraph.FindByPath(graphPath);
-                if (g != null)
-                    UpdatePackages(g, view, package);
-            }
-
-            foreach (var package in view.Packages)
-            {
-                var graphPath = Path.Combine(options.BaseOptions.FullRootPath, package.Path);
-                var g = rootGraph.FindByPath(graphPath);
-                if (g != null)
-                    UpdateDependencies(g, view, package);
-            }
-        }
-        else
-        {
-            var nodeChildren = rootGraph.GetChildren().Where(ch => ch is DependencyGraphNode);
-
-            foreach (var child in nodeChildren)
-            {
-                var package = new Package(child.Path, 0);
-                UpdatePackages(child, view, package);
-            }
-
-            foreach (var child in nodeChildren)
-            {
-                var package = new Package(child.Path, 0);
-                UpdateDependencies(child, view, package);
-            }
-        }
-
-        string uml_str = $"""
-        @startuml
-        skinparam linetype ortho
-        skinparam backgroundColor GhostWhite
-        title {view.ViewName}
-        {packagesPuml}
-        {dependenciesPuml}
-        @enduml
-        """;
-
-        return uml_str;
-    }
-
-    public override string Merge(string localContent, string remoteContent)
-    {
-        var merged = localContent;
-
-        var regex = $@"(.+)-->(.+) .* ?: (\d+)(\s*\([+-]?\d+\))?";
-
-        var localMatches = Regex.Matches(localContent, regex);
-        var remoteMatches = Regex.Matches(remoteContent, regex);
-
-        foreach (Match match in localMatches)
-        {
-            var from = match.Groups[1].Value;
-            var to = match.Groups[2].Value;
-            var count = int.Parse(match.Groups[3].Value);
-
-            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
-            if (Regex.IsMatch(remoteContent, dependencyRegex))
-            {
-                //Update count, add (+x) or (-x)
-                var remoteMatch = Regex.Match(remoteContent, dependencyRegex);
-                var remoteCount = int.Parse(remoteMatch.Groups[1].Value);
-                var diff = count - remoteCount;
-                if (diff != 0)
-                {
-                    var sign = diff > 0 ? "+" : "";
-                    var color = diff > 0 ? CREATED : DELETED;
-                    merged = merged.Replace(match.Value, $"{from}-->{to} {color} : {count} ({sign}{diff})");
-                }
+                if (string.IsNullOrEmpty(colour))
+                    sb.AppendLine($"package \"{Escape(node.Label)}\" as {alias} {{}}");
+                else
+                    sb.AppendLine($"package \"{Escape(node.Label)}\" as {alias} {colour} {{}}");
             }
             else
             {
-                //Fresh edge
-                merged = merged.Replace(match.Value, $"{from}-->{to} {CREATED} : {count} (+{count})");
-            }
-
-        }
-
-        foreach (Match match in remoteMatches)
-        {
-            var from = match.Groups[1].Value;
-            var to = match.Groups[2].Value;
-            var count = int.Parse(match.Groups[3].Value);
-
-            var dependencyRegex = $@"{from}-->{to} .* ?: (\d+)(\s*\([+-]?\d+\))?";
-
-            if (!Regex.IsMatch(localContent, dependencyRegex))
-            {
-                //Deleted edge
-                merged = merged.Replace("@enduml", "");
-                merged += $"{from}-->{to} {DELETED} : 0 (-{count})";
+                if (string.IsNullOrEmpty(colour))
+                    sb.AppendLine($"component \"{Escape(node.Label)}\" as {alias}");
+                else
+                    sb.AppendLine($"component \"{Escape(node.Label)}\" as {alias} {colour}");
             }
         }
 
-        return merged.EndsWith("@enduml") ? merged : merged + "\n@enduml";
-    }
-
-    private void UpdatePackages(DependencyGraph graph, View view, Package package)
-    {
-        packagesPuml += GetChildrenPackages(graph, view, package.Depth);
-    }
-
-    private string GetChildrenPackages(ProjectDependencyGraph graph, View view, int depth)
-    {
-        if (!view.IgnorePackages.Contains(graph.Name) && !view.IgnorePackages.Contains(graph.Path))
+        foreach (var edge in graph.Edges
+                     .OrderBy(e => e.From.Value, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(e => e.To.Value, StringComparer.OrdinalIgnoreCase))
         {
-            packageNames.Add(PathNormaliser.GetPathDotSeparated(graph.Path));
-            var packages = $"package \"{graph.Name}\" as {graph.Name} {{\n";
+            if (!aliases.TryGetValue(edge.From, out var fromAlias))
+                continue;
 
-            if (depth >= 1)
-            {
-                var newDepth = depth - 1;
-                foreach (var child in graph.GetChildren().Where(ch => ch is DependencyGraphNode))
-                {
-                    packages += GetChildrenPackages(child, view, newDepth);
-                }
-            }
+            if (!aliases.TryGetValue(edge.To, out var toAlias))
+                continue;
 
-            packages += "}\n";
+            var colour = EdgeColour(edge.State);
+            var label = FormatLabel(edge.Count, edge.Delta);
 
-            return packages;
-        }
-        else return "";
-    }
-
-    private void UpdateDependencies(ProjectDependencyGraph graph, View view, Package package)
-    {
-        UpdateDependenciesForChildren(graph, view, package.Depth);
-    }
-
-    private void UpdateDependenciesForChildren(ProjectDependencyGraph graph, View view, int depth)
-    {
-        if (!view.IgnorePackages.Contains(graph.Name) && !view.IgnorePackages.Contains(graph.Path))
-        {
-            if (depth >= 1)
-            {
-                var newDepth = depth - 1;
-                foreach (var child in graph.GetChildren())
-                {
-                    if (child is DependencyGraphNode)
-                        UpdateDependenciesForChildren(child, view, newDepth);
-                    else
-                    {
-                        Dictionary<string, int> relevantDeps = [];
-
-                        foreach (var (dep, count) in child.GetDependencies())
-                        {
-                            if (packageNames.Contains(dep))
-                            {
-                                UpsertDependencyPuml(graph.Name, dep, count);
-                            }
-                            else if (packageNames.Any(p => dep.StartsWith(p)))
-                            {
-                                var trimmedDep = packageNames.Find(p => dep.StartsWith(p));
-                                UpsertDependencyPuml(graph.Name, trimmedDep, count);
-                            }
-                        }
-                    }
-                }
-            }
+            if (string.IsNullOrEmpty(colour))
+                sb.AppendLine($"{fromAlias} --> {toAlias} : {label}");
             else
-            {
-                Dictionary<string, int> relevantDeps = [];
-
-                foreach (var (dep, count) in graph.GetDependencies())
-                {
-                    if (packageNames.Contains(dep))
-                    {
-                        UpsertDependencyPuml(graph.Name, dep, count);
-                    }
-                    else if (packageNames.Any(p => dep.StartsWith(p)))
-                    {
-                        var trimmedDep = packageNames.Find(p => dep.StartsWith(p));
-                        UpsertDependencyPuml(graph.Name, trimmedDep, count);
-                    }
-                }
-            }
+                sb.AppendLine($"{fromAlias} --> {toAlias} {colour} : {label}");
         }
+
+        sb.AppendLine("@enduml");
+        return sb.ToString();
     }
 
-    private void UpsertDependencyPuml(string fromName, string toName, int count)
+    private static string FormatLabel(int count, int delta)
     {
-        if (toName.StartsWith(fromName)) return; //Ignore dependencies to children
+        if (delta == 0)
+            return count.ToString();
 
-        var regex = $@"{fromName}-->{toName} : (\d+)\n";
-
-        if (Regex.IsMatch(dependenciesPuml, regex))
-        {
-            var match = Regex.Match(dependenciesPuml, regex);
-            var existingCount = int.Parse(match.Groups[1].Value);
-            var newCount = existingCount + count;
-            var newPuml = $"{fromName}-->{toName} : {newCount}\n";
-
-            dependenciesPuml = Regex.Replace(dependenciesPuml, regex, newPuml);
-        }
-        else
-        {
-            dependenciesPuml += $"{fromName}-->{toName} : {count}\n";
-        }
+        var sign = delta > 0 ? "+" : "";
+        return $"{count} ({sign}{delta})";
     }
+
+    private static string NodeColour(RenderState state) => state switch
+    {
+        RenderState.Added => "#LightGreen",
+        RenderState.Removed => "#LightCoral",
+        RenderState.Modified => "#Moccasin",
+        _ => ""
+    };
+
+    private static string EdgeColour(RenderState state) => state switch
+    {
+        RenderState.Added => "#Green",
+        RenderState.Removed => "#Red",
+        RenderState.Modified => "#Orange",
+        _ => ""
+    };
+
+    private static string ToAlias(string path)
+    {
+        var chars = path.Select(ch =>
+            char.IsLetterOrDigit(ch) ? ch : '_');
+
+        var alias = new string(chars.ToArray());
+
+        if (string.IsNullOrWhiteSpace(alias))
+            return "node";
+
+        if (char.IsDigit(alias[0]))
+            alias = "_" + alias;
+
+        return alias;
+    }
+
+    private static string Escape(string value) =>
+        value.Replace("\"", "\\\"");
 }

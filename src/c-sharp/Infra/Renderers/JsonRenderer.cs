@@ -1,281 +1,81 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace Archlens.Infra.Renderers;
 
 public sealed class JsonRenderer : Renderer
 {
+    private sealed record JsonRenderDto(
+        string Title,
+        IEnumerable<JsonPackageDto> Packages,
+        IEnumerable<JsonEdgeDto> Edges
+    );
+
+    private sealed record JsonPackageDto(
+        string Name,
+        string Path,
+        ProjectItemType Type,
+        string State
+    );
+
+    private sealed record JsonEdgeDto(
+        string State,
+        string FromPackage,
+        string ToPackage,
+        string Label,
+        int Count,
+        int Delta,
+        string DependencyType
+    );
+
     public override string FileExtension => "json";
-    private string packagesJson = "";
-    private List<string> packageNames = [];
-    private string edgesJson = "";
 
-    public override string RenderView(DependencyGraph graph, View view, RenderOptions options)
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        packagesJson = "";
-        packageNames = [];
-        edgesJson = "";
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
-        if (view.Packages.Count > 0)
-        {
-            foreach (var package in view.Packages)
-            {
-                var graphPath = Path.Combine(options.BaseOptions.FullRootPath, package.Path);
-                var packageGraph = graph.FindByPath(graphPath);
-                if (packageGraph != null)
-                {
-                    foreach (var child in packageGraph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c)))
-                    {
-                        packagesJson +=
-                        $$"""
-                
-                            {
-                                "name": "{{child.Name}}",
-                                "state": "NEUTRAL"
-                            },
-                        """;
+    protected override string Render(RenderGraph graph, View view, RenderOptions options)
+    {
+        var dto = new JsonRenderDto(
+            Title: view.ViewName,
+            Packages: graph.Nodes.Values
+                .OrderBy(n => n.Path.Value, StringComparer.OrdinalIgnoreCase)
+                .Select(n => new JsonPackageDto(
+                    Name: n.Label,
+                    Path: n.Path.Value,
+                    Type: n.Type,
+                    State: n.State.ToString().ToUpperInvariant())),
 
-                        packageNames.Add(PathNormaliser.GetPathDotSeparated(child.Path));
-                    }
-                }
-            }
+            Edges: graph.Edges
+                .OrderBy(e => e.From.Value, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(e => e.To.Value, StringComparer.OrdinalIgnoreCase)
+                .Select(e => new JsonEdgeDto(
+                    State: e.State.ToString().ToUpperInvariant(),
+                    FromPackage: e.From.Value,
+                    ToPackage: e.To.Value,
+                    Label: FormatLabel(e.Count, e.Delta),
+                    Count: e.Count,
+                    Delta: e.Delta,
+                    DependencyType: e.Type.ToString().ToUpperInvariant()))
+        );
 
-            foreach (var package in view.Packages)
-            {
-                var graphPath = Path.Combine(options.BaseOptions.FullRootPath, package.Path);
-                var packageGraph = graph.FindByPath(graphPath);
-                if (packageGraph != null)
-                {
-                    foreach (var child in packageGraph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c)))
-                    {
-                        edgesJson += GetEdge(child as DependencyGraphNode);
-                    }
-                }
-            }
-
-        }
-        else
-        {
-            var children = graph.GetChildren().Where(c => c is DependencyGraphNode && !IsIgnored(view.IgnorePackages, c));
-            foreach (var child in children)
-            {
-                packagesJson +=
-                $$"""
-        
-                    {
-                        "name": "{{child.Name}}",
-                        "state": "NEUTRAL"
-                    },
-                """;
-
-                packageNames.Add(PathNormaliser.GetPathDotSeparated(child.Path));
-            }
-
-            foreach (var child in children)
-            {
-                edgesJson += GetEdge(child as DependencyGraphNode);
-            }
-        }
-
-        var str =
-        $$"""
-        {
-            "title": "{{view.ViewName}}",
-            "packages": [
-                {{packagesJson.TrimEnd(',')}}
-            ],
-
-            "edges": [
-                {{edgesJson.TrimEnd(',')}}
-            ]
-        }
-        """;
-        return str;
+        return JsonSerializer.Serialize(dto, JsonOptions);
     }
 
-    public override string Merge(string localContent, string remoteContent)
+    private static string FormatLabel(int count, int delta)
     {
-        var merged = localContent;
+        if (delta == 0)
+            return count.ToString();
 
-        var regex = $"""
-                    "state": ".+",\s*"fromPackage": "(.+)",\s*"toPackage": "(.+)",\s*"label": "(\d+)(\s*\([+-]?\d+\))?"
-                    """;
-
-        var localMatches = Regex.Matches(localContent, regex);
-        var remoteMatches = Regex.Matches(remoteContent, regex);
-
-        foreach (Match match in localMatches)
-        {
-            var from = match.Groups[1].Value;
-            var to = match.Groups[2].Value;
-            var count = int.Parse(match.Groups[3].Value);
-
-            var dependencyRegex = $"""
-                                    "state": ".+",\s*"fromPackage": "{from}",\s*"toPackage": "{to}",\s*"label": "(\d+)(\s*\([+-]?\d+\))?"
-                                    """;
-
-            if (Regex.IsMatch(remoteContent, dependencyRegex))
-            {
-                //Update count, add (+x) or (-x)
-                var remoteMatch = Regex.Match(remoteContent, dependencyRegex);
-                var remoteCount = int.Parse(remoteMatch.Groups[1].Value);
-                var diff = count - remoteCount;
-                if (diff != 0)
-                {
-                    var sign = diff > 0 ? "+" : "";
-                    var state = diff > 0 ? "CREATED" : "DELETED";
-
-                    var mergedValue =
-                        $"""
-                            "state": "{state}",
-                            "fromPackage": "{from}",
-                            "toPackage": "{to}",
-                            "label": "{count} ({sign}{diff})"
-                        """;
-
-                    merged = merged.Replace(match.Value, mergedValue);
-                }
-            }
-            else
-            {
-                //Fresh edge
-                var mergedValue =
-                    $"""
-                    "state": "CREATED",
-                    "fromPackage": "{from}",
-                    "toPackage": "{to}",
-                    "label": "{count} (+{count})"
-                    """;
-
-                merged = merged.Replace(match.Value, mergedValue);
-            }
-        }
-
-        foreach (Match match in remoteMatches)
-        {
-            var from = match.Groups[1].Value;
-            var to = match.Groups[2].Value;
-            var count = int.Parse(match.Groups[3].Value);
-
-            var dependencyRegex = $"""
-                                    "state": ".+",\s*"fromPackage": "{from}",\s*"toPackage": "{to}",\s*"label": "(\d+)(\s*\([+-]?\d+\))?"
-                                    """;
-
-            if (!Regex.IsMatch(localContent, dependencyRegex))
-            {
-                //Deleted edge
-                var newValue =
-                    $$"""
-                        ,
-                        {
-                            "state": "DELETED",
-                            "fromPackage": "{{from}}",
-                            "toPackage": "{{to}}",
-                            "label": "0 (-{{count}})",
-                            "relations": []
-                        }
-                    """;
-
-                merged = merged.TrimEnd('}').TrimEnd().TrimEnd(']');
-                merged += newValue + "]\n}";
-            }
-        }
-
-        return merged;
-    }
-
-    private string GetEdge(DependencyGraphNode node)
-    {
-        var str = "";
-
-        foreach (var (dep, count) in node.GetDependencies())
-        {
-            if (packageNames.Contains(dep))
-            {
-                var relations = GetChildrenDependencyRelations(node, dep);
-
-                str +=
-                    $$"""
-                        {
-                            "state": "NEUTRAL",
-                            "fromPackage": "{{node.Name}}",
-                            "toPackage": "{{dep}}",
-                            "label": "{{relations.Split("from_file").Length - 1}}",
-                            "relations": [
-                                {{relations.TrimEnd(',')}}
-                            ]
-                        },
-                    """;
-            }
-            else if (packageNames.Any(p => dep.StartsWith(p)))
-            {
-                var trimmedDep = packageNames.Find(p => dep.StartsWith(p));
-                var relations = GetChildrenDependencyRelations(node, trimmedDep);
-
-                str +=
-                    $$"""
-                        {
-                            "state": "NEUTRAL",
-                            "fromPackage": "{{node.Name}}",
-                            "toPackage": "{{trimmedDep}}",
-                            "label": "{{relations.Split("from_file").Length - 1}}",
-                            "relations": [
-                                {{relations.TrimEnd(',')}}
-                            ]
-                        },
-                    """;
-            }
-
-        }
-
-        return str;
-    }
-
-    private string GetChildrenDependencyRelations(DependencyGraphNode node, string dep)
-    {
-        string relations = "";
-
-        foreach (var child in node.GetChildren())
-        {
-            if (child is DependencyGraphLeaf)
-            {
-                var subDependencies = child.GetDependencies().Where((d) => d.Key.StartsWith(dep));
-
-                foreach (var subDependency in subDependencies)
-                {
-                    relations +=
-                    $$"""
-                        {
-                            "from_file": {
-                                "name": "{{child.Name}}",
-                                "path": "{{child.Path}}"
-                            },
-                            "to_file": {
-                                "name": "{{subDependency.Key.Split('.').Last()}}",
-                                "path": "{{subDependency.Key}}"
-                            }
-                        },
-                    """;
-                }
-
-            }
-            else if (child is DependencyGraphNode childNode)
-            {
-                relations += GetChildrenDependencyRelations(childNode, dep);
-            }
-        }
-
-        return relations;
-    }
-
-    private static bool IsIgnored(IEnumerable<string> ignorePackages, ProjectDependencyGraph graph)
-    {
-        return ignorePackages.Contains(graph.Name) || ignorePackages.Contains(graph.Path);
+        var sign = delta > 0 ? "+" : "";
+        return $"{count} ({sign}{delta})";
     }
 }

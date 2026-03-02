@@ -29,33 +29,25 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Utils"));
     }
 
-    private ProjectChanges CreateProjectChanges(IReadOnlyDictionary<string, IReadOnlyList<string>> changedFilesByDirectory,
-                                                IReadOnlyList<string> deletedFiles,
-                                                IReadOnlyList<string> deletedDirectories) =>
+    private ProjectChanges CreateProjectChanges(IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> changedFilesByDirectory,
+                                                IReadOnlyList<RelativePath> deletedFiles,
+                                                IReadOnlyList<RelativePath> deletedDirectories) =>
         new(changedFilesByDirectory, deletedFiles, deletedDirectories);
 
     private DependencyGraphBuilder CreateBuilder(IReadOnlyList<IDependencyParser> parser) =>
         new(parser, MakeOptions());
 
-    private static DependencyGraphNode RequireNode(ProjectDependencyGraph g, string anyPath)
+    private static ProjectItem RequireItem(ProjectDependencyGraph graph, RelativePath path)
     {
-        var found = g.FindByPath(anyPath);
+        var found = graph.GetProjectItem(path);
         Assert.NotNull(found);
-        var node = Assert.IsType<DependencyGraphNode>(found);
+        var node = Assert.IsType<ProjectItem>(found);
         return node;
     }
 
-    private static DependencyGraphLeaf RequireLeaf(ProjectDependencyGraph g, string anyPath)
+    private static IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> ChangedModules(params (RelativePath moduleAbs, IReadOnlyList<RelativePath> contentsAbs)[] entries)
     {
-        var found = g.FindByPath(anyPath);
-        Assert.NotNull(found);
-        var leaf = Assert.IsType<DependencyGraphLeaf>(found);
-        return leaf;
-    }
-
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> ChangedModules(params (string moduleAbs, IReadOnlyList<string> contentsAbs)[] entries)
-    {
-        var dict = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>();
         foreach (var (m, c) in entries)
             dict[m] = c;
         return dict;
@@ -85,15 +77,13 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder([parser]);
 
-        var changes = CreateProjectChanges(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), [], []);
+        var changes = CreateProjectChanges(new Dictionary<RelativePath, IReadOnlyList<RelativePath>>(), [], []);
 
         var graph = await builder.GetGraphAsync(
             changes: changes,
             lastSavedDependencyGraph: null);
 
-        Assert.Equal("Archlens", graph.Name);
-        Assert.True(graph.Path is "./" or "./");
-        Assert.Empty(graph.GetChildren());
+        Assert.Empty(graph.ProjectItems);
         Assert.Empty(parser.Calls);
     }
 
@@ -107,18 +97,27 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var options = _fs.File("Domain/Models/Records/Options.cs", "/* */");
         var depGraph = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
 
-        var domainDir = Path.Combine(_fs.Root, "Domain");
-        var factoriesDir = Path.Combine(domainDir, "Factories");
-        var modelsDir = Path.Combine(domainDir, "Models");
-        var recordsDir = Path.Combine(modelsDir, "Records");
+        var depFactoryFile  = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
+        var rendFactoryFile = RelativePath.File(_fs.Root, "./Domain/Factories/RendererFactory.cs");
+        var optionsFile     = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
+        var depGraphFile    = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
 
-        var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        var rootDir         = RelativePath.Directory(_fs.Root, _fs.Root);
+        var domainDir       = RelativePath.Directory(_fs.Root, "./Domain");
+        var factoriesDir    = RelativePath.Directory(_fs.Root, "./Domain/Factories");
+        var modelsDir       = RelativePath.Directory(_fs.Root, "./Domain/Models");
+        var recordsDir      = RelativePath.Directory(_fs.Root, "./Domain/Models/Records");
+        var enumsDir        = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums");
+        var interfacesDir   = RelativePath.Directory(_fs.Root, "./Domain/Interfaces");
+        var utilsDir        = RelativePath.Directory(_fs.Root, "./Domain/Utils");
+
+        var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [_fs.Root] = [domainDir],
-            [domainDir] = [factoriesDir, Path.Combine(domainDir, "Interfaces"), modelsDir, Path.Combine(domainDir, "Utils")],
-            [factoriesDir] = [depFactory, rendFactory],
-            [modelsDir] = [Path.Combine(modelsDir, "Enums"), recordsDir, depGraph],
-            [recordsDir] = [options]
+            [rootDir] = [domainDir],
+            [domainDir] = [factoriesDir, interfacesDir, modelsDir, utilsDir],
+            [factoriesDir] = [depFactoryFile, rendFactoryFile],
+            [modelsDir] = [enumsDir, recordsDir, depGraphFile],
+            [recordsDir] = [optionsFile]
         };
 
         var changes = CreateProjectChanges(changedModules, [], []);
@@ -136,19 +135,19 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var root = RequireNode(graph, _fs.Root);
-        var domain = RequireNode(graph, domainDir);
-        var factories = RequireNode(graph, factoriesDir);
-        var models = RequireNode(graph, modelsDir);
-        RequireLeaf(graph, depFactory);
-        RequireLeaf(graph, rendFactory);
-        RequireLeaf(graph, options);
-        RequireLeaf(graph, depGraph);
+        var root        = RequireItem(graph, rootDir);
+        var domain      = RequireItem(graph, domainDir);
+        var factories   = RequireItem(graph, factoriesDir);
+        var models      = RequireItem(graph, modelsDir);
+        RequireItem(graph, depFactoryFile);
+        RequireItem(graph, rendFactoryFile);
+        RequireItem(graph, optionsFile);
+        RequireItem(graph, depGraphFile);
 
         Assert.Same(root, graph);
-        Assert.Contains(domain, root.GetChildren());
-        Assert.Contains(factories, domain.GetChildren());
-        Assert.Contains(models, domain.GetChildren());
+        Assert.Contains(domain.Path, graph.ChildrenOf(rootDir));
+        Assert.Contains(factories.Path, graph.ChildrenOf(domainDir));
+        Assert.Contains(models.Path, graph.ChildrenOf(domainDir));
 
         Assert.Equal(4, parser.Calls.Count);
         Assert.Contains(depFactory, parser.Calls);
@@ -162,8 +161,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var moduleDir = Path.Combine(_fs.Root, "Domain", "Factories");
         var cs = _fs.File("Domain/Factories/Duplicate.cs", "/* */");
+
+        var factoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var csPath = RelativePath.File(_fs.Root, "./Domain/Factories/Duplicate.cs");
 
         var parseMap = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -174,26 +175,31 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (moduleDir, new[] { cs, cs, cs })
+            (factoryDirPath, new[] { csPath, csPath, csPath })
         );
 
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var moduleNode = RequireNode(graph, moduleDir);
+        var dirItem = RequireItem(graph, factoryDirPath);
+        var dirItemChildren = graph.ChildrenOf(dirItem.Path);
+        Assert.Single(dirItemChildren);
 
-        var matching = moduleNode.GetChildren().Where(c => c is DependencyGraphLeaf && string.Equals(c.Path, PathNormaliser.NormaliseFile(_fs.Root, cs), StringComparison.OrdinalIgnoreCase)).ToList();
-        Assert.Single(matching);
+        var existing = RequireItem(graph, csPath);
+        Assert.Same(existing, graph.GetProjectItem(csPath));
+        Assert.Equal(existing.Path, dirItemChildren[0]);
     }
 
     [Fact]
-    public async Task ContainsPath_AcceptsAbsoluteAndRelativeVariants_ForSameFile()
+    public async Task ContainsPath_AcceptsRelativeVariants_ForSameFile()
     {
         SetupMockProject();
 
-        var moduleDir = Path.Combine(_fs.Root, "Domain", "Factories");
         var cs = _fs.File("Domain/Factories/Variant.cs", "/* */");
+
+        var factoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var csPath = RelativePath.File(_fs.Root, "./Domain/Factories/Variant.cs");
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -203,89 +209,90 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (moduleDir, new[] { cs })
+            (factoryDirPath, new[] { csPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        Assert.True(graph.ContainsPath(cs));
+        Assert.True(graph.ContainsProjectItem(csPath));
 
-        var rel1 = "./Domain/Factories/Variant.cs";
-        var rel2 = "Domain/Factories/Variant.cs";
-        Assert.True(graph.ContainsPath(rel1));
-        Assert.True(graph.ContainsPath(rel2));
+        var rel1 = RelativePath.File(_fs.Root, "./Domain/Factories/Variant.cs");
+        var rel2 = RelativePath.File(_fs.Root, "Domain/Factories/Variant.cs");
+        Assert.True(graph.ContainsProjectItem(rel1));
+        Assert.True(graph.ContainsProjectItem(rel2));
     }
 
     [Fact]
     public async Task BuildGraph_CreatesNodesForDirectoriesMentionedInContents_EvenIfNotKeys()
     {
         SetupMockProject();
-
-        var domainDir = Path.Combine(_fs.Root, "Domain");
-        var modelsDir = Path.Combine(domainDir, "Models");
+        var rootDirPath = RelativePath.Directory(_fs.Root, _fs.Root);
+        var domainDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
+        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
 
         // Note: modelsDir exists (SetupMockProject), but we do NOT include it as a module key.
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (_fs.Root, new[] { domainDir }),
-            (domainDir, new[] { modelsDir }) // modelsDir only appears as content
+            (rootDirPath, new[] { domainDirPath }),
+            (domainDirPath, new[] { modelsDirPath }) // modelsDir only appears as content
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        Assert.True(graph.ContainsPath(domainDir));
-        Assert.True(graph.ContainsPath(modelsDir));
+        Assert.True(graph.ContainsProjectItem(domainDirPath));
+        Assert.True(graph.ContainsProjectItem(modelsDirPath));
 
-        var domainNode = RequireNode(graph, domainDir);
-        var modelsNode = RequireNode(graph, modelsDir);
-        Assert.Contains(modelsNode, domainNode.GetChildren());
+        var _ = RequireItem(graph, domainDirPath);
+        var modelsNode = RequireItem(graph, modelsDirPath);
+        Assert.Contains(modelsNode.Path, graph.ChildrenOf(domainDirPath));
     }
 
-    private static DependencyGraphNode MakeDependencyGraph(string rootPath)
+    private static ProjectDependencyGraph MakeDependencyGraph(string rootPath)
     {
-        var root = TestGraphs.Node(rootPath, "Archlens", "./");
+        var graph = new ProjectDependencyGraph(rootPath);
 
-        var application = TestGraphs.Node(rootPath, "Application", "./Application/");
-        var domain = TestGraphs.Node(rootPath, "Domain", "./Domain/");
-        var factory = TestGraphs.Node(rootPath, "Factories", "./Domain/Factories/");
-        var models = TestGraphs.Node(rootPath, "Models", "./Domain/Models/");
-        var records = TestGraphs.Node(rootPath, "Records", "./Domain/Models/Records/");
-        var enums = TestGraphs.Node(rootPath, "Enums", "./Domain/Models/Enums/");
-        var utils = TestGraphs.Node(rootPath, "Utils", "./Domain/Utils/");
+        var root        = RelativePath.Directory(rootPath, rootPath);
+        var application = RelativePath.Directory(rootPath, "./Application/");
+        var infra       = RelativePath.Directory(rootPath, "./Infra/");
+        var domain      = RelativePath.Directory(rootPath, "./Domain/");
+        var interfaces  = RelativePath.Directory(rootPath, "./Domain/Interfaces");
+        var factory     = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var models      = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var records     = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enums       = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utils       = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        root.AddChild(application);
-        root.AddChild(domain);
-        domain.AddChild(factory);
-        domain.AddChild(models);
-        domain.AddChild(utils);
-        models.AddChild(records);
-        models.AddChild(enums);
+        graph.AddChild(root, application);
+        graph.AddChild(root, domain);
+        graph.AddChild(domain, factory);
+        graph.AddChild(domain, models);
+        graph.AddChild(domain, utils);
+        graph.AddChild(models, records);
+        graph.AddChild(models, enums);
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "ChangeDetector.cs",
-            "./Application/ChangeDetector.cs",
-            "Domain.Model", "Domain.Models.Records", "Domain.Utils"));
+        var changeDetector          = RelativePath.File(rootPath, "./Application/ChangeDetector.cs");
+        var dependencyParserFactory = RelativePath.File(rootPath, "./Domain/Factories/DependencyParserFactory.cs");
+        var rendererFactory         = RelativePath.File(rootPath, "./Domain/Factories/RendererFactory.cs");
+        var options                 = RelativePath.File(rootPath, "./Domain/Models/Records/Options.cs");
+        var dependencyGraph         = RelativePath.File(rootPath, "./Domain/Models/DependencyGraph.cs");
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "DependencyParserFactory.cs",
-            "./Domain/Factories/DependencyParserFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Domain.Models.Records", "Infra"));
+        var dependencies = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
+        {
+            [changeDetector] = [models, records, utils],
+            [dependencyParserFactory] = [interfaces, enums, records, infra],
+            [rendererFactory] = [interfaces, enums, infra],
+            [options] = [enums],
+            [dependencyGraph] = [utils]
+        };
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "RendererFactory.cs",
-            "./Domain/Factories/RendererFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Infra"));
+        foreach (var (source, targets) in dependencies)
+            graph.AddDependencies(source, targets);
 
-        records.AddChild(TestGraphs.Leaf(rootPath, "Options.cs",
-            "./Domain/Models/Records/Options.cs",
-            "Domain.Models.Enums"));
-
-        models.AddChild(TestGraphs.Leaf(rootPath, "DependencyGraph.cs",
-            "./Domain/Models/DependencyGraph.cs",
-            "Domain.Utils"));
-
-        return root;
+        return graph;
     }
 
     [Fact]
@@ -294,31 +301,38 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SetupMockProject();
 
         // The file exists on disk so the builder can parse it.
-        var depFactoryAbs = _fs.File("Domain/Factories/DependencyParserFactory.cs", "/* */");
-        var factoriesDirAbs = Path.Combine(_fs.Root, "Domain", "Factories");
+        var depFactory = _fs.File("Domain/Factories/DependencyParserFactory.cs", "/* */");
+        
+        var depFactoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var depFactoryFilePath = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
 
         var lastSavedGraph = MakeDependencyGraph(_fs.Root);
 
         // Change the dependencies for the same logical file.
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            [depFactoryAbs] = ["New.Dep", "Domain.Models.Enums"]
+            [depFactory] = ["New.Dep", "Domain.Models.Enums"]
         });
 
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (factoriesDirAbs, new[] { depFactoryAbs })
+            (depFactoryDirPath, new[] { depFactoryFilePath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changes, lastSavedGraph);
+        var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
         // Find by either absolute or normalised path; the graph should resolve it.
-        var leaf = RequireLeaf(merged, depFactoryAbs);
+        var depFactoryProjectItem = RequireItem(graph, depFactoryFilePath);
 
-        Assert.Contains("New.Dep", leaf.GetDependencies().Keys);
-        Assert.DoesNotContain("Infra", leaf.GetDependencies().Keys);
+        var newDepPath = RelativePath.Directory(_fs.Root, "./New/Dep/");
+        var enumsPath = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums");
+        var infraPath = RelativePath.Directory(_fs.Root, "./Infra/");
+
+        Assert.Contains(newDepPath, graph.DependenciesFrom(depFactoryProjectItem.Path).Keys);
+        Assert.Contains(enumsPath, graph.DependenciesFrom(depFactoryProjectItem.Path).Keys);
+        Assert.DoesNotContain(infraPath, graph.DependenciesFrom(depFactoryProjectItem.Path).Keys);
     }
 
     [Fact]
@@ -327,7 +341,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SetupMockProject();
 
         var optionsAbs = _fs.File("Domain/Models/Records/Options.cs", "/* */");
-        var recordsDirAbs = Path.Combine(_fs.Root, "Domain", "Models", "Records");
+
+        var recordDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
+        var optionsPath = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
 
         var lastSavedGraph = MakeDependencyGraph(_fs.Root);
 
@@ -339,19 +355,22 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (recordsDirAbs, new[] { optionsAbs })
+            (recordDirPath, new[] { optionsPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changes, lastSavedGraph);
+        var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
         // Something not in the changed set should still exist.
-        Assert.True(merged.ContainsPath("./Domain/Factories/RendererFactory.cs"));
-        Assert.True(merged.ContainsPath("./Domain/Models/DependencyGraph.cs"));
+        var renderFactoryPath = RelativePath.File(_fs.Root, "./Domain/Factories/RendererFactory.cs");
+        var dependencyGraphPath = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        Assert.True(graph.ContainsProjectItem(renderFactoryPath));
+        Assert.True(graph.ContainsProjectItem(dependencyGraphPath));
 
         // And the changed file should exist with the changed dep.
-        var optionsLeaf = RequireLeaf(merged, optionsAbs);
-        Assert.Contains("Changed.Dep", optionsLeaf.GetDependencies().Keys);
+        var changedDep = RelativePath.Directory(_fs.Root, "./Changed/Dep/");
+        var optionsItem = RequireItem(graph, optionsPath);
+        Assert.Contains(changedDep, graph.DependenciesFrom(optionsItem.Path).Keys);
     }
 
     [Fact]
@@ -360,7 +379,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SetupMockProject();
 
         var newAbs = _fs.File("Domain/Utils/NewUtil.cs", "/* */");
-        var utilsDirAbs = Path.Combine(_fs.Root, "Domain", "Utils");
+
+        var utilsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+        var newPath = RelativePath.File(_fs.Root, "./Domain/Utils/NewUtil.cs");
 
         var lastSavedGraph = MakeDependencyGraph(_fs.Root);
 
@@ -372,16 +393,17 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (utilsDirAbs, new[] { newAbs })
+            (utilsDirPath, new[] { newPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changes, lastSavedGraph);
+        var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
-        Assert.True(merged.ContainsPath(newAbs));
+        Assert.True(graph.ContainsProjectItem(newPath));
 
-        var newLeaf = RequireLeaf(merged, newAbs);
-        Assert.Contains("Some.Dep", newLeaf.GetDependencies().Keys);
+        var someDepDirPath = RelativePath.Directory(_fs.Root, "./Some/Dep/");
+        var newLeaf = RequireItem(graph, newPath);
+        Assert.Contains(someDepDirPath, graph.DependenciesFrom(newLeaf.Path).Keys);
     }
 
     [Fact]
@@ -390,7 +412,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SetupMockProject();
 
         var cs = _fs.File("Domain/Factories/Cancellable.cs", "/* */");
-        var moduleDir = Path.Combine(_fs.Root, "Domain", "Factories");
+
+        var factoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var csPath = RelativePath.File(_fs.Root, "./Domain/Factories/Variant.cs");
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -400,7 +424,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (moduleDir, new[] { cs })
+            (factoryDirPath, new[] { csPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -418,8 +442,11 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var depGraph = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
 
-        var domainDir = Path.Combine(_fs.Root, "Domain");
-        var modelsDir = Path.Combine(domainDir, "Models");
+        var rootPath = RelativePath.Directory(_fs.Root, _fs.Root);
+        var domainDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
+        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+
+        var depGraphPath = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -429,20 +456,20 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (_fs.Root, new[] { domainDir }),
-            (domainDir, new[] { modelsDir }),
-            (modelsDir, new[] { depGraph })
+            (rootPath, new[] { domainDirPath }),
+            (domainDirPath, new[] { modelsDirPath }),
+            (modelsDirPath, new[] { depGraphPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var root = RequireNode(graph, _fs.Root);
-        var domain = RequireNode(graph, domainDir);
-        var models = RequireNode(graph, modelsDir);
+        var _   = RequireItem(graph, rootPath);
+        var domain = RequireItem(graph, domainDirPath);
+        var models = RequireItem(graph, modelsDirPath);
 
-        Assert.Contains(domain, root.GetChildren());
-        Assert.Contains(models, domain.GetChildren());
+        Assert.Contains(domain.Path, graph.ChildrenOf(rootPath));
+        Assert.Contains(models.Path, graph.ChildrenOf(domainDirPath));
     }
 
     [Fact]
@@ -450,34 +477,37 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var domainAbs = Path.Combine(_fs.Root, "Domain");
-        var domainAbsTrailing = domainAbs + Path.DirectorySeparatorChar;
-        var domainRel = "Domain";
-        var domainDotRel = "./Domain";
+        var srcPath = RelativePath.Directory(_fs.Root, _fs.Root);
+
+        var domain1 = RelativePath.Directory(_fs.Root, Path.Combine(_fs.Root, "Domain"));
+        var domain2 = RelativePath.Directory(_fs.Root, $"{domain1}{Path.DirectorySeparatorChar}");
+        var domain3 = RelativePath.Directory(_fs.Root, Path.Combine(_fs.Root, "./Domain"));
+        var domain4 = RelativePath.Directory(_fs.Root, "./Domain");
+        var domain5 = RelativePath.Directory(_fs.Root, "Domain");
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder([parser]);
 
-        var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [_fs.Root] = [domainAbs],
-            [domainAbs] = [domainAbsTrailing, domainRel, domainDotRel]
+            [srcPath] = [domain1],
+            [domain1] = [domain2, domain3, domain4]
         };
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var n1 = RequireNode(graph, domainAbs);
-        var n2 = RequireNode(graph, domainAbsTrailing);
-        var n3 = RequireNode(graph, domainRel);
-        var n4 = RequireNode(graph, domainDotRel);
+        var n1 = RequireItem(graph, domain1);
+        var n2 = RequireItem(graph, domain2);
+        var n3 = RequireItem(graph, domain3);
+        var n4 = RequireItem(graph, domain4);
 
         Assert.True(ReferenceEquals(n1, n2));
         Assert.True(ReferenceEquals(n1, n3));
         Assert.True(ReferenceEquals(n1, n4));
 
-        var root = RequireNode(graph, _fs.Root);
-        Assert.Single(root.GetChildren(), c => string.Equals(c.Path, n1.Path, StringComparison.OrdinalIgnoreCase));
+        var _ = RequireItem(graph, srcPath);
+        Assert.Single(graph.ProjectItems);
     }
 
     [Fact]
@@ -485,8 +515,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var modelsDir = Path.Combine(_fs.Root, "Domain", "Models");
         var depGraphAbs = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+
+        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        var depGraphPath = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
 
         var lastSaved = MakeDependencyGraph(_fs.Root);
 
@@ -498,16 +530,19 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (modelsDir, new[] { depGraphAbs })
+            (modelsDirPath, new[] { depGraphPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changes, lastSaved);
+        var graph = await builder.GetGraphAsync(changes, lastSaved);
 
-        var modelsNode = RequireNode(merged, modelsDir);
+        var modelsItem = RequireItem(graph, modelsDirPath);
 
-        Assert.Contains("Changed.Node.Dep", modelsNode.GetDependencies().Keys);
-        Assert.DoesNotContain("Domain.Utils", modelsNode.GetDependencies().Keys);
+        var changedFilePath = RelativePath.Directory(_fs.Root, "./Changed/Node/Dep/");
+        var domainUtilPath = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+
+        Assert.Contains(changedFilePath, graph.DependenciesFrom(modelsItem.Path).Keys);
+        Assert.DoesNotContain(domainUtilPath, graph.DependenciesFrom(modelsItem.Path).Keys);
     }
 
     [Fact]
@@ -518,30 +553,34 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var rootPath = _fs.Root;
         var lastSaved = MakeDependencyGraph(rootPath);
 
-        var bogusLeaf = TestGraphs.Leaf(rootPath, "Models", "./Domain/Models/", "Old.Dep");
-        var domain = (DependencyGraphNode)lastSaved.FindByPath("./Domain/")!;
-        domain.ReplaceChild(bogusLeaf);
+        var bogusItem = TestGraphs.AddProjectItem(rootPath, "Models", "./Domain/Models/", "Old.Dep");
 
-        var modelsDirAbs = Path.Combine(_fs.Root, "Domain", "Models");
-        var depGraphAbs = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+        var domainPath = RelativePath.Directory(rootPath, "./Domain/");
+        var domain = lastSaved.GetProjectItem(domainPath);
+        lastSaved.AddChild(domain, bogusItem);
+
+        var modelsDirPath = RelativePath.Directory(rootPath, "./Domain/Models/");
+
+        var depGraph = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+        var depGraphPath = RelativePath.File(rootPath, "Domain/Models/DependencyGraph.cs");
 
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            [depGraphAbs] = ["New.Dep"]
+            [depGraph] = ["New.Dep"]
         });
 
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (modelsDirAbs, new[] { depGraphAbs })
+            (modelsDirPath, new[] { depGraphPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
-        var merged = await builder.GetGraphAsync(changes, lastSaved);
+        var graph = await builder.GetGraphAsync(changes, lastSaved);
 
-        var models = merged.FindByPath(modelsDirAbs);
+        var models = graph.GetProjectItem(modelsDirPath);
         Assert.NotNull(models);
-        Assert.IsType<DependencyGraphNode>(models);
+        Assert.IsType<ProjectItem>(models);
     }
 
     [Fact]
@@ -549,13 +588,19 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var moduleDir = Path.Combine(_fs.Root, "Domain");
+        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
+
+        var emptyPath = RelativePath.Directory(_fs.Root, "");
+        var spacesPath = RelativePath.Directory(_fs.Root, "   ");
+        var tabsPath = RelativePath.Directory(_fs.Root, "\t");
+        var newlinePath = RelativePath.Directory(_fs.Root, "\n");
+
         var parser = new DependencyParserSpy(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase));
         var builder = CreateBuilder([parser]);
 
-        var changedModules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [moduleDir] = ["", "   ", "\t", "\n"]
+            [modelsDirPath] = [emptyPath, spacesPath, tabsPath, newlinePath]
         };
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -565,19 +610,14 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Assert.NotNull(graph);
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyCollection<string>> SnapshotPathsAndDeps(ProjectDependencyGraph root)
+    private static IReadOnlyDictionary<RelativePath, IReadOnlyCollection<RelativePath>> SnapshotPathsAndDeps(ProjectDependencyGraph graph)
     {
-        var result = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
-        var stack = new Stack<ProjectDependencyGraph>();
-        stack.Push(root);
+        var result = new Dictionary<RelativePath, IReadOnlyCollection<RelativePath>>();
+        var stack = new Stack<ProjectItem>();
 
-        while (stack.Count > 0)
+        foreach (var item in graph.ProjectItems)
         {
-            var current = stack.Pop();
-            result[current.Path] = [.. current.GetDependencies().Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
-
-            foreach (var child in current.GetChildren())
-                stack.Push(child);
+            result[item.Key] = [.. graph.DependenciesFrom(item.Key).Keys.OrderBy(x => x.Value, StringComparer.OrdinalIgnoreCase)];
         }
 
         return result;
@@ -589,10 +629,11 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         SetupMockProject();
 
         var f1 = _fs.File("Domain/Factories/A.cs", "/* */");
-        var factoriesDir = Path.Combine(_fs.Root, "Domain", "Factories");
+        var f1Path = RelativePath.File(_fs.Root, "./Domain/Factories/A.cs");
+        var factoriesDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
 
         var changedModules = ChangedModules(
-            (factoriesDir, [f1])
+            (factoriesDirPath, [f1Path])
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
