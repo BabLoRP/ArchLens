@@ -15,7 +15,7 @@ class JavaDependencyParser(ParserOptions _options) : IDependencyParser
     {
         /*
             open file from given path
-            match regex "import ProjectName."
+            match regex "import ProjectName." or "import static ProjectName."
             take all matches and put in list
             return list
         */
@@ -29,11 +29,11 @@ class JavaDependencyParser(ParserOptions _options) : IDependencyParser
 
             while (line != null)
             {
-                string regex = $$"""import\s+{{_options.BaseOptions.ProjectName}}\.(.+);""";
+                string regex = $$"""import\s+(static\s+)?{{_options.BaseOptions.ProjectName}}\.(.+);""";
                 var match = Regex.Match(line, regex);
                 if (match.Success)
                 {
-                    usings.Add(match.Groups[1].Value);
+                    usings.Add(match.Groups[2].Value);
                 }
                 line = await sr.ReadLineAsync(ct);
             }
