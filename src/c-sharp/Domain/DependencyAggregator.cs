@@ -1,49 +1,70 @@
-﻿
-using Archlens.Domain.Models;
+﻿using Archlens.Domain.Models;
+using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Archlens.Domain;
 
 public static class DependencyAggregator
 {
-    private static readonly StringComparer Cmp = StringComparer.OrdinalIgnoreCase;
-
-    public static void RecomputeAggregates(ProjectDependencyGraph root)
+    public static void RecomputeAggregates(ProjectDependencyGraph graph)
     {
-        _ = Fold(root);
+        ArgumentNullException.ThrowIfNull(graph);
+
+        foreach (var rootDir in graph.ProjectItems.Values
+                     .Where(i => i.Type == ProjectItemType.Directory)
+                     .Where(i => graph.ParentOf(i.Path) is null))
+        {
+            Fold(graph, rootDir.Path);
+        }
     }
 
-    private static Dictionary<string, int> Fold(ProjectDependencyGraph node)
+    private static Dictionary<RelativePath, Dependency> Fold(
+        ProjectDependencyGraph graph,
+        RelativePath itemPath)
     {
-        if (node is DependencyGraphLeaf)
+        var item = graph.GetProjectItem(itemPath)
+            ?? throw new InvalidOperationException($"Project item '{itemPath}' does not exist.");
+
+        if (item.Type == ProjectItemType.File)
+            return new Dictionary<RelativePath, Dependency>(graph.DependenciesFrom(itemPath));
+
+        var aggregate = new Dictionary<RelativePath, Dependency>();
+
+        foreach (var childPath in graph.ChildrenOf(itemPath))
         {
-            return new Dictionary<string, int>(node.GetDependencies(), Cmp);
-        }
+            var childAggregate = Fold(graph, childPath);
 
-        var agg = new Dictionary<string, int>(Cmp);
-
-        foreach (var child in node.GetChildren())
-        {
-            var childAgg = Fold(child);
-
-            foreach (var (dep, count) in childAgg)
+            foreach (var (depPath, dep) in childAggregate)
             {
-                if (IsInternal(node, dep)) continue;
-                agg[dep] = agg.TryGetValue(dep, out var cur) ? cur + count : count;
+                if (IsInternalToDirectory(itemPath, depPath))
+                    continue;
+
+                if (aggregate.TryGetValue(depPath, out var existing))
+                {
+                    aggregate[depPath] = existing with
+                    {
+                        Count = existing.Count + dep.Count
+                    };
+                }
+                else
+                    aggregate[depPath] = dep;
             }
         }
 
-        if (node is DependencyGraphNode n)
-            n.ReplaceDependencies(agg);
-
-        return agg;
+        graph.ReplaceDependencies(itemPath, aggregate);
+        return aggregate;
     }
 
-    private static bool IsInternal(ProjectDependencyGraph node, string dep)
+    private static bool IsInternalToDirectory(RelativePath directoryPath, RelativePath dependencyTarget)
     {
-        var ns = node.Path.Replace("./", String.Empty).Replace('/', '.');
-        if (dep.Equals(ns) || String.IsNullOrEmpty(ns)) return true;
-        return dep.StartsWith(ns, true, System.Globalization.CultureInfo.InvariantCulture);
+        var dir = EnsureTrailingSlash(directoryPath.Value);
+        var target = dependencyTarget.Value;
+
+        return target.StartsWith(dir, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static string EnsureTrailingSlash(string path) =>
+        path.EndsWith('/') || path.EndsWith('\\') ? path : path + '/';
 }

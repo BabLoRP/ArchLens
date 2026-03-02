@@ -2,6 +2,7 @@
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using ArchlensTests.Utils;
 
 namespace ArchlensTests.Application;
@@ -21,40 +22,71 @@ public sealed class ChangeDetectorTests : IDisposable
             FileExtensions: extensions ?? [".cs"]
         );
 
+    private static ProjectDependencyGraph MakeDefaultSnapshotGraph(string projectRoot)
+    {
+        var graph = new ProjectDependencyGraph(projectRoot);
+        _ = graph.UpsertProjectItem(
+            RelativePath.Directory(projectRoot, "./"),
+            ProjectItemType.Directory);
+
+        return graph;
+    }
+
+    private static RelativePath AddDirectory(
+        ProjectDependencyGraph graph,
+        string projectRoot,
+        string relPath)
+    {
+        return graph.UpsertProjectItem(
+            RelativePath.Directory(projectRoot, relPath),
+            ProjectItemType.Directory);
+    }
+
+    private static RelativePath AddFile(
+        ProjectDependencyGraph graph,
+        string projectRoot,
+        string relPath,
+        DateTime lastWriteUtc,
+        IEnumerable<string>? dependencies = null)
+    {
+        var file = RelativePath.File(projectRoot, relPath);
+        var fileId = graph.UpsertProjectItem(file, ProjectItemType.File);
+
+        graph.UpsertProjectItems([
+            new ProjectItem(
+                Path: fileId,
+                Name: Path.GetFileName(relPath),
+                LastWriteTime: lastWriteUtc,
+                Type: ProjectItemType.File)
+        ]);
+
+        var parentDirRel = Path.GetDirectoryName(relPath)?.Replace('\\', '/') ?? "./";
+        var parent = graph.UpsertProjectItem(
+            RelativePath.Directory(projectRoot, parentDirRel),
+            ProjectItemType.Directory);
+
+        graph.AddChild(parent, fileId);
+
+        if (dependencies is not null)
+        {
+            var depMap = new Dictionary<RelativePath, Dependency>();
+            foreach (var dep in dependencies)
+            {
+                var depPath = RelativePath.File(projectRoot, dep);
+
+                if (depMap.TryGetValue(depPath, out var existing))
+                    depMap[depPath] = existing with { Count = existing.Count + 1 };
+                else
+                    depMap[depPath] = new Dependency(1, DependencyType.Uses);
+            }
+
+            graph.AddDependencies(fileId, depMap);
+        }
+
+        return fileId;
+    }
+
     public void Dispose() => _fs.Dispose();
-
-    private static SnapshotGraph MakeDefaultSnapshotGraph(string projectRoot)
-    {
-        return new SnapshotGraph(projectRoot)
-        {
-            Name = "src",
-            Path = "./",
-            LastWriteTime = DateTime.UtcNow
-        };
-    }
-
-    private sealed class SnapshotGraph(string projectRoot) : ProjectDependencyGraph(projectRoot)
-    {
-        private readonly Dictionary<string, ProjectDependencyGraph> _children = new(StringComparer.OrdinalIgnoreCase);
-
-        public void AddFile(string relPath, DateTime lastWriteUtc)
-        {
-            var n = new DependencyGraphLeaf(projectRoot) { Name = System.IO.Path.GetFileName(relPath), Path = relPath, LastWriteTime = lastWriteUtc };
-            var dir = System.IO.Path.GetDirectoryName(relPath) ?? ".";
-            _children[relPath] = n;
-            _children[dir] = new DependencyGraphNode(projectRoot) { Name = dir, Path = dir, LastWriteTime = lastWriteUtc };
-        }
-
-        public override IReadOnlyList<ProjectDependencyGraph> GetChildren() => [.. _children.Values];
-
-        public override ProjectDependencyGraph GetChild(string path)
-        {
-            var key = path.Replace('\\', '/');
-            if (_children.TryGetValue(key, out var n)) return n;
-            if (_children.TryGetValue(key.TrimEnd('/'), out n)) return n;
-            return null!;
-        }
-    }
 
     [Fact]
     public async Task Returns_NewFiles_When_NotInLastSavedGraph()
@@ -67,8 +99,11 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Contains("./src/", changed.ChangedFilesByDirectory.Keys);
-        Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory["./src/"]);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var aPath = RelativePath.File(_fs.Root, "./src/A.cs");
+
+        Assert.Contains(srcPath, changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains(aPath, changed.ChangedFilesByDirectory[srcPath]);
     }
 
     [Fact]
@@ -79,7 +114,7 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
-        snap.AddFile("src/B.cs", t);
+        AddFile(snap, _fs.Root, "src/B.cs", t);
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
@@ -96,14 +131,17 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
-        snap.AddFile("src/C.cs", oldT);
+        AddFile(snap, _fs.Root, "src/C.cs", oldT);
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
         Assert.Single(changed.ChangedFilesByDirectory);
         var mod = changed.ChangedFilesByDirectory.Single();
-        Assert.Equal("./src/", mod.Key);
-        Assert.Contains("./src/C.cs", mod.Value);
+
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var cPath = RelativePath.File(_fs.Root, "./src/C.cs");
+        Assert.Equal(srcPath, mod.Key);
+        Assert.Contains(cPath, mod.Value);
     }
 
     [Fact]
@@ -117,11 +155,14 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        var srcKey = "./src/";
-        Assert.DoesNotContain("./src/A.txt", changed.ChangedFilesByDirectory[srcKey]);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var aPath = RelativePath.File(_fs.Root, "./src/A.txt");
+        var bPath = RelativePath.File(_fs.Root, "./src/B.cs");
 
-        Assert.Contains(srcKey, changed.ChangedFilesByDirectory.Keys);
-        Assert.Contains("./src/B.cs", changed.ChangedFilesByDirectory[srcKey]);
+        Assert.DoesNotContain(aPath, changed.ChangedFilesByDirectory[srcPath]);
+
+        Assert.Contains(srcPath, changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains(bPath, changed.ChangedFilesByDirectory[srcPath]);
     }
 
     [Fact]
@@ -135,8 +176,11 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.DoesNotContain("./Tests/", changed.ChangedFilesByDirectory.Keys);
-        Assert.Contains("./src/", changed.ChangedFilesByDirectory.Keys);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var testPath = RelativePath.Directory(_fs.Root, "./Tests/");
+
+        Assert.DoesNotContain(testPath, changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains(srcPath, changed.ChangedFilesByDirectory.Keys);
     }
 
     [Fact]
@@ -150,10 +194,14 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Contains("./src/good/", changed.ChangedFilesByDirectory.Keys);
-        Assert.DoesNotContain("./src/bin/", changed.ChangedFilesByDirectory.Keys);
-        Assert.DoesNotContain("./src/bin/Gen.cs",
-                              changed.ChangedFilesByDirectory.GetValueOrDefault("./src/") ?? []);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var goodDirPath = RelativePath.Directory(_fs.Root, "./src/good/");
+        var binDirPath = RelativePath.Directory(_fs.Root, "./src/bin/");
+        var genPath = RelativePath.File(_fs.Root, "./src/bin/Gen.cs");
+
+        Assert.Contains(goodDirPath, changed.ChangedFilesByDirectory.Keys);
+        Assert.DoesNotContain(binDirPath, changed.ChangedFilesByDirectory.Keys);
+        Assert.DoesNotContain(genPath, changed.ChangedFilesByDirectory[srcPath]);
     }
 
     [Fact]
@@ -167,11 +215,14 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        var srcKey = "./src/";
-        Assert.Contains(srcKey, changed.ChangedFilesByDirectory.Keys);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var aDevPath = RelativePath.File(_fs.Root, "./src/A.dev.cs");
+        var aPath = RelativePath.File(_fs.Root, "./src/A.cs");
 
-        Assert.DoesNotContain("./src/A.dev.cs", changed.ChangedFilesByDirectory[srcKey]);
-        Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory[srcKey]);
+        Assert.Contains(srcPath, changed.ChangedFilesByDirectory.Keys);
+
+        Assert.DoesNotContain(aDevPath, changed.ChangedFilesByDirectory[srcPath]);
+        Assert.Contains(aPath, changed.ChangedFilesByDirectory[srcPath]);
     }
 
     [Fact]
@@ -186,11 +237,15 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var changed = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        var srcKey = "./src/";
-        Assert.Contains(srcKey, changed.ChangedFilesByDirectory.Keys);
-        Assert.Contains("./src/A.cs", changed.ChangedFilesByDirectory[srcKey]);
-        Assert.Contains("./src/A.go", changed.ChangedFilesByDirectory[srcKey]);
-        Assert.DoesNotContain("./src/A.kt", changed.ChangedFilesByDirectory[srcKey]);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var aCsPath = RelativePath.File(_fs.Root, "./src/A.cs");
+        var aGoPath = RelativePath.File(_fs.Root, "./src/A.go");
+        var aKtPath = RelativePath.File(_fs.Root, "./src/A.kt");
+
+        Assert.Contains(srcPath, changed.ChangedFilesByDirectory.Keys);
+        Assert.Contains(aCsPath, changed.ChangedFilesByDirectory[srcPath]);
+        Assert.Contains(aGoPath, changed.ChangedFilesByDirectory[srcPath]);
+        Assert.DoesNotContain(aKtPath, changed.ChangedFilesByDirectory[srcPath]);
     }
 
     [Fact]
@@ -213,11 +268,12 @@ public sealed class ChangeDetectorTests : IDisposable
         _fs.Dir("src");
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
-        snap.AddFile("src/Deleted.cs", DateTime.UtcNow.AddMinutes(-5)); // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/Deleted.cs", DateTime.UtcNow.AddMinutes(-5)); // not in _fs (deleted)
 
         var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Contains("./src/Deleted.cs", changes.DeletedFiles);
+        var deletedPath = RelativePath.File(_fs.Root, "./src/Deleted.cs");
+        Assert.Contains(deletedPath, changes.DeletedFiles);
     }
 
     [Fact]
@@ -227,11 +283,12 @@ public sealed class ChangeDetectorTests : IDisposable
         _fs.Dir("src/Dir");
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
-        snap.AddFile("src/Dir/Deleted.cs", DateTime.UtcNow.AddMinutes(-5));  // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/Dir/Deleted.cs", DateTime.UtcNow.AddMinutes(-5));  // not in _fs (deleted)
 
         var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.Contains("./src/Dir/Deleted.cs", changes.DeletedFiles);
+        var deletedPath = RelativePath.File(_fs.Root, "./src/Dir/Deleted.cs");
+        Assert.Contains(deletedPath, changes.DeletedFiles);
     }
 
     [Fact]
@@ -244,17 +301,22 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
-        snap.AddFile("src/Keep.cs", t);
-        snap.AddFile("src/Dir/Keep.cs", t);
-        snap.AddFile("src/OldDir/Old.cs", t); // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/Dir/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/OldDir/Old.cs", t); // not in _fs (deleted)
 
         var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.DoesNotContain("./src/Keep.cs", changes.DeletedFiles);
-        Assert.DoesNotContain("./src/Dir/Keep.cs", changes.DeletedFiles);
-        Assert.DoesNotContain("./src/Dir/", changes.DeletedDirectories);
+        var keepPath = RelativePath.File(_fs.Root, "./src/Keep.cs");
+        var subDirKeepPath = RelativePath.File(_fs.Root, "./src/Dir/Keep.cs");
+        var subDirPath = RelativePath.File(_fs.Root, "./src/Dir/");
+        var oldDirPath = RelativePath.File(_fs.Root, "./src/OldDir/");
 
-        Assert.Contains("./src/OldDir/", changes.DeletedDirectories);
+        Assert.DoesNotContain(keepPath, changes.DeletedFiles);
+        Assert.DoesNotContain(subDirKeepPath, changes.DeletedFiles);
+        Assert.DoesNotContain(subDirPath, changes.DeletedDirectories);
+
+        Assert.Contains(oldDirPath, changes.DeletedDirectories);
     }
 
     [Fact]
@@ -268,17 +330,22 @@ public sealed class ChangeDetectorTests : IDisposable
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
 
-        snap.AddFile("src/Keep.cs", t);
-        snap.AddFile("src/Dir/Keep.cs", t);
-        snap.AddFile("src/Dir/OldDir/Old.cs", t); // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/Dir/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/Dir/OldDir/Old.cs", t); // not in _fs (deleted)
 
         var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.DoesNotContain("./src/Keep.cs", changes.DeletedFiles);
-        Assert.DoesNotContain("./src/Dir/Keep.cs", changes.DeletedFiles);
-        Assert.DoesNotContain("./src/Dir/", changes.DeletedDirectories);
+        var keepPath = RelativePath.File(_fs.Root, "./src/Keep.cs");
+        var subDirKeepPath = RelativePath.File(_fs.Root, "./src/Dir/Keep.cs");
+        var subDirPath = RelativePath.File(_fs.Root, "./src/Dir/");
+        var subOldDirPath = RelativePath.File(_fs.Root, "./src/Dir/OldDir/");
 
-        Assert.Contains("./src/Dir/OldDir/", changes.DeletedDirectories);
+        Assert.DoesNotContain(keepPath, changes.DeletedFiles);
+        Assert.DoesNotContain(subDirKeepPath, changes.DeletedFiles);
+        Assert.DoesNotContain(subDirPath, changes.DeletedDirectories);
+
+        Assert.Contains(subOldDirPath, changes.DeletedDirectories);
         //Assert.Contains("./src/Dir/OldDir/Old.cs", changes.DeletedFiles); we are collapsing the dirs, so it doesnt show nested children of the dir
     }
 
@@ -292,17 +359,21 @@ public sealed class ChangeDetectorTests : IDisposable
         var t = DateTime.UtcNow.AddMinutes(-5);
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);
-        snap.AddFile("src/Keep.cs", t);
-        snap.AddFile("src/OldDir/Del1.cs", t);  // not in _fs (deleted)
-        snap.AddFile("src/OldDir/Del2.cs", t);  // not in _fs (deleted)
-        snap.AddFile("src/OldDir/SubDir/Del3.cs", t);  // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/OldDir/Del1.cs", t);  // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/OldDir/Del2.cs", t);  // not in _fs (deleted)
+        AddFile(snap, _fs.Root, "src/OldDir/SubDir/Del3.cs", t);  // not in _fs (deleted)
 
         var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
 
-        Assert.DoesNotContain("src/Keep.cs", changes.DeletedFiles);
+        var keepPath = RelativePath.File(_fs.Root, "./src/Keep.cs");
+        Assert.DoesNotContain(keepPath, changes.DeletedFiles);
 
-        Assert.Contains("./src/", changes.ChangedFilesByDirectory);
-        Assert.Contains("./src/OldDir/", changes.DeletedDirectories);
+        var srcPath = RelativePath.Directory(_fs.Root, "./src/");
+        var oldDirPath = RelativePath.File(_fs.Root, "./src/OldDir/");
+
+        Assert.Contains(srcPath, changes.ChangedFilesByDirectory);
+        Assert.Contains(oldDirPath, changes.DeletedDirectories);
     }
 
 }

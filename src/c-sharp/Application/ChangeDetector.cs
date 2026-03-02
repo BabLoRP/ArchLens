@@ -12,23 +12,23 @@ namespace Archlens.Application;
 
 public sealed class ChangeDetector
 {
-    private readonly record struct ProjectItemMeta(string ParentDirRel, DateTime LastWriteUtc);
+    private readonly record struct ProjectItemMeta(RelativePath ParentDirRel, DateTime LastWriteUtc);
 
     private sealed record ProjectFileStructure(
-        Dictionary<string, ProjectItemMeta> Files,    // fileRel -> (parentDirRel, lastWriteUtc)
-        HashSet<string> DirRels                // dirRel set
+        Dictionary<RelativePath, ProjectItemMeta> Files, // fileRel -> (parentDirRel, lastWriteUtc)
+        HashSet<RelativePath> DirRels                    // directory relative paths
     );
 
     private sealed record ExclusionRule(
-        string[] DirPrefixes,      // strings that end with a '/', to indicate that it is a dir, like: "src/legacy/", "Tests/"
-        string[] Segments,         // folders that are often mid-path, like: "bin", "obj", ".git"
-        string[] FileSuffixes      // specific file postfixes, like: "*.dev.cs", ".g.cs"
+        string[] DirPrefixes,
+        string[] Segments,
+        string[] FileSuffixes
     );
 
     public static Task<ProjectChanges> GetProjectChangesAsync(
-    ParserOptions parserOptions,
-    DependencyGraph? lastSavedGraph,
-    CancellationToken ct = default)
+        ParserOptions parserOptions,
+        ProjectDependencyGraph? lastSavedGraph,
+        CancellationToken ct = default)
     {
         var projectRoot = string.IsNullOrEmpty(parserOptions.BaseOptions.FullRootPath)
             ? Path.GetFullPath(parserOptions.BaseOptions.ProjectRoot)
@@ -36,21 +36,31 @@ public sealed class ChangeDetector
 
         var rules = CompileExclusions(parserOptions.Exclusions);
 
-        var current = ScanCurrentProjectFileStructure(projectRoot, parserOptions.FileExtensions, rules, ct);
+        var current = ScanCurrentProjectFileStructure(
+            projectRoot,
+            parserOptions.FileExtensions,
+            rules,
+            ct);
 
-        var changedByDir = FindUpsertedFilesByDirectory(current.Files, lastSavedGraph, ct);
+        var changedByDir = FindUpsertedFilesByDirectory(
+            current.Files,
+            lastSavedGraph,
+            ct);
 
-        var (deletedFiles, deletedDirs) = DiscoverDeletedPaths(lastSavedGraph, current.Files, current.DirRels, ct);
+        var (deletedFiles, deletedDirs) = DiscoverDeletedPaths(
+            lastSavedGraph,
+            current.Files,
+            current.DirRels,
+            ct);
 
         var collapsedDeletedDirs = CollapseDeletedDirectories(deletedDirs);
-        var collapsedSet = new HashSet<string>(collapsedDeletedDirs, StringComparer.OrdinalIgnoreCase);
 
-        deletedFiles.RemoveAll(f => IsUnderAnyDeletedDirectory(f, collapsedSet));
+        deletedFiles.RemoveAll(file => IsUnderAnyDeletedDirectory(file, collapsedDeletedDirs));
 
         return Task.FromResult(new ProjectChanges(
             ChangedFilesByDirectory: FreezeChanged(changedByDir),
-            DeletedFiles: deletedFiles,
-            DeletedDirectories: collapsedDeletedDirs
+            DeletedFiles: [.. deletedFiles],
+            DeletedDirectories: [.. collapsedDeletedDirs]
         ));
     }
 
@@ -114,8 +124,8 @@ public sealed class ChangeDetector
     {
         var extensionsSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
 
-        var files = new Dictionary<string, ProjectItemMeta>(StringComparer.OrdinalIgnoreCase);
-        var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var files = new Dictionary<RelativePath, ProjectItemMeta>();
+        var dirs = new HashSet<RelativePath>();
 
         var stack = new Stack<string>();
         stack.Push(projectRoot);
@@ -125,60 +135,64 @@ public sealed class ChangeDetector
             ct.ThrowIfCancellationRequested();
 
             var dirAbs = stack.Pop();
-            var dirRel = PathNormaliser.NormaliseModule(projectRoot, dirAbs);
+            var dirRel = RelativePath.Directory(projectRoot, dirAbs);
             dirs.Add(dirRel);
 
             IEnumerable<string> subdirs = [];
-            try { subdirs = Directory.EnumerateDirectories(dirAbs); } catch { /* ignore */ }
+            try { subdirs = Directory.EnumerateDirectories(dirAbs); } catch { }
 
             foreach (var subAbs in subdirs)
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsExcluded(projectRoot, subAbs, rules)) continue;
+                if (IsExcluded(projectRoot, subAbs, rules))
+                    continue;
+
                 stack.Push(subAbs);
             }
 
             IEnumerable<string> fileAbsList = [];
-            try { fileAbsList = Directory.EnumerateFiles(dirAbs); } catch { /* ignore */ }
+            try { fileAbsList = Directory.EnumerateFiles(dirAbs); } catch { }
 
             foreach (var fileAbs in fileAbsList)
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsExcluded(projectRoot, fileAbs, rules)) continue;
+                if (IsExcluded(projectRoot, fileAbs, rules))
+                    continue;
 
                 var ext = Path.GetExtension(fileAbs);
-                if (!extensionsSet.Contains(ext)) continue;
+                if (!extensionsSet.Contains(ext))
+                    continue;
 
-                var fileRel = PathNormaliser.NormaliseFile(projectRoot, fileAbs);
+                var fileRel = RelativePath.File(projectRoot, fileAbs);
                 var writeUtc = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(fileAbs));
 
-                // If duplicates -> last one wins
-                files[fileRel] = new ProjectItemMeta(dirRel, writeUtc);
+                files[fileRel] = new ProjectItemMeta(
+                    ParentDirRel: dirRel,
+                    LastWriteUtc: writeUtc);
             }
         }
-
         return new ProjectFileStructure(files, dirs);
     }
 
-    private static Dictionary<string, List<string>> FindUpsertedFilesByDirectory(
-        IReadOnlyDictionary<string, ProjectItemMeta> files,
-        DependencyGraph? lastSavedGraph,
+    private static Dictionary<RelativePath, List<RelativePath>> FindUpsertedFilesByDirectory(
+        IReadOnlyDictionary<RelativePath, ProjectItemMeta> files,
+        ProjectDependencyGraph? lastSavedGraph,
         CancellationToken ct)
     {
-        Dictionary<string, List<string>> changed = [];
+        Dictionary<RelativePath, List<RelativePath>> changed = [];
 
         foreach (var (fileRel, meta) in files)
         {
             ct.ThrowIfCancellationRequested();
 
-            var lastNode = lastSavedGraph?.FindByPath(fileRel);
-            var isNew = lastNode is null;
+            var lastItem = lastSavedGraph?.GetProjectItem(fileRel);
+            var isNew = lastItem is null;
 
             var isModified = false;
             if (!isNew)
             {
-                var lastWrite = lastNode!.LastWriteTime;
+                var lastWrite = lastItem!.LastWriteTime;
                 isModified = TrimMilliseconds(meta.LastWriteUtc) > TrimMilliseconds(lastWrite);
             }
 
@@ -193,99 +207,78 @@ public sealed class ChangeDetector
 
             list.Add(fileRel);
         }
-
         return changed;
     }
 
-    private static (List<string> deletedFilesRel, List<string> deletedDirsRel) DiscoverDeletedPaths(
-        DependencyGraph? lastSavedGraph,
-        IReadOnlyDictionary<string, ProjectItemMeta> currentFiles,
-        IReadOnlySet<string> currentDirs,
+    private static (List<RelativePath> deletedFilesRel, List<RelativePath> deletedDirsRel) DiscoverDeletedPaths(
+        ProjectDependencyGraph? lastSavedGraph,
+        IReadOnlyDictionary<RelativePath, ProjectItemMeta> currentFiles,
+        IReadOnlySet<RelativePath> currentDirs,
         CancellationToken ct)
     {
-        List<string> deletedFiles = [];
-        HashSet<string> deletedDirs = [];
+        List<RelativePath> deletedFiles = [];
+        List<RelativePath> deletedDirs = [];
 
         if (lastSavedGraph is null)
-            return (deletedFiles, deletedDirs.ToList());
+            return (deletedFiles, deletedDirs);
 
-        foreach (var (relPath, isFile) in EnumerateGraphEntries(lastSavedGraph))
+        foreach (var item in lastSavedGraph.ProjectItems.Values)
         {
             ct.ThrowIfCancellationRequested();
 
-            if (string.IsNullOrWhiteSpace(relPath) || relPath.Equals("./", StringComparison.Ordinal))
+            if (IsProjectRoot(item.Path))
                 continue;
 
-            if (isFile)
+            if (item.Type == ProjectItemType.File)
             {
-                if (!currentFiles.ContainsKey(relPath))
-                    deletedFiles.Add(relPath);
+                if (!currentFiles.ContainsKey(item.Path))
+                    deletedFiles.Add(item.Path);
             }
             else
             {
-                if (!currentDirs.Contains(relPath))
-                    deletedDirs.Add(relPath);
+                if (!currentDirs.Contains(item.Path))
+                    deletedDirs.Add(item.Path);
             }
         }
-
-        return (deletedFiles, deletedDirs.ToList());
+        return (deletedFiles, deletedDirs);
     }
 
-    private static List<string> CollapseDeletedDirectories(IEnumerable<string> deletedDirsRel) 
-    { 
+    private static List<RelativePath> CollapseDeletedDirectories(IEnumerable<RelativePath> deletedDirsRel)
+    {
         var ordered = deletedDirsRel
-            .Select(d => d.Replace('\\', '/'))
-            .Where(d => d.Length > 0 && !d.Equals("./", StringComparison.Ordinal))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(d => d.Length)
+            .Where(d => !IsProjectRoot(d))
+            .Distinct()
+            .OrderBy(d => d.Value.Length)
             .ToList();
 
-        List<string> kept = []; 
-        
-        foreach (var d in ordered) 
-        { 
-            var dPrefix = d.EndsWith('/') ? d : d + "/"; 
-            
-            if ( kept.Any( k => 
-                 { 
-                    var kPrefix = k.EndsWith('/') ? k : k + "/"; 
-                    return dPrefix.StartsWith(kPrefix, StringComparison.OrdinalIgnoreCase); 
-                 })
-               )
-            { 
-                continue; 
-            } 
-            kept.Add(d); 
-        } 
-        return kept; 
+        List<RelativePath> kept = [];
+
+        foreach (var d in ordered)
+        {
+            if (kept.Any(parent => d.Value.StartsWith(parent.Value, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            kept.Add(d);
+        }
+        return kept;
     }
 
-    private static bool IsUnderAnyDeletedDirectory(string fileRel, IReadOnlySet<string> deletedDirsRel)
+    private static bool IsUnderAnyDeletedDirectory(RelativePath fileRel, IReadOnlyList<RelativePath> deletedDirsRel)
     {
-        var p = (fileRel ?? string.Empty).Replace('\\', '/');
-
-        var dir = Path.GetDirectoryName(p)?.Replace('\\', '/') ?? string.Empty;
-
-        while (!string.IsNullOrEmpty(dir))
+        foreach (var deletedDir in deletedDirsRel)
         {
-            if (deletedDirsRel.Contains(dir) || deletedDirsRel.Contains(dir.TrimEnd('/') + "/"))
+            if (fileRel.Value.StartsWith(deletedDir.Value, StringComparison.OrdinalIgnoreCase))
                 return true;
-
-            var idx = dir.LastIndexOf('/');
-            if (idx < 0) break;
-
-            dir = dir[..idx];
         }
-
         return false;
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> FreezeChanged(Dictionary<string, List<string>> changed)
+    private static IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> FreezeChanged(
+        Dictionary<RelativePath, List<RelativePath>> changed)
     {
         return changed.ToDictionary(
             kvp => kvp.Key,
-            kvp => (IReadOnlyList<string>)[.. kvp.Value.Distinct(StringComparer.OrdinalIgnoreCase)],
-            StringComparer.OrdinalIgnoreCase
+            kvp => (IReadOnlyList<RelativePath>)[.. kvp.Value.Distinct()]
         );
     }
 
@@ -295,7 +288,6 @@ public sealed class ChangeDetector
 
         if (rules.DirPrefixes.Any(rule => (path + '/').StartsWith(rule, StringComparison.OrdinalIgnoreCase)))
             return true;
-
 
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         foreach (var segment in segments)
@@ -309,34 +301,11 @@ public sealed class ChangeDetector
 
         var fileName = Path.GetFileName(path);
         foreach (var suf in rules.FileSuffixes)
+        {
             if (fileName.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
                 return true;
-
-        return false;
-    }
-
-    private static IEnumerable<(string RelPath, bool IsFile)> EnumerateGraphEntries(DependencyGraph root)
-    {
-        Stack<DependencyGraph> stack = [];
-        stack.Push(root);
-
-        while (stack.Count > 0)
-        {
-            var node = stack.Pop();
-            var children = node.GetChildren() ?? [];
-
-            foreach (var child in children)
-            {
-                if (child is null) continue;
-
-                var rel = child.Path?.Replace('\\', '/') ?? "";
-                var isFile = child is DependencyGraphLeaf;
-                yield return (rel, isFile);
-
-                if (!isFile)
-                    stack.Push(child);
-            }
         }
+        return false;
     }
 
     public static bool MatchesSuffixPattern(string value, string pattern)
@@ -348,13 +317,16 @@ public sealed class ChangeDetector
         return value.EndsWith(suffix, StringComparison.Ordinal);
     }
 
-    private static DateTime TrimMilliseconds(DateTime dt)
-        => new(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0, dt.Kind);
+    private static bool IsProjectRoot(RelativePath path) =>
+        string.Equals(path.Value, "./", StringComparison.Ordinal) ||
+        string.Equals(path.Value, ".", StringComparison.Ordinal);
+
+    private static DateTime TrimMilliseconds(DateTime dt) =>
+        new(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0, dt.Kind);
 
     private static string GetRelative(string root, string path)
     {
         var rel = Path.GetRelativePath(root, path);
         return rel.Replace('\\', '/');
     }
-
 }

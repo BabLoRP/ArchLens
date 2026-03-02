@@ -1,9 +1,10 @@
-using System.Text.RegularExpressions;
 using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
+using System.Text.RegularExpressions;
 
 namespace ArchlensTests.Infra;
 
@@ -11,100 +12,109 @@ public sealed class RendererTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
-    private static DependencyGraphNode MakeGraph(string rootPath)
+    private static ProjectDependencyGraph MakeDependencyGraph(string rootPath)
     {
-        var root = TestGraphs.Node(rootPath, "Archlens", "./");
+        var graph = new ProjectDependencyGraph(rootPath);
 
-        var domain = TestGraphs.Node(rootPath, "Domain", "./Domain/");
-        var factory = TestGraphs.Node(rootPath, "Factories", "./Domain/Factories/");
-        var models = TestGraphs.Node(rootPath, "Models", "./Domain/Models/");
-        var records = TestGraphs.Node(rootPath, "Records", "./Domain/Models/Records/");
-        var enums = TestGraphs.Node(rootPath, "Enums", "./Domain/Models/Enums/");
-        var utils = TestGraphs.Node(rootPath, "Utils", "./Domain/Utils/");
+        var root = RelativePath.Directory(rootPath, rootPath);
+        var application = RelativePath.Directory(rootPath, "./Application/");
+        var infra = RelativePath.Directory(rootPath, "./Infra/");
+        var domain = RelativePath.Directory(rootPath, "./Domain/");
+        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
+        var factory = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        var infra = TestGraphs.Node(rootPath, "Infra", "./Infra/");
+        graph.AddChild(root, application);
+        graph.AddChild(root, domain);
+        graph.AddChild(domain, factory);
+        graph.AddChild(domain, models);
+        graph.AddChild(domain, utils);
+        graph.AddChild(models, records);
+        graph.AddChild(models, enums);
 
-        root.AddChild(domain);
-        domain.AddChild(factory);
-        domain.AddChild(models);
-        domain.AddChild(utils);
-        models.AddChild(records);
-        models.AddChild(enums);
+        var changeDetector = RelativePath.File(rootPath, "./Application/ChangeDetector.cs");
+        var dependencyParserFactory = RelativePath.File(rootPath, "./Domain/Factories/DependencyParserFactory.cs");
+        var rendererFactory = RelativePath.File(rootPath, "./Domain/Factories/RendererFactory.cs");
+        var options = RelativePath.File(rootPath, "./Domain/Models/Records/Options.cs");
+        var dependencyGraph = RelativePath.File(rootPath, "./Domain/Models/DependencyGraph.cs");
 
-        root.AddChild(infra);
+        var dependencies = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
+        {
+            [changeDetector] = [models, records, utils],
+            [dependencyParserFactory] = [interfaces, enums, records, infra],
+            [rendererFactory] = [interfaces, enums, infra],
+            [options] = [enums],
+            [dependencyGraph] = [utils]
+        };
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "DependencyParserFactory.cs",
-            "./Domain/Factories/DependencyParserFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Domain.Models.Records", "Infra"));
+        foreach (var (source, targets) in dependencies)
+            graph.AddDependencies(source, targets);
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "RendererFactory.cs",
-            "./Domain/Factories/RendererFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Infra"));
-
-        records.AddChild(TestGraphs.Leaf(rootPath, "Options.cs",
-            "./Domain/Models/Records/Options.cs",
-            "Domain.Models.Enums"));
-
-        models.AddChild(TestGraphs.Leaf(rootPath, "DependencyGraph.cs",
-            "./Domain/Models/DependencyGraph.cs",
-            "Domain.Utils"));
-
-
-        infra.AddChild(TestGraphs.Leaf(rootPath, "ConfigManager.cs",
-            "./Infra/ConfigManager.cs",
-            "Domain.Models.Records"));
-
-        DependencyAggregator.RecomputeAggregates(root);
-
-        return root;
+        return graph;
     }
 
-    private static DependencyGraphNode MakeRemoteGraph(string rootPath)
+    private static ProjectDependencyGraph MakeRemoteGraph(string rootPath)
     {
-        var root = TestGraphs.Node(rootPath, "Archlens", "./");
+        var graph = TestGraphs.MakeGraph(rootPath);
 
-        var domain = TestGraphs.Node(rootPath, "Domain", "./Domain/");
-        var factory = TestGraphs.Node(rootPath, "Factories", "./Domain/Factories/");
-        var models = TestGraphs.Node(rootPath, "Models", "./Domain/Models/");
-        var records = TestGraphs.Node(rootPath, "Records", "./Domain/Models/Records/");
-        var enums = TestGraphs.Node(rootPath, "Enums", "./Domain/Models/Enums/");
-        var utils = TestGraphs.Node(rootPath, "Utils", "./Domain/Utils/");
+        var rootDir = RelativePath.Directory(rootPath, rootPath);
+        var domainDir = RelativePath.Directory(rootPath, "./Domain/");
+        var factoriesDir = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var modelsDir = RelativePath.Directory(rootPath, "./Domain/Models");
+        var recordsDir = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enumsDir = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utilsDir = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        var infra = TestGraphs.Node(rootPath, "Infra", "./Infra/");
+        var root = TestGraphs.AddProjectItem(graph, rootDir, ProjectItemType.Directory);
+        var domain = TestGraphs.AddProjectItem(graph, domainDir, ProjectItemType.Directory);
+        var factory = TestGraphs.AddProjectItem(graph, factoriesDir, ProjectItemType.Directory);
+        var models = TestGraphs.AddProjectItem(graph, modelsDir, ProjectItemType.Directory);
+        var records = TestGraphs.AddProjectItem(graph, recordsDir, ProjectItemType.Directory);
+        var enums = TestGraphs.AddProjectItem(graph, enumsDir, ProjectItemType.Directory);
+        var utils = TestGraphs.AddProjectItem(graph, utilsDir, ProjectItemType.Directory);
 
-        root.AddChild(domain);
-        domain.AddChild(factory);
-        domain.AddChild(models);
-        domain.AddChild(utils);
-        models.AddChild(records);
-        models.AddChild(enums);
+        var infraDir = RelativePath.Directory(rootPath, "./Infra/");
+        var infra = TestGraphs.AddProjectItem(graph, infraDir, ProjectItemType.Directory);
 
-        root.AddChild(infra);
+        graph.AddChild(root, domain);
+        graph.AddChild(root, infra);
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "DependencyParserFactory.cs",
-            "./Domain/Factories/DependencyParserFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Domain.Models.Records")); //no infra
+        graph.AddChild(domain, factory);
+        graph.AddChild(domain, models);
+        graph.AddChild(domain, utils);
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "RendererFactory.cs",
+        graph.AddChild(models, records);
+        graph.AddChild(models, enums);
+
+        var depFactoryFile = RelativePath.File(rootPath, "./Domain/Factories/DependencyParserFactory.cs");
+        
+        var interfacesDir = RelativePath.Directory(rootPath, "./Domain/Interfaces/");
+
+        var depFactory = TestGraphs.AddProjectItem(graph, depFactoryFile, ProjectItemType.File, [interfacesDir, enumsDir, recordsDir]);  //no infra
+
+        factory.AddChild(TestGraphs.AddProjectItem(rootPath, "RendererFactory.cs",
             "./Domain/Factories/RendererFactory.cs",
             "Domain.Interfaces", "Domain.Models.Enums", "Infra"));
 
-        records.AddChild(TestGraphs.Leaf(rootPath, "Options.cs",
+        records.AddChild(TestGraphs.AddProjectItem(rootPath, "Options.cs",
             "./Domain/Models/Records/Options.cs",
             "Domain.Models.Enums"));
 
-        models.AddChild(TestGraphs.Leaf(rootPath, "DependencyGraph.cs",
+        models.AddChild(TestGraphs.AddProjectItem(rootPath, "DependencyGraph.cs",
             "./Domain/Models/DependencyGraph.cs",
             "Domain.Utils"));
 
 
-        infra.AddChild(TestGraphs.Leaf(rootPath, "ConfigManager.cs",
+        infra.AddChild(TestGraphs.AddProjectItem(rootPath, "ConfigManager.cs",
             "./Infra/ConfigManager.cs",
             "Domain.Models.Records", "Domain.Models.Enums")); //added enums
 
-        DependencyAggregator.RecomputeAggregates(root);
+        DependencyAggregator.RecomputeAggregates(graph);
 
-        return root;
+        return graph;
     }
 
     private RenderOptions MakeOptions() => new(
@@ -125,7 +135,7 @@ public sealed class RendererTests : IDisposable
         JsonRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
+        var root = MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         string result = renderer.RenderView(root, opts.Views[0], opts);
 
         Assert.NotEmpty(result);
@@ -142,7 +152,7 @@ public sealed class RendererTests : IDisposable
         PlantUMLRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
+        var root = MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         string result = renderer.RenderView(root, opts.Views[0], opts);
 
         Assert.NotEmpty(result);
@@ -159,7 +169,7 @@ public sealed class RendererTests : IDisposable
         PlantUMLRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
+        var root = MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         string result = renderer.RenderView(root, opts.Views[1], opts);
 
         Assert.NotEmpty(result);
@@ -176,7 +186,7 @@ public sealed class RendererTests : IDisposable
         JsonRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
+        var root = MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         var remoteRoot = MakeRemoteGraph(opts.BaseOptions.ProjectRoot);
         var result = renderer.RenderDiffView(root, remoteRoot, opts.Views[0], opts);
 
@@ -195,7 +205,6 @@ public sealed class RendererTests : IDisposable
                         """;
 
 
-        //Basic assertions
         Assert.NotEmpty(result);
         Assert.StartsWith("{", result);
         Assert.Contains("\"title\":", result);
@@ -203,12 +212,10 @@ public sealed class RendererTests : IDisposable
         Assert.Contains("\"edges\": [", result);
         Assert.EndsWith("}", result);
 
-        //Simpler to compare without whitespace
         result = Regex.Replace(result, @"\s*", "");
         newEdge = Regex.Replace(newEdge, @"\s*", "");
         deletedEdge = Regex.Replace(deletedEdge, @"\s*", "");
 
-        //Diff specific assertions
         Assert.Contains(newEdge, result);
         Assert.Contains(deletedEdge, result);
     }
@@ -219,14 +226,13 @@ public sealed class RendererTests : IDisposable
         PlantUMLRenderer renderer = new();
 
         var opts = MakeOptions();
-        var root = MakeGraph(opts.BaseOptions.ProjectRoot);
+        var root = MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         var remoteRoot = MakeRemoteGraph(opts.BaseOptions.ProjectRoot);
         string result = renderer.RenderDiffView(root, remoteRoot, opts.Views[0], opts);
 
         var newEdge = "Domain-->Infra #Green : 2 (+1)";
         var deletedEdge = "Infra-->Domain #Red : 1 (-1)";
 
-        //Basic assertions
         Assert.NotEmpty(result);
         Assert.StartsWith("@startuml", result);
         Assert.Contains("title completeView", result);
@@ -234,7 +240,6 @@ public sealed class RendererTests : IDisposable
         Assert.Contains("Infra", result);
         Assert.EndsWith("@enduml", result);
 
-        //Diff specific assertions
         Assert.Contains(newEdge, result);
         Assert.Contains(deletedEdge, result);
     }

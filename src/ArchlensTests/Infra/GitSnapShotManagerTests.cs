@@ -2,6 +2,7 @@
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
 using System.Net;
@@ -24,41 +25,48 @@ public sealed class GitSnapShotManagerTests : IDisposable
         GitInfo: new (gitUrl, branch)
     );
 
-    private static DependencyGraphNode MakeGraph(string rootPath)
+    private static ProjectDependencyGraph MakeDependencyGraph(string rootPath)
     {
-        var root = TestGraphs.Node(rootPath, "Archlens", "./");
+        var graph = new ProjectDependencyGraph(rootPath);
 
-        var domain = TestGraphs.Node(rootPath, "Domain", "./Domain/");
-        var factory = TestGraphs.Node(rootPath, "Factories", "./Domain/Factories/");
-        var models = TestGraphs.Node(rootPath, "Models", "./Domain/Models/");
-        var records = TestGraphs.Node(rootPath, "Records", "./Domain/Models/Records/");
-        var enums = TestGraphs.Node(rootPath, "Enums", "./Domain/Models/Enums/");
-        var utils = TestGraphs.Node(rootPath, "Utils", "./Domain/Utils/");
+        var root = RelativePath.Directory(rootPath, rootPath);
+        var application = RelativePath.Directory(rootPath, "./Application/");
+        var infra = RelativePath.Directory(rootPath, "./Infra/");
+        var domain = RelativePath.Directory(rootPath, "./Domain/");
+        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
+        var factory = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        root.AddChild(domain);
-        domain.AddChild(factory);
-        domain.AddChild(models);
-        domain.AddChild(utils);
-        models.AddChild(records);
-        models.AddChild(enums);
+        graph.AddChild(root, application);
+        graph.AddChild(root, domain);
+        graph.AddChild(domain, factory);
+        graph.AddChild(domain, models);
+        graph.AddChild(domain, utils);
+        graph.AddChild(models, records);
+        graph.AddChild(models, enums);
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "DependencyParserFactory.cs",
-            "./Domain/Factories/DependencyParserFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Domain.Models.Records", "Infra"));
+        var changeDetector = RelativePath.File(rootPath, "./Application/ChangeDetector.cs");
+        var dependencyParserFactory = RelativePath.File(rootPath, "./Domain/Factories/DependencyParserFactory.cs");
+        var rendererFactory = RelativePath.File(rootPath, "./Domain/Factories/RendererFactory.cs");
+        var options = RelativePath.File(rootPath, "./Domain/Models/Records/Options.cs");
+        var dependencyGraph = RelativePath.File(rootPath, "./Domain/Models/DependencyGraph.cs");
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "RendererFactory.cs",
-            "./Domain/Factories/RendererFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Infra"));
+        var dependencies = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
+        {
+            [changeDetector] = [models, records, utils],
+            [dependencyParserFactory] = [interfaces, enums, records, infra],
+            [rendererFactory] = [interfaces, enums, infra],
+            [options] = [enums],
+            [dependencyGraph] = [utils]
+        };
 
-        records.AddChild(TestGraphs.Leaf(rootPath, "Options.cs",
-            "./Domain/Models/Records/Options.cs",
-            "Domain.Models.Enums"));
+        foreach (var (source, targets) in dependencies)
+            graph.AddDependencies(source, targets);
 
-        models.AddChild(TestGraphs.Leaf(rootPath, "DependencyGraph.cs",
-            "./Domain/Models/DependencyGraph.cs",
-            "Domain.Utils"));
-
-        return root;
+        return graph;
     }
 
     [Fact]
@@ -97,15 +105,16 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var mainUrl = "https://raw.githubusercontent.com/owner/repo/main/.archlens/snapshot.json";
         var masterUrl = "https://raw.githubusercontent.com/owner/repo/master/.archlens/snapshot.json";
 
-        var graph = MakeGraph(_fs.Root);
+        var graph = MakeDependencyGraph(_fs.Root);
         handler.When(mainUrl, HttpStatusCode.OK, DependencyGraphSerializer.Serialize(graph));
         handler.When(masterUrl, HttpStatusCode.NotFound);
 
         var opts = MakeOptions("https://github.com/owner/repo");
 
-        var result = await manager.GetLastSavedDependencyGraphAsync(opts, default);
+        var lastSaved = await manager.GetLastSavedDependencyGraphAsync(opts, default);
 
-        Assert.Equal(graph.Name, result.Name);
+        Assert.Equal(graph.ProjectItems, lastSaved.ProjectItems);
+        Assert.Equal(graph.Deps, lastSaved.Deps);
     }
 
     [Fact]

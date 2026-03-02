@@ -1,23 +1,20 @@
 ﻿using Archlens.Domain.Models;
+using Archlens.Domain.Utils;
 
 namespace ArchlensTests.Utils;
 
 public static class TestGraphs
 {
-    public static DependencyGraphNode Node(string projectRoot, string name, string path)
-        => new(projectRoot) { Name = name, Path = path, LastWriteTime = DateTime.UtcNow };
+    public static ProjectDependencyGraph MakeGraph(string projectRoot)
+        => new(projectRoot);
 
-    public static DependencyGraphLeaf Leaf(string projectRoot, string name, string path, params string[] deps)
+    public static RelativePath AddProjectItem(ProjectDependencyGraph graph, RelativePath path, ProjectItemType type, params RelativePath[] deps)
     {
-        var leaf = new DependencyGraphLeaf(projectRoot)
-        {
-            Name = name,
-            Path = path,
-            LastWriteTime = DateTime.UtcNow
-        };
-        leaf.AddDependencyRange(deps);
-        return leaf;
+        graph.UpsertProjectItem(path, type);
+
+        graph.AddDependencies(path, deps);
+
+        return path;
     }
 
-    public static IDictionary<string, int> Deps(this ProjectDependencyGraph g) => g.GetDependencies();
 }

@@ -1,5 +1,6 @@
 ﻿using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
 
@@ -22,180 +23,220 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         GitInfo: new ("", "")
     );
 
-    private static DependencyGraphNode MakeGraph(string rootPath)
+    private static ProjectDependencyGraph MakeDependencyGraph(string rootPath)
     {
-        var root = TestGraphs.Node(rootPath, "Archlens", "./");
+        var graph = new ProjectDependencyGraph(rootPath);
 
-        var domain = TestGraphs.Node(rootPath, "Domain", "./Domain/");
-        var factory = TestGraphs.Node(rootPath, "Factories", "./Domain/Factories/");
-        var models = TestGraphs.Node(rootPath, "Models", "./Domain/Models/");
-        var records = TestGraphs.Node(rootPath, "Records", "./Domain/Models/Records/");
-        var enums = TestGraphs.Node(rootPath, "Enums", "./Domain/Models/Enums/");
-        var utils = TestGraphs.Node(rootPath, "Utils", "./Domain/Utils/");
+        var root = RelativePath.Directory(rootPath, rootPath);
+        var application = RelativePath.Directory(rootPath, "./Application/");
+        var infra = RelativePath.Directory(rootPath, "./Infra/");
+        var domain = RelativePath.Directory(rootPath, "./Domain/");
+        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
+        var factory = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        root.AddChild(domain);
-        domain.AddChild(factory);
-        domain.AddChild(models);
-        domain.AddChild(utils);
-        models.AddChild(records);
-        models.AddChild(enums);
+        graph.AddChild(root, application);
+        graph.AddChild(root, domain);
+        graph.AddChild(domain, factory);
+        graph.AddChild(domain, models);
+        graph.AddChild(domain, utils);
+        graph.AddChild(models, records);
+        graph.AddChild(models, enums);
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "DependencyParserFactory.cs",
-            "./Domain/Factories/DependencyParserFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Domain.Models.Records", "Infra"));
+        var changeDetector = RelativePath.File(rootPath, "./Application/ChangeDetector.cs");
+        var dependencyParserFactory = RelativePath.File(rootPath, "./Domain/Factories/DependencyParserFactory.cs");
+        var rendererFactory = RelativePath.File(rootPath, "./Domain/Factories/RendererFactory.cs");
+        var options = RelativePath.File(rootPath, "./Domain/Models/Records/Options.cs");
+        var dependencyGraph = RelativePath.File(rootPath, "./Domain/Models/DependencyGraph.cs");
 
-        factory.AddChild(TestGraphs.Leaf(rootPath, "RendererFactory.cs",
-            "./Domain/Factories/RendererFactory.cs",
-            "Domain.Interfaces", "Domain.Models.Enums", "Infra"));
+        var dependencies = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
+        {
+            [changeDetector] = [models, records, utils],
+            [dependencyParserFactory] = [interfaces, enums, records, infra],
+            [rendererFactory] = [interfaces, enums, infra],
+            [options] = [enums],
+            [dependencyGraph] = [utils]
+        };
 
-        records.AddChild(TestGraphs.Leaf(rootPath, "Options.cs",
-            "./Domain/Models/Records/Options.cs",
-            "Domain.Models.Enums"));
+        foreach (var (source, targets) in dependencies)
+            graph.AddDependencies(source, targets);
 
-        models.AddChild(TestGraphs.Leaf(rootPath, "DependencyGraph.cs",
-            "./Domain/Models/DependencyGraph.cs",
-            "Domain.Utils"));
-
-        return root;
+        return graph;
     }
 
     [Fact]
     public async Task SaveGraphAsync_CreatesDirectoryAndFile_AtConfiguredLocation()
     {
-        // Arrange
         var dirName = ".archlens";
         var fileName = "snapshot.json";
         var snapshotManager = new LocalSnaphotManager(dirName, fileName);
         
         var opts = MakeOptions();
 
-        var graph = MakeGraph(_fs.Root);
+        var rootPath = _fs.Root;
+        var graph = MakeDependencyGraph(rootPath);
 
-        var expectedDir = Path.Combine(_fs.Root, dirName);
-        var expectedFile = Path.Combine(expectedDir, fileName);
-
-        // Act
         await snapshotManager.SaveGraphAsync(graph, opts);
 
-        // Assert
+        var expectedDir = Path.Combine(rootPath, dirName);
+        var expectedFile = Path.Combine(expectedDir, fileName);
+        
         Assert.True(Directory.Exists(expectedDir));
         Assert.True(File.Exists(expectedFile));
 
         var json = await File.ReadAllTextAsync(expectedFile);
-        Assert.Contains(graph.Name, json);
+
+        var root = RelativePath.Directory(rootPath, rootPath);
+        var application = RelativePath.Directory(rootPath, "./Application/");
+        var infra = RelativePath.Directory(rootPath, "./Infra/");
+        var domain = RelativePath.Directory(rootPath, "./Domain/");
+        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
+        var factory = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
+
+        Assert.Contains(root.ToString(), json);
+        Assert.Contains(application.ToString(), json);
+        Assert.Contains(infra.ToString(), json);
+        Assert.Contains(domain.ToString(), json);
+        Assert.Contains(interfaces.ToString(), json);
+        Assert.Contains(factory.ToString(), json);
+        Assert.Contains(models.ToString(), json);
+        Assert.Contains(records.ToString(), json);
+        Assert.Contains(enums.ToString(), json);
+        Assert.Contains(utils.ToString(), json);
     }
 
     [Fact]
     public async Task SaveThenLoad_Get_Name_And_LastWriteTime()
     {
-        // Arrange
         var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
-        var graph = MakeGraph(_fs.Root);
+        var rootPath = _fs.Root;
+        var graph = MakeDependencyGraph(rootPath);
 
-        // Act
         await snapshotManager.SaveGraphAsync(graph, opts);
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
-        // Assert
-        Assert.Equal(graph.Name, loaded.Name);
-        Assert.Equal(graph.LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"), loaded.LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"));
+        var root = RelativePath.Directory(rootPath, rootPath);
+        var application = RelativePath.Directory(rootPath, "./Application/");
+        var infra = RelativePath.Directory(rootPath, "./Infra/");
+        var domain = RelativePath.Directory(rootPath, "./Domain/");
+        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
+        var factory = RelativePath.Directory(rootPath, "./Domain/Factories/");
+        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
+        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
+        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
+
+        var loadedItems = loaded.ProjectItems;
+        Assert.Contains(root, loadedItems);
+        Assert.Contains(application, loadedItems);
+        Assert.Contains(infra, loadedItems);
+        Assert.Contains(domain, loadedItems);
+        Assert.Contains(interfaces, loadedItems);
+        Assert.Contains(factory, loadedItems);
+        Assert.Contains(models, loadedItems);
+        Assert.Contains(records, loadedItems);
+        Assert.Contains(enums, loadedItems);
+        Assert.Contains(utils, loadedItems);
+
+        Assert.Equal(graph.GetProjectItem(root).LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"), loaded.GetProjectItem(root).LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"));
     }
 
     [Fact]
     public async Task GetLastSavedDependencyGraphAsync_ReturnsNull_WhenFileMissing()
     {
-        // Arrange
         var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
-        // Act
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
-        // Assert
         Assert.Null(loaded);
     }
 
     [Fact]
     public async Task Uses_CustomDirAndFileNames()
     {
-        // Arrange
         var customDir = "_state";
         var customFile = "dep.json";
 
         var snapshotManager = new LocalSnaphotManager(customDir, customFile);
         var opts = MakeOptions();
 
-        var graph = new DependencyGraphNode(_fs.Root) 
-        { 
-            Name = "CustomNames", 
-            Path = customDir,
-            LastWriteTime = DateTime.UtcNow 
-        };
+        var graph = new ProjectDependencyGraph(_fs.Root);
         var expectedPath = Path.Combine(_fs.Root, customDir, customFile);
 
-        // Act
         await snapshotManager.SaveGraphAsync(graph, opts);
 
-        // Assert
         Assert.True(File.Exists(expectedPath));
     }
 
     [Fact]
     public async Task Load_ReturnsGraph_WhenFilePresent()
     {
-        // Arrange
         var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
-        var graph = MakeGraph(_fs.Root);
+        var graph = MakeDependencyGraph(_fs.Root);
         await snapshotManager.SaveGraphAsync(graph, opts);
 
-        // Act
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
-        // Assert
-        Assert.Equal(graph.Name, loaded.Name);
+        Assert.Equal(graph.ProjectItems, loaded.ProjectItems);
+        Assert.Equal(graph.Deps, loaded.Deps);
     }
 
     [Fact]
     public async Task Load_ReturnsMultiLevelGraph_WhenPresent()
     {
-        // Arrange
         var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
-        var graph = MakeGraph(_fs.Root);
+        var root = _fs.Root;
+        var graph = MakeDependencyGraph(root);
         await snapshotManager.SaveGraphAsync(graph, opts);
 
-        // Act
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
-        // Assert
-        Assert.Equal(graph.Name, loaded.Name);
-        Assert.Single(loaded.GetChildren());
-        var domain = loaded.GetChild("./Domain");
+        Assert.Equal(graph.ProjectItems, loaded.ProjectItems);
+        Assert.Equal(graph.Deps, loaded.Deps);
+
+        var rootPath = RelativePath.Directory(root, "./");
+        Assert.Single(loaded.ChildrenOf(rootPath));
+
+        var domainPath = RelativePath.Directory(root, "./Domain/");
+        var domain = loaded.GetProjectItem(domainPath);
+
         Assert.NotNull(domain);
-        Assert.Equal(3, domain.GetChildren().Count);
+        Assert.Equal(3, graph.ChildrenOf(domainPath).Count);
     }
 
     [Fact]
     public async Task Load_ReturnsSubModuleDependencies_WhenPresent()
     {
-        // Arrange
         var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
-        var graph = MakeGraph(_fs.Root);
+        var root = _fs.Root;
+        var graph = MakeDependencyGraph(root);
         await snapshotManager.SaveGraphAsync(graph, opts);
 
-        // Act
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
-        var domain = loaded.GetChild("./Domain");
-        // Assert
+
+        var domainPath = RelativePath.Directory(root, "./Domain/");
+        var domain = loaded.GetProjectItem(domainPath);
+
+        var rootPath = RelativePath.Directory(root, "./");
+
         Assert.NotNull(domain);
-        Assert.Empty(loaded.GetDependencies());
-        Assert.Single(domain.GetDependencies());
+        Assert.Empty(graph.DependenciesFrom(rootPath));
+        Assert.Single(graph.DependenciesFrom(domainPath));
     }
 }
