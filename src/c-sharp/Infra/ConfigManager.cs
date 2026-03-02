@@ -196,6 +196,7 @@ public class ConfigManager(string _path)
                 ".cs" => Language.CSharp,
                 ".go" => Language.Go,
                 ".kt" => Language.Kotlin,
+                ".java" => Language.Java,
                 _ => throw new NotSupportedException($"Unsupported language: '{ext}'.")
             };
 
