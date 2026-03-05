@@ -26,7 +26,6 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
 
         ApplyDeletions(merged, changes, _options.FullRootPath);
 
-        DependencyAggregator.RecomputeAggregates(merged);
         return merged;
     }
 
