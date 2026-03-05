@@ -40,8 +40,8 @@ public sealed class GitSnaphotManager : ISnapshotManager
 
         if (!TryParseGitHubRepo(options.GitInfo.Url, out var owner, out var repo))
             throw new ArgumentException("Colud not parse GitUrl (accepted formats: https://github.com/owner/repo, https://github.com/owner/repo.git, http(s)://github.enterprise.tld/owner/repo).");
-        
-        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, _gitDirName, _gitFileName);
+
+        var url = BuildRawUrl(owner, repo, options.GitInfo.Branch, options.BaseOptions.ProjectRoot, _gitDirName, _gitFileName);
 
         try
         {
