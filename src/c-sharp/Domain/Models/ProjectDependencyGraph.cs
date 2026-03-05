@@ -39,11 +39,10 @@ public class ProjectDependencyGraph(string projectRoot)
     private readonly Dictionary<RelativePath, RelativePath> _parentByChild = [];
     private readonly Dictionary<RelativePath, Dictionary<RelativePath, Dependency>> _dependenciesBySource = [];
 
-    private readonly ReadOnlyDictionary<RelativePath, ProjectItem> _projectItemsView;
     private static readonly IReadOnlyDictionary<RelativePath, Dependency> EmptyDependencies =
         new ReadOnlyDictionary<RelativePath, Dependency>(new Dictionary<RelativePath, Dependency>());
 
-    public IReadOnlyDictionary<RelativePath, ProjectItem> ProjectItems => _projectItemsView;
+    public IReadOnlyDictionary<RelativePath, ProjectItem> ProjectItems => _projectItems;
 
     public ProjectItem? GetProjectItem(RelativePath path) => _projectItems.TryGetValue(path, out var item) ? item : null;
 
