@@ -99,41 +99,67 @@ public abstract class Renderer
         View view,
         RenderOptions options)
     {
-        var scope = CollectScope(graph, view, options);
+        var projectRoot = RelativePath.Directory(
+            options.BaseOptions.FullRootPath,
+            options.BaseOptions.ProjectRoot);
 
-        var nodes = scope.ToDictionary(
-            path => path,
-            path =>
-            {
-                var item = graph.GetProjectItem(path)
-                    ?? throw new InvalidOperationException($"Missing project item '{path}'.");
-                return new RenderNode(
-                    Path: path,
-                    Label: item.Name,
-                    Type: item.Type,
-                    State: RenderState.Neutral);
-            });
+        var ignore = new HashSet<RelativePath>(
+            (view.IgnorePackages ?? [])
+                .Select(p => RelativePath.Directory(options.BaseOptions.FullRootPath, p)));
 
-        var edges = new List<RenderEdge>();
+        var packageRoots = view.Packages is { Count: > 0 }
+            ? view.Packages
+                .Select(p => (
+                    Path: RelativePath.Directory(options.BaseOptions.FullRootPath, p.Path),
+                    Depth: p.Depth))
+                .ToList()
+            : graph.ChildrenOf(projectRoot)
+                .Select(p => (
+                    Path: p,
+                    Depth: 1))
+                .Where(x => graph.GetProjectItem(x.Path)?.Type == ProjectItemType.Directory)
+                .ToList();
 
-        foreach (var from in scope)
+        var visibleNodes    = new Dictionary<RelativePath, RenderNode>();
+        var childrenByParent= new Dictionary<RelativePath, List<RelativePath>>();
+        var rootNodes       = new List<RelativePath>();
+        var selectedRoots   = new HashSet<RelativePath>();
+
+        foreach (var (root, depth) in packageRoots)
         {
-            foreach (var (to, dep) in graph.DependenciesFrom(from))
-            {
-                if (!scope.Contains(to))
-                    continue;
+            var item = graph.GetProjectItem(root);
+            if (item is null || item.Type != ProjectItemType.Directory || ignore.Contains(root))
+                continue;
 
-                edges.Add(new RenderEdge(
-                    From: from,
-                    To: to,
-                    Count: dep.Count,
-                    Delta: 0,
-                    Type: dep.Type,
-                    State: RenderState.Neutral));
-            }
+            selectedRoots.Add(root);
+
+            if (!rootNodes.Contains(root))
+                rootNodes.Add(root);
+
+            AddVisibleDirectories(
+                graph,
+                root,
+                depth,
+                ignore,
+                visibleNodes,
+                childrenByParent);
         }
 
-        return new RenderGraph(nodes, edges);
+        var edges = AggregateEdgesToVisibleDirectories(
+            graph,
+            selectedRoots,
+            visibleNodes.Keys.ToHashSet());
+
+        return new RenderGraph(
+            Nodes: visibleNodes,
+            ChildrenByParent: childrenByParent.ToDictionary(
+                kv => kv.Key,
+                kv => (IReadOnlyList<RelativePath>)[.. kv.Value.OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)]),
+            Edges: edges,
+            RootNodes: [.. rootNodes
+                .Distinct()
+                .OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)]
+        );
     }
 
     private static RenderGraph BuildDiffRenderGraph(
@@ -142,162 +168,246 @@ public abstract class Renderer
         View view,
         RenderOptions options)
     {
-        var localScope = CollectScope(localGraph, view, options);
-        var remoteScope = CollectScope(remoteGraph, view, options);
+        var localRender = BuildRenderGraph(localGraph, view, options);
+        var remoteRender = BuildRenderGraph(remoteGraph, view, options);
 
-        var allPaths = new HashSet<RelativePath>(localScope);
-        allPaths.UnionWith(remoteScope);
+        var allNodePaths = new HashSet<RelativePath>(localRender.Nodes.Keys);
+        allNodePaths.UnionWith(remoteRender.Nodes.Keys);
 
         var nodes = new Dictionary<RelativePath, RenderNode>();
 
-        foreach (var path in allPaths)
+        foreach (var path in allNodePaths)
         {
-            var localItem = localGraph.GetProjectItem(path);
-            var remoteItem = remoteGraph.GetProjectItem(path);
+            var hasLocal = localRender.Nodes.TryGetValue(path, out var localNode);
+            var hasRemote = remoteRender.Nodes.TryGetValue(path, out var remoteNode);
 
             var state =
-                localItem is not null && remoteItem is null ? RenderState.Added :
-                localItem is null && remoteItem is not null ? RenderState.Removed :
-                IsModified(localGraph, remoteGraph, path) ? RenderState.Modified :
-                RenderState.Neutral;
+                hasLocal && !hasRemote ? RenderState.CREATED :
+                !hasLocal && hasRemote ? RenderState.DELETED :
+                RenderState.NEUTRAL;
 
-            var item = localItem ?? remoteItem
-                ?? throw new InvalidOperationException($"Expected '{path}' in either local or remote graph.");
+            var node = localNode ?? remoteNode
+                ?? throw new InvalidOperationException($"Expected visible node '{path}' in local or remote render graph.");
 
-            nodes[path] = new RenderNode(
-                Path: path,
-                Label: item.Name,
-                Type: item.Type,
-                State: state);
+            nodes[path] = node with { State = state };
         }
 
-        var edges = BuildDiffEdges(localGraph, remoteGraph, allPaths);
+        var childrenByParent = MergeChildren(localRender, remoteRender, nodes.Keys.ToHashSet());
+        var rootNodes = localRender.RootNodes
+            .Concat(remoteRender.RootNodes)
+            .Distinct()
+            .Where(nodes.ContainsKey)
+            .OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        return new RenderGraph(nodes, edges);
+        var edges = BuildDiffEdges(localRender, remoteRender);
+
+        return new RenderGraph(
+            Nodes: nodes,
+            ChildrenByParent: childrenByParent,
+            Edges: edges,
+            RootNodes: rootNodes
+        );
     }
 
-    private static List<RenderEdge> BuildDiffEdges(
-        ProjectDependencyGraph localGraph,
-        ProjectDependencyGraph remoteGraph,
-        IReadOnlySet<RelativePath> scope)
+    private static IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> MergeChildren(
+        RenderGraph localRender,
+        RenderGraph remoteRender,
+        IReadOnlySet<RelativePath> visibleNodes)
     {
-        List<RenderEdge> result = [];
+        var merged = new Dictionary<RelativePath, HashSet<RelativePath>>();
 
-        var allSources = new HashSet<RelativePath>(scope);
-
-        foreach (var from in allSources)
+        static IEnumerable<(RelativePath Parent, RelativePath Child)> Flatten(RenderGraph graph)
         {
-            var localDeps = localGraph.DependenciesFrom(from);
-            var remoteDeps = remoteGraph.DependenciesFrom(from);
-
-            var allTargets = new HashSet<RelativePath>(localDeps.Keys);
-            allTargets.UnionWith(remoteDeps.Keys);
-
-            foreach (var to in allTargets)
+            foreach (var (parent, children) in graph.ChildrenByParent)
             {
-                if (!scope.Contains(to))
-                    continue;
-
-                var hasLocal = localDeps.TryGetValue(to, out var localDep);
-                var hasRemote = remoteDeps.TryGetValue(to, out var remoteDep);
-
-                var localCount = hasLocal ? localDep.Count : 0;
-                var remoteCount = hasRemote ? remoteDep.Count : 0;
-                var delta = localCount - remoteCount;
-
-                var state =
-                    hasLocal && !hasRemote ? RenderState.Added :
-                    !hasLocal && hasRemote ? RenderState.Removed :
-                    delta != 0 ? RenderState.Modified :
-                    RenderState.Neutral;
-
-                result.Add(new RenderEdge(
-                    From: from,
-                    To: to,
-                    Count: localCount,
-                    Delta: delta,
-                    Type: hasLocal ? localDep.Type : remoteDep.Type,
-                    State: state));
+                foreach (var child in children)
+                    yield return (parent, child);
             }
         }
 
-        return result;
-    }
-
-    private static bool IsModified(
-        ProjectDependencyGraph localGraph,
-        ProjectDependencyGraph remoteGraph,
-        RelativePath path)
-    {
-        var local = localGraph.GetProjectItem(path);
-        var remote = remoteGraph.GetProjectItem(path);
-
-        if (local is null || remote is null)
-            return false;
-
-        if (local.Type != remote.Type)
-            return true;
-
-        var localChildren = new HashSet<RelativePath>(localGraph.ChildrenOf(path));
-        var remoteChildren = new HashSet<RelativePath>(remoteGraph.ChildrenOf(path));
-
-        if (!localChildren.SetEquals(remoteChildren))
-            return true;
-
-        var localDeps = localGraph.DependenciesFrom(path);
-        var remoteDeps = remoteGraph.DependenciesFrom(path);
-
-        if (localDeps.Count != remoteDeps.Count)
-            return true;
-
-        foreach (var (depPath, dep) in localDeps)
+        foreach (var (parent, child) in Flatten(localRender).Concat(Flatten(remoteRender)))
         {
-            if (!remoteDeps.TryGetValue(depPath, out var other))
-                return true;
+            if (!visibleNodes.Contains(parent) || !visibleNodes.Contains(child))
+                continue;
 
-            if (!Equals(dep, other))
-                return true;
+            if (!merged.TryGetValue(parent, out var set))
+            {
+                set = [];
+                merged[parent] = set;
+            }
+
+            set.Add(child);
         }
 
-        return false;
+        return merged.ToDictionary(
+            kv => kv.Key,
+            kv => (IReadOnlyList<RelativePath>)kv.Value
+                .OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)
+                .ToList());
     }
 
-    private static HashSet<RelativePath> CollectScope(
+    private static List<RenderEdge> BuildDiffEdges(
+        RenderGraph localRender,
+        RenderGraph remoteRender)
+    {
+        var localEdges = localRender.Edges.ToDictionary(
+            e => (e.From, e.To),
+            e => e);
+
+        var remoteEdges = remoteRender.Edges.ToDictionary(
+            e => (e.From, e.To),
+            e => e);
+
+        var allKeys = new HashSet<(RelativePath From, RelativePath To)>(localEdges.Keys);
+        allKeys.UnionWith(remoteEdges.Keys);
+
+        return [.. allKeys
+            .Select(key =>
+            {
+                var hasLocal = localEdges.TryGetValue(key, out var localEdge);
+                var hasRemote = remoteEdges.TryGetValue(key, out var remoteEdge);
+
+                var localCount = hasLocal ? localEdge!.Count : 0;
+                var remoteCount = hasRemote ? remoteEdge!.Count : 0;
+                var delta = localCount - remoteCount;
+
+                var state =
+                    delta > 0 ? RenderState.CREATED :
+                    delta < 0 ? RenderState.DELETED :
+                    RenderState.NEUTRAL;
+
+                return new RenderEdge(
+                    From: key.From,
+                    To: key.To,
+                    Count: localCount,
+                    Delta: delta,
+                    Type: hasLocal ? localEdge!.Type : remoteEdge!.Type,
+                    State: state
+                );
+            })
+            .OrderBy(e => e.From.Value, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.To.Value, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static void AddVisibleDirectories(
         ProjectDependencyGraph graph,
-        View view,
-        RenderOptions options)
+        RelativePath dir,
+        int remainingDepth,
+        HashSet<RelativePath> ignore,
+        Dictionary<RelativePath, RenderNode> visibleNodes,
+        Dictionary<RelativePath, List<RelativePath>> childrenByParent)
     {
-        var projectRoot = RelativePath.Directory(
-            options.BaseOptions.FullRootPath,
-            options.BaseOptions.ProjectRoot);
+        var item = graph.GetProjectItem(dir);
+        if (item is null || item.Type != ProjectItemType.Directory || ignore.Contains(dir))
+            return;
 
-        var ignore = new HashSet<RelativePath>(
-            (view.IgnorePackages ?? [])
-                .Select(p => RelativePath.Directory(options.BaseOptions.FullRootPath, p)),
-            EqualityComparer<RelativePath>.Default);
+        visibleNodes[dir] = new RenderNode(
+            Path: dir,
+            Label: item.Name,
+            Type: item.Type,
+            State: RenderState.NEUTRAL);
 
-        var roots =
-            view.Packages is { Count: > 0 }
-                ? view.Packages
-                    .Select(p => RelativePath.Directory(options.BaseOptions.FullRootPath, p.Path))
-                : graph.ChildrenOf(projectRoot).ToList();
+        if (remainingDepth <= 0)
+            return;
 
-        var visited = new HashSet<RelativePath>();
-        var stack = new Stack<RelativePath>(roots);
-
-        while (stack.Count > 0)
+        foreach (var child in graph.ChildrenOf(dir))
         {
-            var current = stack.Pop();
-            if (!visited.Add(current))
+            var childItem = graph.GetProjectItem(child);
+            if (childItem is null || childItem.Type != ProjectItemType.Directory || ignore.Contains(child))
                 continue;
 
-            if (ignore.Contains(current))
+            AddVisibleDirectories(
+                graph,
+                child,
+                remainingDepth - 1,
+                ignore,
+                visibleNodes,
+                childrenByParent);
+
+            if (visibleNodes.ContainsKey(child))
+            {
+                if (!childrenByParent.TryGetValue(dir, out var list))
+                {
+                    list = [];
+                    childrenByParent[dir] = list;
+                }
+
+                if (!list.Contains(child))
+                    list.Add(child);
+            }
+        }
+    }
+
+    private static List<RenderEdge> AggregateEdgesToVisibleDirectories(
+        ProjectDependencyGraph graph,
+        IReadOnlySet<RelativePath> selectedRoots,
+        IReadOnlySet<RelativePath> visibleDirs)
+    {
+        var edgeMap = new Dictionary<(RelativePath From, RelativePath To), Dependency>();
+
+        foreach (var item in graph.ProjectItems.Values)
+        {
+            if (!IsUnderAnyRoot(item.Path, selectedRoots))
                 continue;
 
-            foreach (var child in graph.ChildrenOf(current))
-                stack.Push(child);
+            var fromVisible = NearestVisibleAncestor(graph, item.Path, visibleDirs);
+            if (fromVisible is null)
+                continue;
+
+            foreach (var (depTarget, dep) in graph.DependenciesFrom(item.Path))
+            {
+                if (!IsUnderAnyRoot(depTarget, selectedRoots))
+                    continue;
+
+                var toVisible = NearestVisibleAncestor(graph, depTarget, visibleDirs);
+                if (toVisible is null || fromVisible.Value.Equals(toVisible.Value))
+                    continue;
+
+                var key = (fromVisible.Value, toVisible.Value);
+
+                if (edgeMap.TryGetValue(key, out var existing))
+                    edgeMap[key] = existing with { Count = existing.Count + dep.Count };
+                else
+                    edgeMap[key] = dep;
+            }
         }
 
-        return visited;
+        return [.. edgeMap
+            .OrderBy(kv => kv.Key.From.Value, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(kv => kv.Key.To.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new RenderEdge(
+                From: kv.Key.From,
+                To: kv.Key.To,
+                Count: kv.Value.Count,
+                Delta: 0,
+                Type: kv.Value.Type,
+                State: RenderState.NEUTRAL))];
+    }
+
+    private static RelativePath? NearestVisibleAncestor(
+        ProjectDependencyGraph graph,
+        RelativePath path,
+        IReadOnlySet<RelativePath> visibleDirs)
+    {
+        var current = path;
+
+        while (true)
+        {
+            var item = graph.GetProjectItem(current);
+            if (item is not null && item.Type == ProjectItemType.Directory && visibleDirs.Contains(current))
+                return current;
+
+            var parent = graph.ParentOf(current);
+            if (parent is null)
+                return null;
+
+            current = parent.Value;
+        }
+    }
+
+    private static bool IsUnderAnyRoot(RelativePath path, IReadOnlySet<RelativePath> roots)
+    {
+        return roots.Any(r => path.Value.StartsWith(r.Value, StringComparison.OrdinalIgnoreCase));
     }
 }
