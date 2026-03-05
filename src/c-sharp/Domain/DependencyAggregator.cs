@@ -2,59 +2,67 @@
 using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Archlens.Domain;
 
 public static class DependencyAggregator
 {
-    public static void RecomputeAggregates(ProjectDependencyGraph graph)
+
+    public static IReadOnlyDictionary<RelativePath, Dependency> GetAggregatedDependencies(
+        ProjectDependencyGraph graph,
+        RelativePath source)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
-        foreach (var rootDir in graph.ProjectItems.Values
-                     .Where(i => i.Type == ProjectItemType.Directory)
-                     .Where(i => graph.ParentOf(i.Path) is null))
-        {
-            Fold(graph, rootDir.Path);
-        }
+        var memo = new Dictionary<RelativePath, Dictionary<RelativePath, Dependency>>();
+        return Fold(graph, source, memo);
     }
 
     private static Dictionary<RelativePath, Dependency> Fold(
         ProjectDependencyGraph graph,
-        RelativePath itemPath)
+        RelativePath source,
+        Dictionary<RelativePath, Dictionary<RelativePath, Dependency>> memo)
     {
-        var item = graph.GetProjectItem(itemPath)
-            ?? throw new InvalidOperationException($"Project item '{itemPath}' does not exist.");
+        if (memo.TryGetValue(source, out var cached))
+            return new Dictionary<RelativePath, Dependency>(cached);
+
+        var item = graph.GetProjectItem(source)
+            ?? throw new InvalidOperationException($"Project item '{source}' does not exist.");
 
         if (item.Type == ProjectItemType.File)
-            return new Dictionary<RelativePath, Dependency>(graph.DependenciesFrom(itemPath));
+        {
+            var direct = new Dictionary<RelativePath, Dependency>(graph.DependenciesFrom(source));
+            memo[source] = direct;
+            return new Dictionary<RelativePath, Dependency>(direct);
+        }
 
         var aggregate = new Dictionary<RelativePath, Dependency>();
 
-        foreach (var childPath in graph.ChildrenOf(itemPath))
+        foreach (var child in graph.ChildrenOf(source))
         {
-            var childAggregate = Fold(graph, childPath);
+            var childAgg = Fold(graph, child, memo);
 
-            foreach (var (depPath, dep) in childAggregate)
+            foreach (var (target, dep) in childAgg)
             {
-                if (IsInternalToDirectory(itemPath, depPath))
+                if (IsInternalToDirectory(source, target))
                     continue;
 
-                if (aggregate.TryGetValue(depPath, out var existing))
+                if (aggregate.TryGetValue(target, out var existing))
                 {
-                    aggregate[depPath] = existing with
+                    aggregate[target] = existing with
                     {
                         Count = existing.Count + dep.Count
                     };
                 }
                 else
-                    aggregate[depPath] = dep;
+                {
+                    aggregate[target] = dep;
+                }
             }
         }
 
-        graph.ReplaceDependencies(itemPath, aggregate);
-        return aggregate;
+        memo[source] = aggregate;
+        return new Dictionary<RelativePath, Dependency>(aggregate);
     }
 
     private static bool IsInternalToDirectory(RelativePath directoryPath, RelativePath dependencyTarget)
