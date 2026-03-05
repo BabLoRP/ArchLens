@@ -24,6 +24,6 @@ public sealed class UpdateGraphUseCase(
         var graph = await new DependencyGraphBuilder(parsers, baseOptions).GetGraphAsync(projectChanges, snapshotGraph, ct);
 
         await renderer.RenderViewsAndSaveToFiles(graph, renderOptions);
-        await snapshotManager.SaveGraphAsync(graph, snapshotOptions, ct);
+        //await snapshotManager.SaveGraphAsync(graph, snapshotOptions, ct);
     }
 }

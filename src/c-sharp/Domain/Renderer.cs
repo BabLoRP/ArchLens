@@ -101,7 +101,7 @@ public abstract class Renderer
     {
         var projectRoot = RelativePath.Directory(
             options.BaseOptions.FullRootPath,
-            options.BaseOptions.ProjectRoot);
+            options.BaseOptions.FullRootPath);
 
         var ignore = new HashSet<RelativePath>(
             (view.IgnorePackages ?? [])

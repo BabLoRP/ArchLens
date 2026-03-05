@@ -19,7 +19,8 @@ public sealed class ChangeDetector
 
     private sealed record ProjectFileStructure(
         Dictionary<RelativePath, ProjectItemMeta> Files, // fileRel -> (parentDirRel, lastWriteUtc)
-        HashSet<RelativePath> DirRels                    // directory relative paths
+        HashSet<RelativePath> DirRels,                   // dirRel set
+        Dictionary<RelativePath, HashSet<RelativePath>> ChildrenByDir // dirRel -> direct child dirs/files
     );
 
     private sealed record ExclusionRule(
@@ -45,10 +46,9 @@ public sealed class ChangeDetector
             rules,
             ct);
 
-        var changedByDir = FindUpsertedFilesByDirectory(
-            current.Files,
-            lastSavedGraph,
-            ct);
+        var changedByDir = lastSavedGraph is null
+            ? BuildFullStructure(current)
+            : BuildDeltaStructure(current, lastSavedGraph, ct);
 
         var (deletedFiles, deletedDirs) = DiscoverDeletedPaths(
             lastSavedGraph,
@@ -65,6 +65,106 @@ public sealed class ChangeDetector
             DeletedFiles: [.. deletedFiles],
             DeletedDirectories: [.. collapsedDeletedDirs]
         ));
+    }
+
+    private static Dictionary<RelativePath, List<RelativePath>> BuildFullStructure(ProjectFileStructure current)
+    {
+        return current.ChildrenByDir.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase).ToList()
+        );
+    }
+
+    private static Dictionary<RelativePath, List<RelativePath>> BuildDeltaStructure(
+    ProjectFileStructure current,
+    ProjectDependencyGraph lastSavedGraph,
+    CancellationToken ct)
+    {
+        var changedFiles = new HashSet<RelativePath>();
+
+        foreach (var (fileRel, meta) in current.Files)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var lastItem = lastSavedGraph.GetProjectItem(fileRel);
+            if (lastItem is null)
+            {
+                changedFiles.Add(fileRel);
+                continue;
+            }
+
+            if (TrimMilliseconds(meta.LastWriteUtc) > TrimMilliseconds(lastItem.LastWriteTime))
+                changedFiles.Add(fileRel);
+        }
+
+        var neededDirs = new HashSet<RelativePath>();
+
+        foreach (var file in changedFiles)
+        {
+            var parent = current.Files[file].ParentDirRel;
+            AddDirAndAncestors(parent, neededDirs, lastSavedGraph, ct);
+        }
+
+        foreach (var dir in current.DirRels)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!lastSavedGraph.ContainsProjectItem(dir))
+                AddDirAndAncestors(dir, neededDirs, lastSavedGraph, ct);
+        }
+
+        var delta = new Dictionary<RelativePath, List<RelativePath>>();
+
+        foreach (var dir in neededDirs)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!current.ChildrenByDir.TryGetValue(dir, out var children))
+                continue;
+
+            var list = new List<RelativePath>();
+
+            foreach (var child in children)
+            {
+                var childItemIsDir = current.DirRels.Contains(child);
+
+                if (childItemIsDir)
+                {
+                    if (neededDirs.Contains(child) || !lastSavedGraph.ContainsProjectItem(child))
+                        list.Add(child);
+                }
+                else
+                {
+                    if (changedFiles.Contains(child))
+                        list.Add(child);
+                }
+            }
+
+            if (list.Count > 0)
+                delta[dir] = list;
+        }
+
+        return delta;
+    }
+
+    private static void AddDirAndAncestors(
+        RelativePath dir,
+        HashSet<RelativePath> neededDirs,
+        ProjectDependencyGraph lastSavedGraph,
+        CancellationToken ct)
+    {
+        var current = dir;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!neededDirs.Add(current))
+                break;
+
+            var parent = lastSavedGraph.ParentOf(current);
+            if (parent is null)
+                break;
+
+            current = parent.Value;
+        }
     }
 
     private static ExclusionRule CompileExclusions(IReadOnlyList<string> exclusions)
@@ -120,15 +220,26 @@ public sealed class ChangeDetector
     }
 
     private static ProjectFileStructure ScanCurrentProjectFileStructure(
-        string projectRoot,
-        IReadOnlyList<string> extensions,
-        ExclusionRule rules,
-        CancellationToken ct)
+    string projectRoot,
+    IReadOnlyList<string> extensions,
+    ExclusionRule rules,
+    CancellationToken ct)
     {
         var extensionsSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
 
         var files = new Dictionary<RelativePath, ProjectItemMeta>();
         var dirs = new HashSet<RelativePath>();
+        var childrenByDir = new Dictionary<RelativePath, HashSet<RelativePath>>();
+
+        void AddChild(RelativePath parent, RelativePath child)
+        {
+            if (!childrenByDir.TryGetValue(parent, out var set))
+            {
+                set = [];
+                childrenByDir[parent] = set;
+            }
+            set.Add(child);
+        }
 
         var stack = new Stack<string>();
         stack.Push(projectRoot);
@@ -150,6 +261,10 @@ public sealed class ChangeDetector
                 if (IsExcluded(projectRoot, subAbs, rules))
                     continue;
 
+                var subRel = RelativePath.Directory(projectRoot, subAbs);
+                dirs.Add(subRel);
+                AddChild(dirRel, subRel);
+
                 stack.Push(subAbs);
             }
 
@@ -170,46 +285,12 @@ public sealed class ChangeDetector
                 var fileRel = RelativePath.File(projectRoot, fileAbs);
                 var writeUtc = File.GetLastWriteTimeUtc(fileAbs);
 
-                files[fileRel] = new ProjectItemMeta(
-                    ParentDirRel: dirRel,
-                    LastWriteUtc: writeUtc);
+                files[fileRel] = new ProjectItemMeta(dirRel, writeUtc);
+                AddChild(dirRel, fileRel);
             }
         }
-        return new ProjectFileStructure(files, dirs);
-    }
 
-    private static Dictionary<RelativePath, List<RelativePath>> FindUpsertedFilesByDirectory(
-        IReadOnlyDictionary<RelativePath, ProjectItemMeta> files,
-        ProjectDependencyGraph? lastSavedGraph,
-        CancellationToken ct)
-    {
-        Dictionary<RelativePath, List<RelativePath>> changed = [];
-
-        foreach (var (fileRel, meta) in files)
-        {
-            ct.ThrowIfCancellationRequested();
-
-            var lastItem = lastSavedGraph?.GetProjectItem(fileRel);
-            var isNew = lastItem is null;
-
-            var isModified = false;
-            if (!isNew)
-            {
-                var lastWrite = lastItem!.LastWriteTime;
-                isModified = TrimMilliseconds(meta.LastWriteUtc) > TrimMilliseconds(lastWrite);
-            }
-
-            if (!isNew && !isModified)
-                continue;
-
-            if (!changed.TryGetValue(meta.ParentDirRel, out var list))
-            {
-                list = [];
-                changed[meta.ParentDirRel] = list;
-            }
-            list.Add(fileRel);
-        }
-        return changed;
+        return new ProjectFileStructure(files, dirs, childrenByDir);
     }
 
     private static (List<RelativePath> deletedFilesRel, List<RelativePath> deletedDirsRel) DiscoverDeletedPaths(
