@@ -6,12 +6,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 
 namespace Archlens.Infra.Parsers;
 
 class CsharpDependencyParser(ParserOptions _options) : IDependencyParser
 {
-    public async Task<IReadOnlyList<string>> ParseFileDependencies(string path, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string path, CancellationToken ct = default)
     {
         /*
             open file from given path
@@ -19,7 +20,7 @@ class CsharpDependencyParser(ParserOptions _options) : IDependencyParser
             take all matches and put in list
             return list
         */
-        List<string> usings = [];
+        List<RelativePath> usings = [];
 
         try
         {
@@ -33,7 +34,8 @@ class CsharpDependencyParser(ParserOptions _options) : IDependencyParser
                 var match = Regex.Match(line, regex);
                 if (match.Success)
                 {
-                    usings.Add(match.Groups[1].Value);
+                    var relativePath = RelativePath.Directory(_options.BaseOptions.FullRootPath, match.Groups[1].Value);
+                    usings.Add(relativePath);
                 }
                 line = await sr.ReadLineAsync(ct);
             }

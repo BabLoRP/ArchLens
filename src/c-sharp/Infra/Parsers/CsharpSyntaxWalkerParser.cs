@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -23,11 +24,11 @@ class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalker, IDe
         }
     }
 
-    public async Task<IReadOnlyList<string>> ParseFileDependencies(string path, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string path, CancellationToken ct = default)
     {
         Usings = [];
         string lines = "";
-        List<string> usings = [];
+        List<RelativePath> usings = [];
 
         try
         {
@@ -55,7 +56,8 @@ class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalker, IDe
 
         foreach (var directive in Usings)
         {
-            usings.Add(directive.Name.ToString());
+            var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, directive.Name.ToString());
+            usings.Add(rel);
         }
 
         return usings;

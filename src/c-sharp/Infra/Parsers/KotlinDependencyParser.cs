@@ -1,5 +1,6 @@
 ﻿using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,11 +14,11 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
 {
     readonly string _rootPackage = _options.BaseOptions.ProjectName;
 
-    public async Task<IReadOnlyList<string>> ParseFileDependencies(
+    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(
         string path,
         CancellationToken ct = default)
     {
-        var imports = new List<string>();
+        var imports = new List<RelativePath>();
 
         if (string.IsNullOrWhiteSpace(_rootPackage))
             return imports;
@@ -41,7 +42,10 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
 
                 var dep = match.Groups[1].Value.Trim();
                 if (dep.Length > 0)
-                    imports.Add(dep);
+                {
+                    var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, dep);
+                    imports.Add(rel);
+                }
             }
 
             return imports;
