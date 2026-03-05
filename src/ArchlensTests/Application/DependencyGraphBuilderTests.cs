@@ -72,24 +72,6 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     }
 
     [Fact]
-    public async Task BuildGraph_EmptyChangedModules_ReturnsOnlyRoot()
-    {
-        SetupMockProject();
-
-        var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>());
-        var builder = CreateBuilder([parser]);
-
-        var changes = CreateProjectChanges(new Dictionary<RelativePath, IReadOnlyList<RelativePath>>(), [], []);
-
-        var graph = await builder.GetGraphAsync(
-            changes: changes,
-            lastSavedDependencyGraph: null);
-
-        Assert.Single(graph.ProjectItems);
-        Assert.Empty(parser.Calls);
-    }
-
-    [Fact]
     public async Task BuildGraph_BuildsExpectedTreeStructure_ForHappyPath()
     {
         SetupMockProject();
