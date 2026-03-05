@@ -1,17 +1,18 @@
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Parsers;
 
 class JavaDependencyParser(ParserOptions _options) : IDependencyParser
 {
-    public async Task<IReadOnlyList<string>> ParseFileDependencies(string path, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string path, CancellationToken ct = default)
     {
         /*
             open file from given path
@@ -19,7 +20,7 @@ class JavaDependencyParser(ParserOptions _options) : IDependencyParser
             take all matches and put in list
             return list
         */
-        List<string> usings = [];
+        List<RelativePath> usings = [];
 
         try
         {
@@ -33,7 +34,8 @@ class JavaDependencyParser(ParserOptions _options) : IDependencyParser
                 var match = Regex.Match(line, regex);
                 if (match.Success)
                 {
-                    usings.Add(match.Groups[2].Value);
+                    var relativePath = RelativePath.Directory(_options.BaseOptions.FullRootPath, match.Groups[2].Value);
+                    usings.Add(relativePath);
                 }
                 line = await sr.ReadLineAsync(ct);
             }
