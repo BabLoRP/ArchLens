@@ -302,14 +302,14 @@ public abstract class Renderer
         if (item is null || item.Type != ProjectItemType.Directory || ignore.Contains(dir))
             return;
 
+        if (remainingDepth <= 0)
+            return;
+
         visibleNodes[dir] = new RenderNode(
             Path: dir,
             Label: item.Name,
             Type: item.Type,
             State: RenderState.NEUTRAL);
-
-        if (remainingDepth <= 0)
-            return;
 
         foreach (var child in graph.ChildrenOf(dir))
         {
