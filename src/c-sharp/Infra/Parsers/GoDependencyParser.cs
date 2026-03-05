@@ -1,5 +1,6 @@
 ﻿using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,11 +16,11 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
             ? string.Empty
             : _options.BaseOptions.ProjectName.TrimEnd('/') + "/";
 
-    public async Task<IReadOnlyList<string>> ParseFileDependencies(
+    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(
         string path,
         CancellationToken ct = default)
     {
-        var deps = new List<string>();
+        var deps = new List<RelativePath>();
 
         
         if (string.IsNullOrEmpty(_projectImportPrefix))
@@ -33,7 +34,7 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
         {
             ct.ThrowIfCancellationRequested();
 
-            var line = await reader.ReadLineAsync();
+            var line = await reader.ReadLineAsync(ct);
             if (line is null)
                 break;
 
@@ -69,7 +70,7 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
         return deps;
     }
 
-    private void ExtractImportFromLine(string line, List<string> deps)
+    private void ExtractImportFromLine(string line, List<RelativePath> deps)
     {
         var firstQuote = line.IndexOf('"');
         if (firstQuote < 0)
@@ -83,7 +84,7 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
         AddIfInternal(importPath, deps);
     }
 
-    private void AddIfInternal(string importPath, List<string> deps)
+    private void AddIfInternal(string importPath, List<RelativePath> deps)
     {
         if (!importPath.StartsWith(_projectImportPrefix, StringComparison.Ordinal))
             return;
@@ -92,7 +93,7 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
         if (relative.Length == 0)
             return;
 
-        var canonical = relative.Replace('/', '.');
+        var canonical = RelativePath.Directory(_options.BaseOptions.FullRootPath, relative);
         deps.Add(canonical);
     }
 }
