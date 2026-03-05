@@ -45,27 +45,21 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
 
             foreach (var item in items) 
             {
-                ct.ThrowIfCancellationRequested();
-
-            }
-        }
-
-        foreach (var (parentRelPath, itemRelPaths) in changedModules) 
+                try
         {
             ct.ThrowIfCancellationRequested();
-            foreach (var itemRelPath in itemRelPaths) 
-            {
-                ct.ThrowIfCancellationRequested();
 
-                var itemAbsPath = PathNormaliser.GetAbsolutePath(rootFull, itemRelPath.Value);
+                    if (string.IsNullOrWhiteSpace(item.Value) || item.Value.Trim() == root.Value)
+                        continue;
+
+                    var itemAbsPath = PathNormaliser.GetAbsolutePath(rootFull, item.Value);
 
                 static bool IsDirectory(string path) => Path.GetExtension(path).Length == 0;
-
                 var isItemDirectory = IsDirectory(itemAbsPath);
 
                 if (isItemDirectory)
                 {
-                    graph.UpsertProjectItem(itemRelPath, ProjectItemType.Directory);
+                        graph.UpsertProjectItem(item, ProjectItemType.Directory);
                         graph.AddChild(parent, item);
                     continue;
                 }
@@ -73,13 +67,23 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
                 List<RelativePath> dependencyPaths = [];
                 foreach (var parser in _dependencyParsers)
                 {
-                    var paths = await parser.ParseFileDependencies(itemAbsPath, ct).ConfigureAwait(false);
-                    var dependencies = paths.Select(p => IsDirectory(p) ? RelativePath.Directory(rootFull, p) : RelativePath.File(rootFull, p));
+                        var dependencies = await parser.ParseFileDependencies(itemAbsPath, ct).ConfigureAwait(false);
                     dependencyPaths = [.. dependencies];
                 }
-                graph.AddDependencies(itemRelPath, dependencyPaths);
-                graph.UpsertProjectItem(itemRelPath, ProjectItemType.File);
-                graph.AddChild(parentRelPath, itemRelPath);
+
+                    graph.UpsertProjectItem(item, ProjectItemType.File);
+                    graph.AddChild(parent, item);
+                    graph.AddDependencies(item, dependencyPaths);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
+                    continue;
+                }
             }
         }
         return graph;
