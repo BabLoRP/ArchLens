@@ -41,7 +41,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         {
             ct.ThrowIfCancellationRequested();
 
-            graph.UpsertProjectItem(moduleRelPath, ProjectItemType.Directory);
+            graph.UpsertProjectItem(parent, ProjectItemType.Directory);
 
             foreach (var item in items) 
             {
@@ -66,7 +66,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
                 if (isItemDirectory)
                 {
                     graph.UpsertProjectItem(itemRelPath, ProjectItemType.Directory);
-                    graph.AddChild(parentRelPath, itemRelPath);
+                        graph.AddChild(parent, item);
                     continue;
                 }
                 
