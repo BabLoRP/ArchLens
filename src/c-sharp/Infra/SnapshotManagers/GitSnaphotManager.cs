@@ -46,6 +46,8 @@ public sealed class GitSnaphotManager : ISnapshotManager
         try
         {
             var json = await HttpGetAsync(url, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+                throw new Exception("Unable to find main branch's graph snapshot");
             var graph = DependencyGraphSerializer.Deserialize(json, options.BaseOptions.FullRootPath);
             if (graph is not null) return graph;
         }
@@ -87,18 +89,17 @@ public sealed class GitSnaphotManager : ISnapshotManager
 
     private static string BuildRawUrl(string owner, string repo, string branch, string rootFolder, string dir, string file)
     {
-        // https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{dir}/{file}
         static string Seg(string s) => WebUtility.UrlEncode(s ?? string.Empty).Replace("+", "%20");
 
+        rootFolder = (rootFolder ?? string.Empty).Trim('/', '\\');
+        dir = (dir ?? string.Empty).Trim('/', '\\');
+
         var sb = new StringBuilder("https://raw.githubusercontent.com/");
-        sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append("/refs/heads/").Append(branch).Append('/').Append(rootFolder);
-        if (!sb.ToString().EndsWith('/')) sb.Append('/');
-        if (!string.IsNullOrWhiteSpace(dir))
-        {
-            var trimmed = dir.Trim('/', '\\');
-            if (!string.IsNullOrEmpty(trimmed))
-                sb.Append(Seg(trimmed)).Append('/');
-        }
+        sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append('/').Append(Seg(branch)).Append('/');
+
+        if (!string.IsNullOrEmpty(dir))
+            sb.Append(Seg(dir)).Append('/');
+
         sb.Append(Seg(file));
         return sb.ToString();
     }
