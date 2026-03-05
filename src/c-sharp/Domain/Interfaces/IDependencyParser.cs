@@ -1,4 +1,4 @@
-using Archlens.Domain.Utils;
+using Archlens.Domain.Models.Records;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;

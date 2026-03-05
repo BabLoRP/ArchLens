@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using Archlens.Domain.Models.Records;
 using Archlens.Domain.Utils;
 
 namespace Archlens.Domain.Models;
