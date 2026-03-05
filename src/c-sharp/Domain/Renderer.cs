@@ -23,13 +23,19 @@ public sealed record RenderNode(
     RenderState State
 );
 
+public sealed record RenderRelation(
+    RelativePath FromFile,
+    RelativePath ToFile
+);
+
 public sealed record RenderEdge(
     RelativePath From,
     RelativePath To,
     int Count,              // current/local count shown in the rendered view
     int Delta,              // local - remote
     DependencyType Type,
-    RenderState State
+    RenderState State,
+    IReadOnlyList<RenderRelation> Relations
 );
 
 public sealed record RenderGraph(
@@ -277,13 +283,20 @@ public abstract class Renderer
                     delta < 0 ? RenderState.DELETED :
                     RenderState.NEUTRAL;
 
+                IReadOnlyList<RenderRelation> relations = state switch
+                {
+                    RenderState.DELETED => hasRemote ? remoteEdge!.Relations : [],
+                    _ => hasLocal ? localEdge!.Relations : []
+                };
+
                 return new RenderEdge(
                     From: key.From,
                     To: key.To,
                     Count: localCount,
                     Delta: delta,
                     Type: hasLocal ? localEdge!.Type : remoteEdge!.Type,
-                    State: state
+                    State: state,
+                    Relations: relations
                 );
             })
             .OrderBy(e => e.From.Value, StringComparer.OrdinalIgnoreCase)
@@ -345,6 +358,7 @@ public abstract class Renderer
         IReadOnlySet<RelativePath> visibleDirs)
     {
         var edgeMap = new Dictionary<(RelativePath From, RelativePath To), Dependency>();
+        var relationsMap = new Dictionary<(RelativePath From, RelativePath To), List<RenderRelation>>();
 
         foreach (var item in graph.ProjectItems.Values)
         {
@@ -370,19 +384,37 @@ public abstract class Renderer
                     edgeMap[key] = existing with { Count = existing.Count + dep.Count };
                 else
                     edgeMap[key] = dep;
+
+                if (!relationsMap.TryGetValue(key, out var rels))
+                {
+                    rels = [];
+                    relationsMap[key] = rels;
+                }
+
+                if (!rels.Any(r => r.FromFile.Equals(item.Path) && r.ToFile.Equals(depTarget)))
+                    rels.Add(new RenderRelation(item.Path, depTarget));
+
             }
         }
 
         return [.. edgeMap
             .OrderBy(kv => kv.Key.From.Value, StringComparer.OrdinalIgnoreCase)
             .ThenBy(kv => kv.Key.To.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(kv => new RenderEdge(
+            .Select(kv => 
+            {
+                relationsMap.TryGetValue(kv.Key, out var rels);
+                rels ??= [];
+
+                return new RenderEdge(
                 From: kv.Key.From,
                 To: kv.Key.To,
                 Count: kv.Value.Count,
                 Delta: 0,
                 Type: kv.Value.Type,
-                State: RenderState.NEUTRAL))];
+                State: RenderState.NEUTRAL,
+                rels
+            );
+            })];
     }
 
     private static RelativePath? NearestVisibleAncestor(
