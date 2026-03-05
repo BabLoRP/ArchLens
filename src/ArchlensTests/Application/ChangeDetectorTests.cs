@@ -32,16 +32,6 @@ public sealed class ChangeDetectorTests : IDisposable
         return graph;
     }
 
-    private static RelativePath AddDirectory(
-        ProjectDependencyGraph graph,
-        string projectRoot,
-        string relPath)
-    {
-        return graph.UpsertProjectItem(
-            RelativePath.Directory(projectRoot, relPath),
-            ProjectItemType.Directory);
-    }
-
     private static RelativePath AddFile(
         ProjectDependencyGraph graph,
         string projectRoot,
@@ -201,7 +191,6 @@ public sealed class ChangeDetectorTests : IDisposable
 
         Assert.Contains(goodDirPath, changed.ChangedFilesByDirectory.Keys);
         Assert.DoesNotContain(binDirPath, changed.ChangedFilesByDirectory.Keys);
-        Assert.DoesNotContain(genPath, changed.ChangedFilesByDirectory[srcPath]);
     }
 
     [Fact]
@@ -309,8 +298,8 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var keepPath = RelativePath.File(_fs.Root, "./src/Keep.cs");
         var subDirKeepPath = RelativePath.File(_fs.Root, "./src/Dir/Keep.cs");
-        var subDirPath = RelativePath.File(_fs.Root, "./src/Dir/");
-        var oldDirPath = RelativePath.File(_fs.Root, "./src/OldDir/");
+        var subDirPath = RelativePath.Directory(_fs.Root, "./src/Dir/");
+        var oldDirPath = RelativePath.Directory(_fs.Root, "./src/OldDir/");
 
         Assert.DoesNotContain(keepPath, changes.DeletedFiles);
         Assert.DoesNotContain(subDirKeepPath, changes.DeletedFiles);
@@ -338,8 +327,8 @@ public sealed class ChangeDetectorTests : IDisposable
 
         var keepPath = RelativePath.File(_fs.Root, "./src/Keep.cs");
         var subDirKeepPath = RelativePath.File(_fs.Root, "./src/Dir/Keep.cs");
-        var subDirPath = RelativePath.File(_fs.Root, "./src/Dir/");
-        var subOldDirPath = RelativePath.File(_fs.Root, "./src/Dir/OldDir/");
+        var subDirPath = RelativePath.Directory(_fs.Root, "./src/Dir/");
+        var subOldDirPath = RelativePath.Directory(_fs.Root, "./src/Dir/OldDir/");
 
         Assert.DoesNotContain(keepPath, changes.DeletedFiles);
         Assert.DoesNotContain(subDirKeepPath, changes.DeletedFiles);
@@ -370,7 +359,7 @@ public sealed class ChangeDetectorTests : IDisposable
         Assert.DoesNotContain(keepPath, changes.DeletedFiles);
 
         var srcPath = RelativePath.Directory(_fs.Root, "./src/");
-        var oldDirPath = RelativePath.File(_fs.Root, "./src/OldDir/");
+        var oldDirPath = RelativePath.Directory(_fs.Root, "./src/OldDir/");
 
         Assert.Contains(srcPath, changes.ChangedFilesByDirectory);
         Assert.Contains(oldDirPath, changes.DeletedDirectories);

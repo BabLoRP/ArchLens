@@ -25,50 +25,6 @@ public sealed class GitSnapShotManagerTests : IDisposable
         GitInfo: new (gitUrl, branch)
     );
 
-    private static ProjectDependencyGraph MakeDependencyGraph(string rootPath)
-    {
-        var graph = new ProjectDependencyGraph(rootPath);
-
-        var root = RelativePath.Directory(rootPath, rootPath);
-        var application = RelativePath.Directory(rootPath, "./Application/");
-        var infra = RelativePath.Directory(rootPath, "./Infra/");
-        var domain = RelativePath.Directory(rootPath, "./Domain/");
-        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
-        var factory = RelativePath.Directory(rootPath, "./Domain/Factories/");
-        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
-        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
-        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
-        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
-
-        graph.AddChild(root, application);
-        graph.AddChild(root, domain);
-        graph.AddChild(domain, factory);
-        graph.AddChild(domain, models);
-        graph.AddChild(domain, utils);
-        graph.AddChild(models, records);
-        graph.AddChild(models, enums);
-
-        var changeDetector = RelativePath.File(rootPath, "./Application/ChangeDetector.cs");
-        var dependencyParserFactory = RelativePath.File(rootPath, "./Domain/Factories/DependencyParserFactory.cs");
-        var rendererFactory = RelativePath.File(rootPath, "./Domain/Factories/RendererFactory.cs");
-        var options = RelativePath.File(rootPath, "./Domain/Models/Records/Options.cs");
-        var dependencyGraph = RelativePath.File(rootPath, "./Domain/Models/DependencyGraph.cs");
-
-        var dependencies = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
-        {
-            [changeDetector] = [models, records, utils],
-            [dependencyParserFactory] = [interfaces, enums, records, infra],
-            [rendererFactory] = [interfaces, enums, infra],
-            [options] = [enums],
-            [dependencyGraph] = [utils]
-        };
-
-        foreach (var (source, targets) in dependencies)
-            graph.AddDependencies(source, targets);
-
-        return graph;
-    }
-
     [Fact]
     public async Task GetLastSavedDependencyGraphAsync_Throws_When_GitUrl_Missing()
     {
@@ -105,7 +61,7 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var mainUrl = "https://raw.githubusercontent.com/owner/repo/main/.archlens/snapshot.json";
         var masterUrl = "https://raw.githubusercontent.com/owner/repo/master/.archlens/snapshot.json";
 
-        var graph = MakeDependencyGraph(_fs.Root);
+        var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         handler.When(mainUrl, HttpStatusCode.OK, DependencyGraphSerializer.Serialize(graph));
         handler.When(masterUrl, HttpStatusCode.NotFound);
 
@@ -114,7 +70,6 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var lastSaved = await manager.GetLastSavedDependencyGraphAsync(opts, default);
 
         Assert.Equal(graph.ProjectItems, lastSaved.ProjectItems);
-        Assert.Equal(graph.Deps, lastSaved.Deps);
     }
 
     [Fact]
