@@ -87,21 +87,21 @@ public sealed class GitSnaphotManager : ISnapshotManager
         }
     }
 
-    private static string BuildRawUrl(string owner, string repo, string branch, string rootFolder, string dir, string file)
+    private static string BuildRawUrl(string owner, string repo, string branch, string rootFolder, string snapshotDir, string snapshotFile)
     {
-        // https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{dir}/{file}
+        // https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/{rootfolder}/{dir}/{file}
         static string Seg(string s) => WebUtility.UrlEncode(s ?? string.Empty).Replace("+", "%20");
 
         var sb = new StringBuilder("https://raw.githubusercontent.com/");
         sb.Append(Seg(owner)).Append('/').Append(Seg(repo)).Append("/refs/heads/").Append(branch).Append('/').Append(rootFolder);
         if (!sb.ToString().EndsWith('/')) sb.Append('/');
-        if (!string.IsNullOrWhiteSpace(dir))
+        if (!string.IsNullOrWhiteSpace(snapshotDir))
         {
-            var trimmed = dir.Trim('/', '\\');
+            var trimmed = snapshotDir.Trim('/', '\\');
             if (!string.IsNullOrEmpty(trimmed))
                 sb.Append(Seg(trimmed)).Append('/');
         }
-        sb.Append(Seg(file));
+        sb.Append(Seg(snapshotFile));
         return sb.ToString();
     }
 
