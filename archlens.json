@@ -9,6 +9,7 @@
     "snapshotDir": ".archlens",
     "snapshotFile": "snaphot",
     "saveLocation": "/diagrams/",
+    "format": "puml",
     "exclusions": [
         "obj/",
         "bin/",
@@ -23,16 +24,13 @@
     "views": {
         "completeView": {
             "packages": [],
-            "ignorePackages": [
-                ".idea/",
-                ".archlens"
-            ]
+            "ignorePackages": []
         },
-        "infraView": {
+        "domainView": {
             "packages": [
                 {
-                    "path": "Infra",
-                    "depth": 1
+                    "path": "Domain",
+                    "depth": 2
                 }
             ],
             "ignorePackages": []

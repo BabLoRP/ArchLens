@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Interfaces;
@@ -56,7 +57,8 @@ class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalker, IDe
 
         foreach (var directive in Usings)
         {
-            var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, directive.Name.ToString());
+            var directivePath = directive.Name.ToString().Replace(".", "/").Replace(_options.BaseOptions.ProjectName, ".") + "/";
+            var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, directivePath);
             usings.Add(rel);
         }
 
