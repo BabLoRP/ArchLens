@@ -1,37 +1,35 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Archlens.Infra.Renderers;
 
 public sealed class JsonRenderer : Renderer
 {
     private sealed record JsonRenderDto(
-        string Title,
-        IEnumerable<JsonPackageDto> Packages,
-        IEnumerable<JsonEdgeDto> Edges
+        string title,
+        List<JsonPackageDto> packages,
+        List<JsonEdgeDto> edges
     );
 
     private sealed record JsonPackageDto(
-        string Name,
-        string Path,
-        ProjectItemType Type,
-        string State
+        string name,
+        string path,
+        ProjectItemType type,
+        string state
     );
 
     private sealed record JsonEdgeDto(
-        string State,
-        string FromPackage,
-        string ToPackage,
-        string Label,
-        int Count,
-        int Delta,
-        string DependencyType
+        string state,
+        string fromPackage,
+        string toPackage,
+        string label
     );
 
     public override string FileExtension => "json";
@@ -39,32 +37,34 @@ public sealed class JsonRenderer : Renderer
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter() },
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     protected override string Render(RenderGraph graph, View view, RenderOptions options)
     {
+        var labelByPath = graph.Nodes.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.Label);
+
         var dto = new JsonRenderDto(
-            Title: view.ViewName,
-            Packages: graph.Nodes.Values
+            title: view.ViewName,
+            packages: [.. graph.Nodes.Values
                 .OrderBy(n => n.Path.Value, StringComparer.OrdinalIgnoreCase)
                 .Select(n => new JsonPackageDto(
-                    Name: n.Label,
-                    Path: n.Path.Value,
-                    Type: n.Type,
-                    State: n.State.ToString().ToUpperInvariant())),
+                    name: n.Label,
+                    path: n.Path.Value,
+                    type: n.Type,
+                    state: n.State.ToString()))],
 
-            Edges: graph.Edges
+            edges: [.. graph.Edges
                 .OrderBy(e => e.From.Value, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(e => e.To.Value, StringComparer.OrdinalIgnoreCase)
                 .Select(e => new JsonEdgeDto(
-                    State: e.State.ToString().ToUpperInvariant(),
-                    FromPackage: e.From.Value,
-                    ToPackage: e.To.Value,
-                    Label: FormatLabel(e.Count, e.Delta),
-                    Count: e.Count,
-                    Delta: e.Delta,
-                    DependencyType: e.Type.ToString().ToUpperInvariant()))
+                    state: e.State.ToString(),
+                    fromPackage: labelByPath[e.From],
+                    toPackage: labelByPath[e.To],
+                    label: FormatLabel(e.Count, e.Delta)))]
         );
 
         return JsonSerializer.Serialize(dto, JsonOptions);
