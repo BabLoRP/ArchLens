@@ -12,6 +12,16 @@ namespace Archlens.Infra.Renderers;
 
 public sealed class JsonRenderer : Renderer
 {
+    private sealed record JsonDependencyDTO(
+        string name,
+        string path
+    );
+
+    private sealed record JsonRelationsDTO(
+        JsonDependencyDTO from_file,
+        JsonDependencyDTO to_file
+    );
+
     private sealed record JsonRenderDto(
         string title,
         List<JsonPackageDto> packages,
@@ -29,7 +39,8 @@ public sealed class JsonRenderer : Renderer
         string state,
         string fromPackage,
         string toPackage,
-        string label
+        string label,
+        List<JsonRelationsDTO> relations
     );
 
     public override string FileExtension => "json";
@@ -64,7 +75,16 @@ public sealed class JsonRenderer : Renderer
                     state: e.State.ToString(),
                     fromPackage: labelByPath[e.From],
                     toPackage: labelByPath[e.To],
-                    label: FormatLabel(e.Count, e.Delta)))]
+                    label: FormatLabel(e.Count, e.Delta),
+                    relations: [.. e.Relations
+                        .Select(r => new JsonRelationsDTO(
+                            from_file: new JsonDependencyDTO(
+                                name: r.FromFile.GetName(),
+                                path: r.FromFile.Value),
+                            to_file: new JsonDependencyDTO(
+                                name: r.ToFile.GetName(),
+                                path: r.ToFile.Value)))]
+                ))]
         );
 
         return JsonSerializer.Serialize(dto, JsonOptions);
