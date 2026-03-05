@@ -34,7 +34,9 @@ public sealed record RenderEdge(
 
 public sealed record RenderGraph(
     IReadOnlyDictionary<RelativePath, RenderNode> Nodes,
-    IReadOnlyList<RenderEdge> Edges
+    IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> ChildrenByParent,
+    IReadOnlyList<RenderEdge> Edges,
+    IReadOnlyList<RelativePath> RootNodes
 );
 
 public abstract class Renderer
