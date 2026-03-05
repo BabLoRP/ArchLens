@@ -14,11 +14,6 @@ public readonly record struct RelativePath
     public static RelativePath Directory(string projectRoot, string input)
         => new(PathNormaliser.NormaliseModule(projectRoot, input));
 
-    public string ToAbsolute(string projectRoot)
-        => PathNormaliser.GetAbsolutePath(projectRoot, Value);
-
-    public int Length => Value.Length;
-
     public override string ToString() => Value;
 }
 
@@ -54,32 +49,5 @@ public static class PathNormaliser
             ? relativePath
             : Path.GetFullPath(relativePath, fullRootPath);
         return fullPath;
-    }
-
-    public static bool IsDirectory(string fullRootPath, string relPath)
-    {
-        var abs = GetAbsolutePath(fullRootPath, relPath);
-        return Directory.Exists(abs);
-    }
-
-    public static string GetFileOrModuleName(string normalisedPath)
-    {
-        var trimmed = normalisedPath.TrimEnd('/');
-        return Path.GetFileName(trimmed);
-    }
-
-    public static string GetPathDotSeparated(string path)
-    {
-        return path.Replace("/", ".").TrimStart('.').TrimEnd('.');
-    }
-}
-
-public static class PathComparer
-{
-    public static bool Equals(string path1, string path2)
-    {
-        var norm1 = path1.TrimEnd('/').ToLower();
-        var norm2 = path2.TrimEnd('/').ToLower();
-        return string.Equals(norm1, norm2);
     }
 }
