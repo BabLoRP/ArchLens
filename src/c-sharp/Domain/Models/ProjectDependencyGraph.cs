@@ -298,6 +298,21 @@ public class ProjectDependencyGraph(string projectRoot)
         _projectItems.Remove(path);
     }
 
+    public bool RemoveDependency(RelativePath source, RelativePath target)
+    {
+        if (!_dependenciesBySource.TryGetValue(source, out var deps))
+            return false;
+
+        if (deps.TryGetValue(target, out Dependency dependency))
+        {
+            if (dependency.Count == 1)
+                deps.Remove(target);
+            else
+                deps[target] = dependency with { Count = dependency.Count - 1 };
+        }
+        return true;
+    }
+
     public void RemoveProjectItemRecursive(RelativePath path)
     {
         if (_childrenByParent.TryGetValue(path, out var children))
