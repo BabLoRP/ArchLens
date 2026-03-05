@@ -43,33 +43,33 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
 
             graph.UpsertProjectItem(parent, ProjectItemType.Directory);
 
-            foreach (var item in items) 
+            foreach (var item in items)
             {
                 try
-        {
-            ct.ThrowIfCancellationRequested();
+                {
+                    ct.ThrowIfCancellationRequested();
 
                     if (string.IsNullOrWhiteSpace(item.Value) || item.Value.Trim() == root.Value)
                         continue;
 
                     var itemAbsPath = PathNormaliser.GetAbsolutePath(rootFull, item.Value);
 
-                static bool IsDirectory(string path) => Path.GetExtension(path).Length == 0;
-                var isItemDirectory = IsDirectory(itemAbsPath);
+                    static bool IsDirectory(string path) => Path.GetExtension(path).Length == 0;
+                    var isItemDirectory = IsDirectory(itemAbsPath);
 
-                if (isItemDirectory)
-                {
+                    if (isItemDirectory)
+                    {
                         graph.UpsertProjectItem(item, ProjectItemType.Directory);
                         graph.AddChild(parent, item);
-                    continue;
-                }
-                
-                List<RelativePath> dependencyPaths = [];
-                foreach (var parser in _dependencyParsers)
-                {
+                        continue;
+                    }
+
+                    List<RelativePath> dependencyPaths = [];
+                    foreach (var parser in _dependencyParsers)
+                    {
                         var dependencies = await parser.ParseFileDependencies(itemAbsPath, ct).ConfigureAwait(false);
-                    dependencyPaths = [.. dependencies];
-                }
+                        dependencyPaths = [.. dependencies];
+                    }
 
                     graph.UpsertProjectItem(item, ProjectItemType.File);
                     graph.AddChild(parent, item);
