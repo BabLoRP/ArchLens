@@ -11,10 +11,9 @@ namespace Archlens.Domain;
 
 public enum RenderState
 {
-    Neutral,
-    Added,
-    Removed,
-    Modified
+    NEUTRAL,
+    CREATED,
+    DELETED
 }
 
 public sealed record RenderNode(
