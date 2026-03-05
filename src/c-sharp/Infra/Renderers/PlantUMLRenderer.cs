@@ -99,7 +99,7 @@ public sealed class PlantUMLRenderer : Renderer
     {
         RenderState.CREATED => "#LightGreen",
         RenderState.DELETED => "#LightCoral",
-        RenderState.NEUTRAL => "#Moccasin",
+        RenderState.NEUTRAL => "",
         _ => ""
     };
 
@@ -107,7 +107,7 @@ public sealed class PlantUMLRenderer : Renderer
     {
         RenderState.CREATED => "#Green",
         RenderState.DELETED => "#Red",
-        RenderState.NEUTRAL => "#Orange",
+        RenderState.NEUTRAL => "",
         _ => ""
     };
 
