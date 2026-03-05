@@ -1,12 +1,15 @@
 ﻿using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Domain.Utils;
+using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ProjectChanges = Archlens.Domain.Models.Records.ProjectChanges;
+using ProjectDependencyGraph = Archlens.Domain.Models.ProjectDependencyGraph;
 
 namespace Archlens.Application;
 
@@ -165,7 +168,7 @@ public sealed class ChangeDetector
                     continue;
 
                 var fileRel = RelativePath.File(projectRoot, fileAbs);
-                var writeUtc = DateTimeNormaliser.NormaliseUTC(File.GetLastWriteTimeUtc(fileAbs));
+                var writeUtc = File.GetLastWriteTimeUtc(fileAbs);
 
                 files[fileRel] = new ProjectItemMeta(
                     ParentDirRel: dirRel,
@@ -204,7 +207,6 @@ public sealed class ChangeDetector
                 list = [];
                 changed[meta.ParentDirRel] = list;
             }
-
             list.Add(fileRel);
         }
         return changed;
@@ -219,7 +221,7 @@ public sealed class ChangeDetector
         List<RelativePath> deletedFiles = [];
         List<RelativePath> deletedDirs = [];
 
-        if (lastSavedGraph is null)
+        if (lastSavedGraph is null  || lastSavedGraph.ProjectItems is null)
             return (deletedFiles, deletedDirs);
 
         foreach (var item in lastSavedGraph.ProjectItems.Values)
