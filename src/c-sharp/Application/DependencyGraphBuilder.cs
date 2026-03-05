@@ -34,12 +34,10 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         CancellationToken ct)
     {
         var rootFull = _options.FullRootPath;
+        var root = RelativePath.Directory(rootFull, rootFull);
         var graph = new ProjectDependencyGraph(rootFull);
 
-        var root = RelativePath.Directory(rootFull, _options.ProjectRoot);
-        graph.UpsertProjectItem(root, ProjectItemType.Directory);
-
-        foreach (var (moduleRelPath, items) in changedModules)
+        foreach (var (parent, items) in changedModules)
         {
             ct.ThrowIfCancellationRequested();
 
