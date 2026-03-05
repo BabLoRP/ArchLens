@@ -148,8 +148,6 @@ public static class DependencyGraphSerializer
             graph.AddDependencies(from, dependencies);
         }
 
-        DependencyAggregator.RecomputeAggregates(graph);
-
         return graph;
     }
 
