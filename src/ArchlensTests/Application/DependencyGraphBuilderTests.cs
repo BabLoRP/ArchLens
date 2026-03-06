@@ -2,7 +2,6 @@
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using ArchlensTests.Utils;
 
 namespace ArchlensTests.Application;
@@ -81,20 +80,20 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         _fs.File("Domain/Models/Records/Options.cs", "/* */");
         _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
 
-        var depFactoryFile  = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
+        var depFactoryFile = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
         var rendFactoryFile = RelativePath.File(_fs.Root, "./Domain/Factories/RendererFactory.cs");
-        var optionsFile     = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
-        var depGraphFile    = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        var optionsFile = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
+        var depGraphFile = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
 
-        var rootDir         = RelativePath.Directory(_fs.Root, _fs.Root);
-        var domainDir       = RelativePath.Directory(_fs.Root, "./Domain");
-        var factoriesDir    = RelativePath.Directory(_fs.Root, "./Domain/Factories");
-        var modelsDir       = RelativePath.Directory(_fs.Root, "./Domain/Models");
-        var recordsDir      = RelativePath.Directory(_fs.Root, "./Domain/Models/Records");
-        var enumsDir        = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums");
-        var interfacesDir   = RelativePath.Directory(_fs.Root, "./Domain/Interfaces");
-        var utilsDir        = RelativePath.Directory(_fs.Root, "./Domain/Utils");
-        var infraDir        = RelativePath.Directory(_fs.Root, "./Infra");
+        var rootDir = RelativePath.Directory(_fs.Root, _fs.Root);
+        var domainDir = RelativePath.Directory(_fs.Root, "./Domain");
+        var factoriesDir = RelativePath.Directory(_fs.Root, "./Domain/Factories");
+        var modelsDir = RelativePath.Directory(_fs.Root, "./Domain/Models");
+        var recordsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/Records");
+        var enumsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums");
+        var interfacesDir = RelativePath.Directory(_fs.Root, "./Domain/Interfaces");
+        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils");
+        var infraDir = RelativePath.Directory(_fs.Root, "./Infra");
 
         var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
@@ -120,10 +119,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var root        = RequireItem(graph, rootDir);
-        var domain      = RequireItem(graph, domainDir);
-        var factories   = RequireItem(graph, factoriesDir);
-        var models      = RequireItem(graph, modelsDir);
+        var root = RequireItem(graph, rootDir);
+        var domain = RequireItem(graph, domainDir);
+        var factories = RequireItem(graph, factoriesDir);
+        var models = RequireItem(graph, modelsDir);
         var depFactItem = RequireItem(graph, depFactoryFile);
         var rendFactItem = RequireItem(graph, rendFactoryFile);
         var optionsItem = RequireItem(graph, optionsFile);
@@ -243,7 +242,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         // The file exists on disk so the builder can parse it.
         _fs.File("Domain/Factories/DependencyParserFactory.cs", "/* */");
-        
+
         var depFactoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
         var depFactoryFilePath = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
 
@@ -410,7 +409,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var _   = RequireItem(graph, rootPath);
+        var _ = RequireItem(graph, rootPath);
         var domain = RequireItem(graph, domainDirPath);
         var models = RequireItem(graph, modelsDirPath);
 
