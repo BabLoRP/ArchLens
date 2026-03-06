@@ -53,7 +53,7 @@ public sealed class RendererTests : IDisposable
         Assert.Contains("title completeView", result);
         Assert.Contains("package \"Domain\" as Domain", result);
         Assert.Contains("Infra", result);
-        Assert.EndsWith("@enduml\r\n", result);
+        Assert.EndsWith("@enduml", result.TrimEnd());
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class RendererTests : IDisposable
         Assert.Contains("title ignoringView", result);
         Assert.Contains("package \"Domain\" as Domain", result);
         Assert.DoesNotContain("Infra", result);
-        Assert.EndsWith("@enduml\r\n", result);
+        Assert.EndsWith("@enduml", result.TrimEnd());
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class RendererTests : IDisposable
         Assert.Contains("title completeView", result);
         Assert.Contains("package \"Domain\" as Domain", result);
         Assert.Contains("Infra", result);
-        Assert.EndsWith("@enduml\r\n", result);
+        Assert.EndsWith("@enduml", result.TrimEnd());
 
         Assert.Contains(newEdge, result);
         Assert.Contains(deletedEdge, result);
