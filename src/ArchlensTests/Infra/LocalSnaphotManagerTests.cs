@@ -1,7 +1,6 @@
 ﻿using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
 
@@ -21,7 +20,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         SnapshotManager: default,
         SnapshotDir: ".archlens",
         SnapshotFile: "snapshot.json",
-        GitInfo: new ("", "")
+        GitInfo: new("", "")
     );
 
     [Fact]
@@ -30,7 +29,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var dirName = ".archlens";
         var fileName = "snapshot.json";
         var snapshotManager = new LocalSnaphotManager(dirName, fileName);
-        
+
         var opts = MakeOptions();
 
         var rootPath = _fs.Root;
@@ -40,7 +39,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
 
         var expectedDir = Path.Combine(rootPath, dirName);
         var expectedFile = Path.Combine(expectedDir, fileName);
-        
+
         Assert.True(Directory.Exists(expectedDir));
         Assert.True(File.Exists(expectedFile));
 

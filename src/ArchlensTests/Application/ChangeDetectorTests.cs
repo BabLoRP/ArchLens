@@ -2,7 +2,6 @@
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using ArchlensTests.Utils;
 
 namespace ArchlensTests.Application;
@@ -252,7 +251,7 @@ public sealed class ChangeDetectorTests : IDisposable
     }
 
     [Fact]
-    public async Task File_in_Root_Deleted_Recognised() 
+    public async Task File_in_Root_Deleted_Recognised()
     {
         _fs.Dir("src");
         var opts = MakeOptions();
@@ -314,7 +313,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var t = DateTime.UtcNow.AddMinutes(-5);
 
         _fs.File("src/Keep.cs", "class Keep {}", t);
-        _fs.File("src/Dir/Keep.cs", "class Keep {}", t);        
+        _fs.File("src/Dir/Keep.cs", "class Keep {}", t);
 
         var opts = MakeOptions();
         var snap = MakeDefaultSnapshotGraph(_fs.Root);

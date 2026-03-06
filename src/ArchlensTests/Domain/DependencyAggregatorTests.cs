@@ -1,6 +1,6 @@
 ﻿using Archlens.Domain;
 using Archlens.Domain.Models;
-using Archlens.Domain.Utils;
+using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
 
 namespace ArchlensTests.Domain;

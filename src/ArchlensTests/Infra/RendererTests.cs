@@ -1,7 +1,4 @@
-using Archlens.Domain;
-using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
 using System.Text.RegularExpressions;
