@@ -44,7 +44,7 @@ public sealed record RenderGraph(
     IReadOnlyList<RelativePath> RootNodes
 );
 
-public abstract class Renderer
+public abstract class RendererBase
 {
     public abstract string FileExtension { get; }
 

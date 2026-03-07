@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace Archlens.Infra.Renderers;
 
-public sealed class PlantUMLRenderer : Renderer
+public sealed class PlantUMLRenderer : RendererBase
 {
     public override string FileExtension => "puml";
 

@@ -8,7 +8,7 @@ namespace Archlens.Infra.Factories;
 
 public sealed class RendererFactory
 {
-    public static Renderer SelectRenderer(RenderOptions options) => options.Format switch
+    public static RendererBase SelectRenderer(RenderOptions options) => options.Format switch
     {
         RenderFormat.Json => new JsonRenderer(),
         RenderFormat.PlantUML => new PlantUMLRenderer(),
