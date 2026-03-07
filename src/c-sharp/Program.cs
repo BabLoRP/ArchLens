@@ -12,11 +12,16 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        var path = args.Length == 0 ? string.Empty : args[0].Trim();
+        var path = args.Length == 0 ? "../" : args[0].Trim();
+
+        var root = Directory.Exists(path)
+            ? new DirectoryInfo(path)
+            : new FileInfo(path).Directory!;
+
         var format = args.Length < 2 ? "puml" : args[1].Trim();
         var diff = args.Length < 3 ? false : args[2].Trim() == "diff";
 
-        await CLI(path, format, diff);
+        await CLI(root.FullName, format, diff);
     }
 
     public static string CLISync(string config_path, string format = "puml", bool diff = false)
