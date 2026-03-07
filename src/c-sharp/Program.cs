@@ -30,7 +30,7 @@ public class Program
         {
             var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(config_path, diff, format);
 
-            var snapshotManager = SnapsnotManagerFactory.SelectSnapshotManager(snapshotOptions);
+            var snapshotManager = SnapshotManagerFactory.SelectSnapshotManager(snapshotOptions);
             var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
             var renderer = RendererFactory.SelectRenderer(renderOptions);
 

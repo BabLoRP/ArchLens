@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra.SnapshotManagers;
 
-public sealed class LocalSnaphotManager(string _localDirName, string _localFileName) : ISnapshotManager
+public sealed class LocalSnapshotManager(string _localDirName, string _localFileName) : ISnapshotManager
 {
     public async Task SaveGraphAsync(ProjectDependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
     {

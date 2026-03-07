@@ -6,12 +6,12 @@ using System;
 
 namespace Archlens.Infra.Factories;
 
-public sealed class SnapsnotManagerFactory
+public sealed class SnapshotManagerFactory
 {
     public static ISnapshotManager SelectSnapshotManager(SnapshotOptions o) => o.SnapshotManager switch
     {
-        SnapshotManager.Git   => new GitSnaphotManager(o.SnapshotDir, o.SnapshotFile),
-        SnapshotManager.Local => new LocalSnaphotManager(o.SnapshotDir, o.SnapshotFile),
+        SnapshotManager.Git   => new GitSnapshotManager(o.SnapshotDir, o.SnapshotFile),
+        SnapshotManager.Local => new LocalSnapshotManager(o.SnapshotDir, o.SnapshotFile),
         _ => throw new ArgumentOutOfRangeException(nameof(o.SnapshotManager))
     };
 }
