@@ -3,6 +3,7 @@ using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
+using System.Text;
 
 namespace ArchlensTests.Application;
 
@@ -601,5 +602,329 @@ public sealed class DependencyGraphBuilderTests : IDisposable
             Assert.True(s2.ContainsKey(path));
             Assert.Equal(deps, s2[path]);
         }
+    }
+
+    private sealed class ThrowingParser(string toThrowOnAbsContains, Exception ex) : IDependencyParser
+    {
+        public List<string> AbsCalls { get; } = [];
+
+        public Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string absPath, CancellationToken ct = default)
+        {
+            AbsCalls.Add(absPath);
+            if (absPath.Contains(toThrowOnAbsContains, StringComparison.OrdinalIgnoreCase))
+                throw ex;
+            return Task.FromResult((IReadOnlyList<RelativePath>)[]);
+        }
+    }
+
+    private sealed class FixedMapParser(string root, IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> map) : IDependencyParser
+    {
+        public List<RelativePath> Calls { get; } = [];
+
+        public Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string absPath, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            var rel = RelativePath.File(root, absPath);
+            Calls.Add(rel);
+
+            if (map.TryGetValue(rel, out var deps))
+                return Task.FromResult(deps);
+
+            return Task.FromResult((IReadOnlyList<RelativePath>)[]);
+        }
+    }
+
+    private sealed class BlockingUntilCancelledParser(string root) : IDependencyParser
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string absPath, CancellationToken ct = default)
+        {
+            _ = RelativePath.File(root, absPath);
+            Started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return [];
+        }
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_AppliesDeletedFiles_RemovingItemsFromMergedGraph()
+    {
+        SetupMockProject();
+
+        var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
+
+        var deleted = RelativePath.File(_fs.Root, "./Infra/Factories/RendererFactory.cs");
+        Assert.True(lastSaved.ContainsProjectItem(deleted));
+
+        var changes = CreateProjectChanges(
+            changedFilesByDirectory: new Dictionary<RelativePath, IReadOnlyList<RelativePath>>(),
+            deletedFiles: [deleted],
+            deletedDirectories: []
+        );
+
+        var builder = CreateBuilder([new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>())]);
+
+        var merged = await builder.GetGraphAsync(changes, lastSaved);
+
+        Assert.False(merged.ContainsProjectItem(deleted));
+
+        foreach (var item in merged.ProjectItems.Keys)
+            Assert.DoesNotContain(deleted, merged.DependenciesFrom(item).Keys);
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_AppliesDeletedDirectories_RemovingSubtree()
+    {
+        SetupMockProject();
+
+        var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
+
+        var deletedDir = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        Assert.True(lastSaved.ContainsProjectItem(deletedDir));
+
+        var deletedChild1 = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
+        var deletedChild2 = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums/");
+        var deletedLeaf1 = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
+        var deletedLeaf2 = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+
+        var changes = CreateProjectChanges(
+            changedFilesByDirectory: new Dictionary<RelativePath, IReadOnlyList<RelativePath>>(),
+            deletedFiles: [],
+            deletedDirectories: [deletedDir]
+        );
+
+        var builder = CreateBuilder([new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>())]);
+
+        var merged = await builder.GetGraphAsync(changes, lastSaved);
+
+        Assert.False(merged.ContainsProjectItem(deletedDir));
+
+        Assert.False(merged.ContainsProjectItem(deletedChild1));
+        Assert.False(merged.ContainsProjectItem(deletedChild2));
+        Assert.False(merged.ContainsProjectItem(deletedLeaf1));
+        Assert.False(merged.ContainsProjectItem(deletedLeaf2));
+    }
+
+    [Fact]
+    public async Task BuildGraph_DoesNotCallParser_ForDirectoriesOnlyForFiles()
+    {
+        SetupMockProject();
+
+        _fs.File("Domain/Utils/U.cs", "/* */");
+
+        var domainDir = RelativePath.Directory(_fs.Root, "./Domain/");
+        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+        var uFile = RelativePath.File(_fs.Root, "./Domain/Utils/U.cs");
+
+        var parser = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>
+        {
+            [uFile] = []
+        });
+
+        var builder = CreateBuilder([parser]);
+
+        var changedModules = ChangedModules(
+            (domainDir, new[] { utilsDir, utilsDir, utilsDir }), 
+            (utilsDir, new[] { uFile })
+        );
+
+        var changes = CreateProjectChanges(changedModules, [], []);
+
+        var graph = await builder.GetGraphAsync(changes, null);
+
+        Assert.Single(parser.Calls);
+        Assert.Equal(uFile, parser.Calls[0]);
+
+        var domainChildren = graph.ChildrenOf(domainDir);
+        Assert.Single(domainChildren.Where(x => x.Equals(utilsDir)));
+    }
+
+    [Fact]
+    public async Task ParserException_IsLogged_AndProcessingContinues_ForOtherItems()
+    {
+        SetupMockProject();
+
+        _fs.File("Domain/Factories/Bad.cs", "/* */");
+        _fs.File("Domain/Factories/Good.cs", "/* */");
+
+        var dir = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var bad = RelativePath.File(_fs.Root, "./Domain/Factories/Bad.cs");
+        var good = RelativePath.File(_fs.Root, "./Domain/Factories/Good.cs");
+
+        var parser = new ThrowingParser("Bad.cs", new InvalidOperationException("boom"));
+        var builder = CreateBuilder([parser]);
+
+        var changes = CreateProjectChanges(
+            ChangedModules((dir, new[] { bad, good })),
+            deletedFiles: [],
+            deletedDirectories: []
+        );
+
+        var priorErr = Console.Error;
+        var sw = new StringWriter(new StringBuilder());
+        Console.SetError(sw);
+        try
+        {
+            var graph = await builder.GetGraphAsync(changes, null);
+
+            Assert.True(graph.ContainsProjectItem(good));
+            Assert.False(graph.ContainsProjectItem(bad));
+        }
+        finally
+        {
+            Console.SetError(priorErr);
+        }
+
+        var err = sw.ToString();
+        Assert.Contains("Error while processing", err, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Bad.cs", err, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ParserException_DoesNotWipeExistingNode_WhenMergingWithLastSaved()
+    {
+        SetupMockProject();
+
+        var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
+
+        var depGraph = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+        Assert.Contains(utilsDir, lastSaved.DependenciesFrom(depGraph).Keys);
+
+        _fs.File("Domain/Models/DependencyGraph.cs", "/* */"); 
+
+        var modelsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        var changes = CreateProjectChanges(
+            ChangedModules((modelsDir, new[] { depGraph })),
+            deletedFiles: [],
+            deletedDirectories: []
+        );
+
+        var parser = new ThrowingParser("DependencyGraph.cs", new Exception("parse failed"));
+        var builder = CreateBuilder([parser]);
+
+        var merged = await builder.GetGraphAsync(changes, lastSaved);
+
+        Assert.True(merged.ContainsProjectItem(depGraph));
+        Assert.Contains(utilsDir, merged.DependenciesFrom(depGraph).Keys);
+    }
+
+    [Fact]
+    public async Task OperationCanceledException_FromParser_IsNotSwallowed()
+    {
+        SetupMockProject();
+
+        _fs.File("Domain/Utils/C.cs", "/* */");
+
+        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+        var cFile = RelativePath.File(_fs.Root, "./Domain/Utils/C.cs");
+
+        var blocking = new BlockingUntilCancelledParser(_fs.Root);
+        var builder = CreateBuilder([blocking]);
+
+        var changes = CreateProjectChanges(
+            ChangedModules((utilsDir, new[] { cFile })),
+            deletedFiles: [],
+            deletedDirectories: []
+        );
+
+        using var cts = new CancellationTokenSource();
+
+        var task = builder.GetGraphAsync(changes, null, cts.Token);
+
+        await blocking.Started.Task; 
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await task);
+    }
+
+    [Fact]
+    public async Task SkipsRootItem_WhenItAppearsAsAChildOfItself()
+    {
+        SetupMockProject();
+
+        var rootDir = RelativePath.Directory(_fs.Root, _fs.Root);
+
+        var parser = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>());
+        var builder = CreateBuilder([parser]);
+
+        var changes = CreateProjectChanges(
+            ChangedModules((rootDir, new[] { rootDir })),
+            deletedFiles: [],
+            deletedDirectories: []
+        );
+
+        var graph = await builder.GetGraphAsync(changes, null);
+
+        Assert.True(graph.ContainsProjectItem(rootDir));
+        Assert.DoesNotContain(rootDir, graph.ChildrenOf(rootDir));
+        Assert.Empty(parser.Calls);
+    }
+
+    [Fact]
+    public async Task MultipleParsers_ShouldAggregateDependencies_ButCurrentlyOverwrites_LastParserWins()
+    {
+        SetupMockProject();
+
+        _fs.File("Domain/Factories/Multi.cs", "/* */");
+
+        var dir = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var file = RelativePath.File(_fs.Root, "./Domain/Factories/Multi.cs");
+
+        var depA = RelativePath.Directory(_fs.Root, "./Dep/A/");
+        var depB = RelativePath.Directory(_fs.Root, "./Dep/B/");
+
+        var p1 = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>
+        {
+            [file] = [depA]
+        });
+
+        var p2 = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>
+        {
+            [file] = [depB]
+        });
+
+        var builder = CreateBuilder([p1, p2]);
+
+        var changes = CreateProjectChanges(
+            ChangedModules((dir, new[] { file })),
+            deletedFiles: [],
+            deletedDirectories: []
+        );
+
+        var graph = await builder.GetGraphAsync(changes, null);
+
+        Assert.Contains(depA, graph.DependenciesFrom(file).Keys);
+        Assert.Contains(depB, graph.DependenciesFrom(file).Keys);
+    }
+
+    [Fact]
+    public async Task RootDirectory_ShouldExist_EvenIfNotExplicitlyPresentInChangedModules_WhenNoLastSaved()
+    {
+        SetupMockProject();
+
+        _fs.File("Domain/Utils/R.cs", "/* */");
+
+        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+        var rFile = RelativePath.File(_fs.Root, "./Domain/Utils/R.cs");
+
+        var parser = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>
+        {
+            [rFile] = []
+        });
+
+        var builder = CreateBuilder([parser]);
+
+        var changes = CreateProjectChanges(
+            ChangedModules((utilsDir, new[] { rFile })),
+            deletedFiles: [],
+            deletedDirectories: []
+        );
+
+        var graph = await builder.GetGraphAsync(changes, null);
+
+        var rootDir = RelativePath.Directory(_fs.Root, _fs.Root);
+        Assert.True(graph.ContainsProjectItem(rootDir));
     }
 }
