@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Archlens.Domain;
@@ -66,29 +67,31 @@ public abstract class RendererBase
         return Render(renderGraph, view, options);
     }
 
-    public async Task RenderViewsAndSaveToFiles(ProjectDependencyGraph graph, RenderOptions options)
+    public async Task RenderViewsAndSaveToFiles(ProjectDependencyGraph graph, RenderOptions options, CancellationToken ct)
     {
         foreach (var view in options.Views)
         {
             var content = RenderView(graph, view, options);
-            await SaveViewToFileAsync(content, view, options);
+            await SaveViewToFileAsync(content, view, options, diff: false, ct);
         }
     }
 
     public async Task RenderDiffViewsAndSaveToFiles(
         ProjectDependencyGraph localGraph,
         ProjectDependencyGraph remoteGraph,
-        RenderOptions options)
+        RenderOptions options,
+        CancellationToken ct)
     {
         foreach (var view in options.Views)
         {
             var content = RenderDiffView(localGraph, remoteGraph, view, options);
-            await SaveViewToFileAsync(content, view, options, diff: true);
+            await SaveViewToFileAsync(content, view, options, diff: true, ct);
         }
     }
 
-    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options, bool diff = false)
+    public async Task SaveViewToFileAsync(string content, View view, RenderOptions options, bool diff = false, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var dir = options.SaveLocation;
         Directory.CreateDirectory(dir);
 

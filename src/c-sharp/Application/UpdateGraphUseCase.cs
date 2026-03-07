@@ -23,7 +23,7 @@ public sealed class UpdateGraphUseCase(
         var projectChanges = await ChangeDetector.GetProjectChangesAsync(parserOptions, snapshotGraph, ct);
         var graph = await new DependencyGraphBuilder(parsers, baseOptions).GetGraphAsync(projectChanges, snapshotGraph, ct);
 
-        await renderer.RenderViewsAndSaveToFiles(graph, renderOptions);
+        await renderer.RenderViewsAndSaveToFiles(graph, renderOptions, ct);
         await snapshotManager.SaveGraphAsync(graph, snapshotOptions, ct);
     }
 }
