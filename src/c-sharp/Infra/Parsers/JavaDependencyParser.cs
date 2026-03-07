@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra.Parsers;
 
-class JavaDependencyParser(ParserOptions _options) : IDependencyParser
+public class JavaDependencyParser(ParserOptions _options) : IDependencyParser
 {
     public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string path, CancellationToken ct = default)
     {
