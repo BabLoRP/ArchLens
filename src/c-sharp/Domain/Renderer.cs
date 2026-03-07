@@ -1,6 +1,5 @@
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
