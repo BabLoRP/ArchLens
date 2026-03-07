@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <!--<OutputType>Exe</OutputType> -->
     <SatelliteResourceLanguages>en-US;en</SatelliteResourceLanguages>
+	<Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
