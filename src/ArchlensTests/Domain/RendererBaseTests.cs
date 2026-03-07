@@ -3,9 +3,9 @@ using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
 using System.Text.RegularExpressions;
 
-namespace ArchlensTests.Infra;
+namespace ArchlensTests.Domain;
 
-public sealed class RendererTests : IDisposable
+public sealed class RendererBaseTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
