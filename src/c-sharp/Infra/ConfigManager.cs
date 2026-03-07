@@ -15,36 +15,36 @@ public class ConfigManager(string _path)
 {
     private sealed class ConfigDto
     {
-        public required string ProjectRoot { get; set; }
-        public required string RootFolder { get; set; }
-        public required string ProjectName { get; set; }
-        public required string Name { get; set; }
-        public required string? Format { get; set; }
+        public string ProjectRoot { get; set; }
+        public string RootFolder { get; set; }
+        public string ProjectName { get; set; }
+        public string Name { get; set; }
+        public string? Format { get; set; }
         [JsonPropertyName("github")]
-        public required GithubDto GitInfo { get; set; }
-        public required string SnapshotDir { get; set; }
-        public required string SnapshotFile { get; set; }
-        public required string[] Exclusions { get; set; }
-        public required string[] FileExtensions { get; set; }
-        public required Dictionary<string, ViewDto> Views { get; set; }
-        public required string SaveLocation { get; set; }
+        public GithubDto GitInfo { get; set; }
+        public string SnapshotDir { get; set; }
+        public string SnapshotFile { get; set; }
+        public string[] Exclusions { get; set; }
+        public string[] FileExtensions { get; set; }
+        public Dictionary<string, ViewDto> Views { get; set; }
+        public string SaveLocation { get; set; }
     }
 
     private sealed class GithubDto
     {
-        public required string Url { get; set; }
-        public required string Branch { get; set; }
+        public string Url { get; set; }
+        public string Branch { get; set; }
     }
 
     private sealed class ViewDto
     {
-        public required PackageDto[] Packages { get; set; }
-        public required string[] IgnorePackages { get; set; }
+        public PackageDto[] Packages { get; set; }
+        public string[] IgnorePackages { get; set; }
     }
 
     private sealed class PackageDto
     {
-        public required string Path { get; set; }
+        public string Path { get; set; }
         public int? Depth { get; set; }
     }
 
