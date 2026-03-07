@@ -26,6 +26,7 @@ public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalk
 
     public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string path, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         Usings = [];
         string lines = "";
         List<RelativePath> usings = [];
@@ -38,6 +39,11 @@ public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalk
 
             while (line != null)
             {
+                if (ct.IsCancellationRequested)
+                {
+                    sr.Close();
+                    ct.ThrowIfCancellationRequested();
+                }
                 lines += "\n" + line;
                 line = await sr.ReadLineAsync(ct);
             }
@@ -56,6 +62,7 @@ public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalk
 
         foreach (var directive in Usings)
         {
+            ct.ThrowIfCancellationRequested();
             var directivePath = directive.Name.ToString().Replace(".", "/").Replace(_options.BaseOptions.ProjectName, ".") + "/";
             var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, directivePath);
             usings.Add(rel);

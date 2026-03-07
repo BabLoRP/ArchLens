@@ -20,6 +20,7 @@ public class JavaDependencyParser(ParserOptions _options) : IDependencyParser
             take all matches and put in list
             return list
         */
+        ct.ThrowIfCancellationRequested();
         List<RelativePath> usings = [];
 
         try
@@ -30,11 +31,18 @@ public class JavaDependencyParser(ParserOptions _options) : IDependencyParser
 
             while (line != null)
             {
+                if(ct.IsCancellationRequested)
+                {
+                    sr.Close();
+                    ct.ThrowIfCancellationRequested();
+                }
+
                 string regex = $$"""import\s+(static\s+)?{{_options.BaseOptions.ProjectName}}\.(.+);""";
                 var match = Regex.Match(line, regex);
                 if (match.Success)
                 {
-                    var relativePath = RelativePath.Directory(_options.BaseOptions.FullRootPath, match.Groups[2].Value);
+                    var packagePath = match.Groups[2].Value.TrimEnd('*').TrimEnd('.').Replace('.', '/');
+                    var relativePath = RelativePath.Directory(_options.BaseOptions.FullRootPath, packagePath);
                     usings.Add(relativePath);
                 }
                 line = await sr.ReadLineAsync(ct);

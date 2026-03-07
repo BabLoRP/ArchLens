@@ -85,7 +85,7 @@ public sealed class ConfigManagerTests : IDisposable
     public async Task Throws_InvalidOperationException_WhenJsonIsInvalid()
     {
         var path = _fs.File("bad.json", "this is not json");
-        await Assert.ThrowsAsync<Exception>(() => Manager(path).LoadAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Manager(path).LoadAsync());
     }
 
     [Fact]
