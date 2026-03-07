@@ -1,6 +1,5 @@
 ﻿using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
@@ -19,8 +18,8 @@ public sealed class ChangeDetector
 
     private sealed record ProjectFileStructure(
         Dictionary<RelativePath, ProjectItemMeta> Files, // fileRel -> (parentDirRel, lastWriteUtc)
-        HashSet<RelativePath> DirRels,                   // dirRel set
-        Dictionary<RelativePath, HashSet<RelativePath>> ChildrenByDir // dirRel -> direct child dirs/files
+        HashSet<RelativePath> DirRels,
+        Dictionary<RelativePath, HashSet<RelativePath>> ChildrenByDir
     );
 
     private sealed record ExclusionRule(
@@ -80,7 +79,7 @@ public sealed class ChangeDetector
     ProjectDependencyGraph lastSavedGraph,
     CancellationToken ct)
     {
-        var changedFiles = new HashSet<RelativePath>();
+        HashSet<RelativePath> changedFiles = [];
 
         foreach (var (fileRel, meta) in current.Files)
         {
@@ -97,7 +96,7 @@ public sealed class ChangeDetector
                 changedFiles.Add(fileRel);
         }
 
-        var neededDirs = new HashSet<RelativePath>();
+        HashSet<RelativePath> neededDirs = [];
 
         foreach (var file in changedFiles)
         {
