@@ -1,7 +1,7 @@
 ﻿using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using Microsoft.CodeAnalysis;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -28,7 +28,7 @@ public sealed class ChangeDetector
         string[] FileSuffixes
     );
 
-    public static Task<ProjectChanges> GetProjectChangesAsync(
+    public static async Task<ProjectChanges> GetProjectChangesAsync(
         ParserOptions parserOptions,
         ProjectDependencyGraph? lastSavedGraph,
         CancellationToken ct = default)
@@ -39,10 +39,8 @@ public sealed class ChangeDetector
 
         var rules = CompileExclusions(parserOptions.Exclusions);
 
-        var current = ScanCurrentProjectFileStructure(
-            projectRoot,
-            parserOptions.FileExtensions,
-            rules,
+        var current = await Task.Run(
+            () => ScanCurrentProjectFileStructure(projectRoot, parserOptions.FileExtensions, rules, ct),
             ct);
 
         var changedByDir = lastSavedGraph is null
@@ -59,11 +57,11 @@ public sealed class ChangeDetector
 
         deletedFiles.RemoveAll(file => IsUnderAnyDeletedDirectory(file, collapsedDeletedDirs));
 
-        return Task.FromResult(new ProjectChanges(
+        return new ProjectChanges(
             ChangedFilesByDirectory: FreezeChanged(changedByDir),
             DeletedFiles: [.. deletedFiles],
             DeletedDirectories: [.. collapsedDeletedDirs]
-        ));
+        );
     }
 
     private static Dictionary<RelativePath, List<RelativePath>> BuildFullStructure(ProjectFileStructure current)
@@ -75,9 +73,9 @@ public sealed class ChangeDetector
     }
 
     private static Dictionary<RelativePath, List<RelativePath>> BuildDeltaStructure(
-    ProjectFileStructure current,
-    ProjectDependencyGraph lastSavedGraph,
-    CancellationToken ct)
+        ProjectFileStructure current,
+        ProjectDependencyGraph lastSavedGraph,
+        CancellationToken ct)
     {
         HashSet<RelativePath> changedFiles = [];
 
@@ -219,77 +217,71 @@ public sealed class ChangeDetector
     }
 
     private static ProjectFileStructure ScanCurrentProjectFileStructure(
-    string projectRoot,
-    IReadOnlyList<string> extensions,
-    ExclusionRule rules,
-    CancellationToken ct)
+        string projectRoot,
+        IReadOnlyList<string> extensions,
+        ExclusionRule rules,
+        CancellationToken ct)
     {
-        var extensionsSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
+        var extensionSet = new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase);
+        var files = new ConcurrentDictionary<RelativePath, ProjectItemMeta>();
+        var dirs = new ConcurrentDictionary<RelativePath, byte>();
+        var childrenByDir = new ConcurrentDictionary<RelativePath, ConcurrentBag<RelativePath>>();
 
-        var files = new Dictionary<RelativePath, ProjectItemMeta>();
-        var dirs = new HashSet<RelativePath>();
-        var childrenByDir = new Dictionary<RelativePath, HashSet<RelativePath>>();
+        var parallelOpts = new ParallelOptions
+        {
+            CancellationToken = ct,
+            MaxDegreeOfParallelism = Environment.ProcessorCount
+        };
 
         void AddChild(RelativePath parent, RelativePath child)
-        {
-            if (!childrenByDir.TryGetValue(parent, out var set))
-            {
-                set = [];
-                childrenByDir[parent] = set;
-            }
-            set.Add(child);
-        }
+            => childrenByDir.GetOrAdd(parent, _ => []).Add(child);
 
-        var stack = new Stack<string>();
-        stack.Push(projectRoot);
-
-        while (stack.Count > 0)
+        void ScanDirectory(string dirAbs)
         {
             ct.ThrowIfCancellationRequested();
 
-            var dirAbs = stack.Pop();
             var dirRel = RelativePath.Directory(projectRoot, dirAbs);
-            dirs.Add(dirRel);
+            dirs.TryAdd(dirRel, 0);
 
-            IEnumerable<string> subdirs = [];
-            try { subdirs = Directory.EnumerateDirectories(dirAbs); } catch { }
-
-            foreach (var subAbs in subdirs)
-            {
-                ct.ThrowIfCancellationRequested();
-                if (IsExcluded(projectRoot, subAbs, rules))
-                    continue;
-
-                var subRel = RelativePath.Directory(projectRoot, subAbs);
-                dirs.Add(subRel);
-                AddChild(dirRel, subRel);
-
-                stack.Push(subAbs);
-            }
-
-            IEnumerable<string> fileAbsList = [];
-            try { fileAbsList = Directory.EnumerateFiles(dirAbs); } catch { }
+            string[] subdirs = [];
+            string[] fileAbsList = [];
+            try { subdirs = Directory.GetDirectories(dirAbs); } catch { }
+            try { fileAbsList = Directory.GetFiles(dirAbs); } catch { }
 
             foreach (var fileAbs in fileAbsList)
             {
                 ct.ThrowIfCancellationRequested();
-
-                if (IsExcluded(projectRoot, fileAbs, rules))
-                    continue;
-
-                var ext = Path.GetExtension(fileAbs);
-                if (!extensionsSet.Contains(ext))
-                    continue;
+                if (IsExcluded(projectRoot, fileAbs, rules)) continue;
+                if (!extensionSet.Contains(Path.GetExtension(fileAbs))) continue;
 
                 var fileRel = RelativePath.File(projectRoot, fileAbs);
-                var writeUtc = File.GetLastWriteTimeUtc(fileAbs);
-
-                files[fileRel] = new ProjectItemMeta(dirRel, writeUtc);
+                files[fileRel] = new ProjectItemMeta(dirRel, File.GetLastWriteTimeUtc(fileAbs));
                 AddChild(dirRel, fileRel);
             }
+
+            var includedSubdirs = subdirs
+                .Where(s => !IsExcluded(projectRoot, s, rules))
+                .ToArray();
+
+            foreach (var subAbs in includedSubdirs)
+            {
+                var subRel = RelativePath.Directory(projectRoot, subAbs);
+                dirs.TryAdd(subRel, 0);
+                AddChild(dirRel, subRel);
+            }
+
+            Parallel.ForEach(includedSubdirs, parallelOpts, ScanDirectory);
         }
 
-        return new ProjectFileStructure(files, dirs, childrenByDir);
+        ScanDirectory(projectRoot);
+
+        return new ProjectFileStructure(
+            Files: new Dictionary<RelativePath, ProjectItemMeta>(files),
+            DirRels: [.. dirs.Keys],
+            ChildrenByDir: childrenByDir.ToDictionary(
+                kv => kv.Key,
+                kv => new HashSet<RelativePath>(kv.Value))
+        );
     }
 
     private static (List<RelativePath> deletedFilesRel, List<RelativePath> deletedDirsRel) DiscoverDeletedPaths(
