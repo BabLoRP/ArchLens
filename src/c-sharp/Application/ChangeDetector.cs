@@ -119,8 +119,14 @@ public sealed class ChangeDetector
         {
             ct.ThrowIfCancellationRequested();
 
+            var isNewDir = !lastSavedGraph.ContainsProjectItem(dir);
+
             if (!current.ChildrenByDir.TryGetValue(dir, out var children))
+            {
+                if (isNewDir)
+                    delta[dir] = [];
                 continue;
+            }
 
             var list = new List<RelativePath>();
 
@@ -226,7 +232,7 @@ public sealed class ChangeDetector
                 continue;
             }
 
-            segments.Add(norm.TrimStart('.'));
+            segments.Add(norm);
         }
 
         return new ExclusionRule(
@@ -411,10 +417,10 @@ public sealed class ChangeDetector
     public static bool MatchesSuffixPattern(string value, string pattern)
     {
         if (!pattern.Contains('*'))
-            return string.Equals(value, pattern, StringComparison.Ordinal);
+            return string.Equals(value, pattern, StringComparison.OrdinalIgnoreCase);
 
         var suffix = pattern.TrimStart('*');
-        return value.EndsWith(suffix, StringComparison.Ordinal);
+        return value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsProjectRoot(RelativePath path) =>
