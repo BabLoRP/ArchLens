@@ -3,6 +3,7 @@ using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
+using System.Runtime.InteropServices;
 
 namespace ArchlensTests.Application;
 
@@ -334,7 +335,6 @@ public sealed class ChangeDetectorTests : IDisposable
         Assert.DoesNotContain(subDirPath, changes.DeletedDirectories);
 
         Assert.Contains(subOldDirPath, changes.DeletedDirectories);
-        //Assert.Contains("./src/Dir/OldDir/Old.cs", changes.DeletedFiles); we are collapsing the dirs, so it doesnt show nested children of the dir
     }
 
 
@@ -362,6 +362,288 @@ public sealed class ChangeDetectorTests : IDisposable
 
         Assert.Contains(srcPath, changes.ChangedFilesByDirectory);
         Assert.Contains(oldDirPath, changes.DeletedDirectories);
+    }
+
+    private static RelativePath AddDirChain(ProjectDependencyGraph graph, string projectRoot, params string[] dirsRel)
+    {
+        var rootDir = graph.UpsertProjectItem(RelativePath.Directory(projectRoot, "./"), ProjectItemType.Directory);
+
+        RelativePath? parent = rootDir;
+
+        foreach (var d in dirsRel)
+        {
+            var dirRel = RelativePath.Directory(projectRoot, d);
+            var dirId = graph.UpsertProjectItem(dirRel, ProjectItemType.Directory);
+
+            if (parent is not null)
+                graph.AddChild(parent.Value, dirId);
+
+            parent = dirId;
+        }
+
+        return parent ?? rootDir;
+    }
+
+    [Fact]
+    public async Task SnapshotNull_ReturnsFullStructure_AndNoDeletions()
+    {
+        var t = new DateTime(2026, 03, 05, 12, 00, 00, DateTimeKind.Utc);
+
+        _fs.File("A.cs", "class A {}", t);
+        _fs.File("src/B.cs", "class B {}", t);
+        _fs.Dir("src/EmptyDir");
+
+        var opts = MakeOptions();
+        ProjectDependencyGraph? snap = null;
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.Empty(changes.DeletedFiles);
+        Assert.Empty(changes.DeletedDirectories);
+
+        var rootDir = RelativePath.Directory(_fs.Root, "./");
+        var srcDir = RelativePath.Directory(_fs.Root, "./src/");
+        var emptyDir = RelativePath.Directory(_fs.Root, "./src/EmptyDir/");
+        var aFile = RelativePath.File(_fs.Root, "./A.cs");
+        var bFile = RelativePath.File(_fs.Root, "./src/B.cs");
+
+        Assert.Contains(srcDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(bFile, changes.ChangedFilesByDirectory[srcDir]);
+
+        if (changes.ChangedFilesByDirectory.TryGetValue(rootDir, out var rootChildren))
+            Assert.Contains(aFile, rootChildren);
+
+        Assert.Contains(emptyDir, changes.ChangedFilesByDirectory[srcDir]);
+    }
+
+    [Fact]
+    public async Task Delta_IncludesAncestors_ForDeepChangedFile()
+    {
+        var oldT = new DateTime(2026, 03, 05, 12, 00, 00, DateTimeKind.Utc);
+        var newT = new DateTime(2026, 03, 05, 12, 10, 00, DateTimeKind.Utc);
+
+        _fs.File("src/a/b/C.cs", "class C {}", newT);
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        AddDirChain(snap, _fs.Root, "src/", "src/a/", "src/a/b/");
+        AddFile(snap, _fs.Root, "src/a/b/C.cs", oldT);
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        var srcDir = RelativePath.Directory(_fs.Root, "./src/");
+        var aDir = RelativePath.Directory(_fs.Root, "./src/a/");
+        var bDir = RelativePath.Directory(_fs.Root, "./src/a/b/");
+        var cFile = RelativePath.File(_fs.Root, "./src/a/b/C.cs");
+
+        Assert.Contains(srcDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(aDir, changes.ChangedFilesByDirectory[srcDir]);
+
+        Assert.Contains(aDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(bDir, changes.ChangedFilesByDirectory[aDir]);
+
+        Assert.Contains(bDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(cFile, changes.ChangedFilesByDirectory[bDir]);
+    }
+
+    [Fact]
+    public async Task Delta_DoesNotInclude_UnchangedSiblingFiles()
+    {
+        var t = new DateTime(2026, 03, 05, 12, 00, 00, DateTimeKind.Utc);
+        var newer = new DateTime(2026, 03, 05, 12, 05, 00, DateTimeKind.Utc);
+
+        _fs.File("src/a/b/Changed.cs", "class Changed {}", newer);
+        _fs.File("src/a/b/Keep.cs", "class Keep {}", t);
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        AddDirChain(snap, _fs.Root, "src/", "src/a/", "src/a/b/");
+        AddFile(snap, _fs.Root, "src/a/b/Changed.cs", t);
+        AddFile(snap, _fs.Root, "src/a/b/Keep.cs", t);
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        var bDir = RelativePath.Directory(_fs.Root, "./src/a/b/");
+        var changed = RelativePath.File(_fs.Root, "./src/a/b/Changed.cs");
+        var keep = RelativePath.File(_fs.Root, "./src/a/b/Keep.cs");
+
+        Assert.Contains(bDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(changed, changes.ChangedFilesByDirectory[bDir]);
+        Assert.DoesNotContain(keep, changes.ChangedFilesByDirectory[bDir]);
+    }
+
+    [Fact]
+    public async Task NewEmptyDirectory_IsReported_InDelta()
+    {
+        _fs.Dir("src");
+        _fs.Dir("src/NewDir");
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+        AddDirChain(snap, _fs.Root, "src/");
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        var srcDir = RelativePath.Directory(_fs.Root, "./src/");
+        var newDir = RelativePath.Directory(_fs.Root, "./src/NewDir/");
+
+        Assert.Contains(srcDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(newDir, changes.ChangedFilesByDirectory[srcDir]);
+    }
+
+    [Fact]
+    public async Task DeletedDirectories_AreCollapsed_AndDeletedFilesUnderThemAreRemoved()
+    {
+        _fs.Dir("src");
+        _fs.File("src/Keep.cs", "class Keep {}");
+
+        var t = new DateTime(2026, 03, 05, 12, 00, 00, DateTimeKind.Utc);
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        AddFile(snap, _fs.Root, "src/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/OldDir/Del1.cs", t);
+        AddFile(snap, _fs.Root, "src/OldDir/SubDir/Del2.cs", t);
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        var oldDir = RelativePath.Directory(_fs.Root, "./src/OldDir/");
+        var subDir = RelativePath.Directory(_fs.Root, "./src/OldDir/SubDir/");
+        var del1 = RelativePath.File(_fs.Root, "./src/OldDir/Del1.cs");
+        var del2 = RelativePath.File(_fs.Root, "./src/OldDir/SubDir/Del2.cs");
+
+        Assert.Contains(oldDir, changes.DeletedDirectories);
+        Assert.DoesNotContain(subDir, changes.DeletedDirectories);
+
+        Assert.DoesNotContain(del1, changes.DeletedFiles);
+        Assert.DoesNotContain(del2, changes.DeletedFiles);
+    }
+
+    [Fact]
+    public async Task MillisecondDifferences_DoNotCountAsChanges()
+    {
+        var oldT = new DateTime(2026, 03, 05, 12, 00, 00, 100, DateTimeKind.Utc);
+        var newT = new DateTime(2026, 03, 05, 12, 00, 00, 900, DateTimeKind.Utc); //only milliseconds differ
+
+        _fs.File("src/Ms.cs", "class Ms {}", newT);
+
+        var opts = MakeOptions();
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+        AddFile(snap, _fs.Root, "src/Ms.cs", oldT);
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        Assert.Empty(changes.ChangedFilesByDirectory);
+    }
+
+    [Theory]
+    [InlineData("bin", "src/bin/X.cs", true)]
+    [InlineData("BIN", "src/bin/X.cs", true)]
+    [InlineData("*.dev.cs", "src/A.dev.cs", true)]
+    [InlineData("**.dev.cs", "src/A.dev.cs", true)]
+    [InlineData(".git", ".git/hooks/Hook.cs", true)]
+    public async Task Exclusions_ActAsExpected_InScan(string exclusion, string relFile, bool shouldExclude)
+    {
+        _fs.File(relFile, "class X {}");
+        _fs.File("src/Keep.cs", "class Keep {}");
+
+        var opts = MakeOptions(exclusions: [exclusion]);
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        var file = RelativePath.File(_fs.Root, "./" + relFile.Replace('\\', '/'));
+        var appearsAnywhere = changes.ChangedFilesByDirectory.Values.Any(v => v.Contains(file));
+
+        Assert.Equal(!shouldExclude, appearsAnywhere);
+    }
+
+    [Fact]
+    public async Task ExcludedSnapshotItems_ShouldNotBeReportedAsDeleted_ButCurrentlyWillBe()
+    {
+        _fs.File("src/Keep.cs", "class Keep {}");
+
+        var t = new DateTime(2026, 03, 05, 12, 00, 00, DateTimeKind.Utc);
+
+        var opts = MakeOptions(exclusions: ["bin"]);
+        var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+        AddFile(snap, _fs.Root, "src/Keep.cs", t);
+        AddFile(snap, _fs.Root, "src/bin/Gen.cs", t);
+
+        var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+        var binDir = RelativePath.Directory(_fs.Root, "./src/bin/");
+        var binFile = RelativePath.File(_fs.Root, "./src/bin/Gen.cs");
+
+        Assert.DoesNotContain(binDir, changes.DeletedDirectories);
+        Assert.DoesNotContain(binFile, changes.DeletedFiles);
+    }
+
+    [Theory]
+    [InlineData("bin", "bin", true)]
+    [InlineData("BIN", "bin", true)]
+    [InlineData("**.dev.cs", "A.dev.cs", true)]
+    [InlineData("*.dev.cs", "A.dev.cs", true)]
+    [InlineData("*.dev.cs", "A.DEV.CS", true)]
+    [InlineData("bin*", "bin123", false)]
+    public void MatchesSuffixPattern_Behaviour_IsPinned(string pattern, string value, bool expected)
+    {
+        var actual = ChangeDetector.MatchesSuffixPattern(value, pattern);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task Scan_Ignores_UnreadableDirectories_OnUnix()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return;
+
+        _fs.Dir("src");
+        _fs.Dir("src/Locked");
+        _fs.File("src/Ok.cs", "class Ok {}");
+
+        // Remove permissions from the Locked directory so enumeration throws.
+        var lockedAbs = Path.Combine(_fs.Root, "src", "Locked");
+        var chmod = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "chmod",
+            Arguments = "000 \"" + lockedAbs + "\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        });
+        chmod!.WaitForExit();
+
+        try
+        {
+            var opts = MakeOptions();
+            var snap = MakeDefaultSnapshotGraph(_fs.Root);
+
+            var changes = await ChangeDetector.GetProjectChangesAsync(opts, snap);
+
+            var okFile = RelativePath.File(_fs.Root, "./src/Ok.cs");
+            var srcDir = RelativePath.Directory(_fs.Root, "./src/");
+
+            Assert.Contains(srcDir, changes.ChangedFilesByDirectory.Keys);
+            Assert.Contains(okFile, changes.ChangedFilesByDirectory[srcDir]);
+        }
+        finally
+        {
+            // Restore permissions so the temp folder can be cleaned up.
+            var chmodBack = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "chmod",
+                Arguments = "755 \"" + lockedAbs + "\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            });
+            chmodBack!.WaitForExit();
+        }
     }
 
 }
