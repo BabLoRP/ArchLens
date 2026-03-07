@@ -23,7 +23,7 @@ public sealed class UpdateDiffGraphUseCase(
         var projectChanges = await ChangeDetector.GetProjectChangesAsync(parserOptions, snapshotGraph, ct);
         var graph = await new DependencyGraphBuilder(parsers, baseOptions).GetGraphAsync(projectChanges, snapshotGraph, ct);
 
-        await renderer.RenderDiffViewsAndSaveToFiles(graph, snapshotGraph, renderOptions);
+        await renderer.RenderDiffViewsAndSaveToFiles(graph, snapshotGraph, renderOptions, ct);
         await snapshotManager.SaveGraphAsync(graph, snapshotOptions, ct);
     }
 }
