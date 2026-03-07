@@ -21,7 +21,7 @@ public class Program
 
     public static string CLISync(string config_path, string format = "puml", bool diff = false)
     {
-        return CLI(config_path, format, diff).Result;
+        return CLI(config_path, format, diff).GetAwaiter().GetResult();
     }
 
     public static async Task<string> CLI(string config_path, string format = "puml", bool diff = false)
