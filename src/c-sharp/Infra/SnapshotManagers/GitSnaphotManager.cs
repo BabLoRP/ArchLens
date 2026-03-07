@@ -52,9 +52,11 @@ public sealed class GitSnaphotManager : ISnapshotManager
             if (graph is not null) return graph;
         }
         catch (OperationCanceledException) { throw; }
-        catch
-        { /* ignore */ }
-        throw new Exception("Unable to find main branch's graph snapshot");
+        catch (Exception e)
+        { 
+            throw new Exception($"Error fetching graph snapshot from GitHub: {e.Message}");
+        }
+        return null;
     }
 
     private static bool TryParseGitHubRepo(string url, out string owner, out string repo)
