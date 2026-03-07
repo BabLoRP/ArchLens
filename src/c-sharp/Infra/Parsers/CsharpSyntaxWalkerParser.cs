@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Archlens.Infra.Parsers;
 
-class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalker, IDependencyParser
+public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalker, IDependencyParser
 {
     public ICollection<UsingDirectiveSyntax> Usings { get; set; } = [];
 
