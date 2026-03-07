@@ -35,15 +35,19 @@
             ],
             "ignorePackages": []
         },
-        "infraDomainView": {
+        "completeViewDetph2": {
             "packages": [
+                {
+                    "path": "Application",
+                    "depth": 1
+                },
                 {
                     "path": "Infra",
                     "depth": 1
                 },
                 {
                     "path": "Domain",
-                    "depth": 1
+                    "depth": 2
                 }
             ],
             "ignorePackages": []
