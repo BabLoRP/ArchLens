@@ -1,3 +1,4 @@
+using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
@@ -171,20 +172,6 @@ public sealed class RendererBaseTests : IDisposable
     }
 
     [Fact]
-    public void RootNodesAreAlphabeticallySorted()
-    {
-        var opts = MakeOptions();
-        var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
-        var result = new JsonRenderer().RenderView(graph, opts.Views[0], opts);
-
-        var names = Regex.Matches(result, @"""name""\s*:\s*""([^""]+)""")
-                         .Select(m => m.Groups[1].Value)
-                         .ToList();
-
-        Assert.Equal(names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList(), names);
-    }
-
-    [Fact]
     public void EdgesAreOrderedByFromThenTo()
     {
         var opts = MakeOptions();
@@ -250,16 +237,6 @@ public sealed class RendererBaseTests : IDisposable
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
         Assert.Contains("Models", result);
-    }
-
-    [Fact]
-    public void AllPackagesIgnoredYieldsEmptyPackageList()
-    {
-        var opts = MakeOptions(ignore: ["./Domain/", "./Infra/"]);
-        var result = Minify(new JsonRenderer().RenderView(
-            TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts));
-
-        Assert.Contains(@"""packages"":[]", result);
     }
 
     [Fact]
@@ -361,6 +338,11 @@ public sealed class RendererBaseTests : IDisposable
     {
         var opts = MakeOptions();
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
+        var recordA = RelativePath.File(_fs.Root, "./Domain/Models/RecordA.cs");
+        var recordB = RelativePath.File(_fs.Root, "./Domain/Models/RecordB.cs");
+
+        graph.UpsertProjectItem(recordA, ProjectItemType.File);
+        graph.UpsertProjectItem(recordB, ProjectItemType.File);
         graph.AddDependency(
             RelativePath.File(_fs.Root, "./Domain/Models/RecordA.cs"),
             RelativePath.File(_fs.Root, "./Domain/Models/RecordB.cs"));

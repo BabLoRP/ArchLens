@@ -490,6 +490,7 @@ public sealed class ChangeDetectorTests : IDisposable
         var newDir = RelativePath.Directory(_fs.Root, "./src/NewDir/");
 
         Assert.Contains(srcDir, changes.ChangedFilesByDirectory.Keys);
+        Assert.Contains(newDir, changes.ChangedFilesByDirectory.Keys);
         Assert.Contains(newDir, changes.ChangedFilesByDirectory[srcDir]);
     }
 
@@ -540,11 +541,11 @@ public sealed class ChangeDetectorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("bin", "src/bin/X.cs", true)]
-    [InlineData("BIN", "src/bin/X.cs", true)]
-    [InlineData("*.dev.cs", "src/A.dev.cs", true)]
-    [InlineData("**.dev.cs", "src/A.dev.cs", true)]
-    [InlineData(".git", ".git/hooks/Hook.cs", true)]
+    [InlineData("bin", "src/bin/X.cs", true)] // passes
+    [InlineData("BIN", "src/bin/X.cs", true)] // fails
+    [InlineData("*.dev.cs", "src/A.dev.cs", true)] // passes
+    [InlineData("**.dev.cs", "src/A.dev.cs", true)] // passes
+    [InlineData(".git", ".git/hooks/Hook.cs", true)] // fails
     public async Task Exclusions_ActAsExpected_InScan(string exclusion, string relFile, bool shouldExclude)
     {
         _fs.File(relFile, "class X {}");
@@ -584,12 +585,12 @@ public sealed class ChangeDetectorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("bin", "bin", true)]
-    [InlineData("BIN", "bin", true)]
-    [InlineData("**.dev.cs", "A.dev.cs", true)]
-    [InlineData("*.dev.cs", "A.dev.cs", true)]
-    [InlineData("*.dev.cs", "A.DEV.CS", true)]
-    [InlineData("bin*", "bin123", false)]
+    [InlineData("bin", "bin", true)] // passes
+    [InlineData("BIN", "bin", true)] // fails
+    [InlineData("**.dev.cs", "A.dev.cs", true)] // passes
+    [InlineData("*.dev.cs", "A.dev.cs", true)] // passes
+    [InlineData("*.dev.cs", "A.DEV.CS", true)] // fails
+    [InlineData("bin*", "bin123", false)] // passes
     public void MatchesSuffixPattern_Behaviour_IsPinned(string pattern, string value, bool expected)
     {
         var actual = ChangeDetector.MatchesSuffixPattern(value, pattern);
@@ -606,7 +607,6 @@ public sealed class ChangeDetectorTests : IDisposable
         _fs.Dir("src/Locked");
         _fs.File("src/Ok.cs", "class Ok {}");
 
-        // Remove permissions from the Locked directory so enumeration throws.
         var lockedAbs = Path.Combine(_fs.Root, "src", "Locked");
         var chmod = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
@@ -633,7 +633,6 @@ public sealed class ChangeDetectorTests : IDisposable
         }
         finally
         {
-            // Restore permissions so the temp folder can be cleaned up.
             var chmodBack = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "chmod",
