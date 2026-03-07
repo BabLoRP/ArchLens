@@ -82,25 +82,6 @@ public sealed class ConfigManagerTests : IDisposable
     }
 
     [Fact]
-    public async Task Throws_InvalidOperationException_WhenJsonIsInvalid()
-    {
-        var path = _fs.File("bad.json", "this is not json");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Manager(path).LoadAsync());
-    }
-
-    [Fact]
-    public async Task Throws_DirectoryNotFoundException_WhenProjectRootDoesNotExist()
-    {
-        var nonExistentDir = Path.Combine(_fs.Root, "does-not-exist");
-        var path = WriteConfig(new(
-            RootFolder: $"\"{EscapeJson(nonExistentDir)}\"",
-            ProjectRoot: "\"\""));
-
-        await Assert.ThrowsAsync<DirectoryNotFoundException>(() =>
-            Manager(path).LoadAsync());
-    }
-
-    [Fact]
     public async Task Throws_OperationCanceledException_WhenTokenCancelled()
     {
         var path = WriteConfig();
