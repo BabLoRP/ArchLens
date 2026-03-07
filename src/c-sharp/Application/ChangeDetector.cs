@@ -1,5 +1,6 @@
 ﻿using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -45,7 +46,7 @@ public sealed class ChangeDetector
 
         var changedByDir = lastSavedGraph is null
             ? BuildFullStructure(current)
-            : BuildDeltaStructure(current, lastSavedGraph, ct);
+            : BuildDeltaStructure(projectRoot, current, lastSavedGraph, ct);
 
         var (deletedFiles, deletedDirs) = DiscoverDeletedPaths(
             lastSavedGraph,
@@ -73,6 +74,7 @@ public sealed class ChangeDetector
     }
 
     private static Dictionary<RelativePath, List<RelativePath>> BuildDeltaStructure(
+        string projectRoot,
         ProjectFileStructure current,
         ProjectDependencyGraph lastSavedGraph,
         CancellationToken ct)
@@ -99,14 +101,14 @@ public sealed class ChangeDetector
         foreach (var file in changedFiles)
         {
             var parent = current.Files[file].ParentDirRel;
-            AddDirAndAncestors(parent, neededDirs, lastSavedGraph, ct);
+            AddDirAndAncestors(projectRoot, parent, neededDirs, lastSavedGraph, ct);
         }
 
         foreach (var dir in current.DirRels)
         {
             ct.ThrowIfCancellationRequested();
             if (!lastSavedGraph.ContainsProjectItem(dir))
-                AddDirAndAncestors(dir, neededDirs, lastSavedGraph, ct);
+                AddDirAndAncestors(projectRoot, dir, neededDirs, lastSavedGraph, ct);
         }
 
         var delta = new Dictionary<RelativePath, List<RelativePath>>();
@@ -144,6 +146,7 @@ public sealed class ChangeDetector
     }
 
     private static void AddDirAndAncestors(
+        string projectRoot,
         RelativePath dir,
         HashSet<RelativePath> neededDirs,
         ProjectDependencyGraph lastSavedGraph,
@@ -156,12 +159,27 @@ public sealed class ChangeDetector
             if (!neededDirs.Add(current))
                 break;
 
-            var parent = lastSavedGraph.ParentOf(current);
+            var parent = lastSavedGraph.ParentOf(current)
+                ?? GetPathDerivedParent(current, projectRoot);
             if (parent is null)
                 break;
 
             current = parent.Value;
         }
+    }
+
+    private static RelativePath? GetPathDerivedParent(RelativePath dir, string projectRoot)
+    {
+        var trimmed = dir.Value.TrimEnd('/');
+        var lastSlash = trimmed.LastIndexOf('/');
+        if (lastSlash <= 0)
+            return null;
+
+        var parentSlice = trimmed[..(lastSlash + 1)];
+        if (string.Equals(parentSlice, "./", StringComparison.Ordinal))
+            return null;
+
+        return RelativePath.Directory(projectRoot, parentSlice);
     }
 
     private static ExclusionRule CompileExclusions(IReadOnlyList<string> exclusions)
