@@ -14,7 +14,7 @@ public class Program
     {
         var path = args.Length == 0 ? string.Empty : args[0].Trim();
         var format = args.Length < 2 ? "puml" : args[1].Trim();
-        var diff = args.Length < 3 ? false : args[2] == "diff";
+        var diff = args.Length < 3 ? false : args[2].Trim() == "diff";
 
         await CLI(path, format, diff);
     }
