@@ -10,7 +10,7 @@ using System.Text.Json.Serialization;
 
 namespace Archlens.Infra.Renderers;
 
-public sealed class JsonRenderer : Renderer
+public sealed class JsonRenderer : RendererBase
 {
     private sealed record JsonDependencyDTO(
         string name,

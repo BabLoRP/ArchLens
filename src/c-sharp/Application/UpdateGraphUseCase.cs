@@ -13,7 +13,7 @@ public sealed class UpdateGraphUseCase(
     RenderOptions renderOptions,
     SnapshotOptions snapshotOptions,
     IReadOnlyList<IDependencyParser> parsers,
-    Renderer renderer,
+    RendererBase renderer,
     ISnapshotManager snapshotManager
     )
 {
