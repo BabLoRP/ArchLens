@@ -4,7 +4,7 @@ using Archlens.Domain.Models.Records;
 using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
 
-namespace ArchlensTests.Infra;
+namespace ArchlensTests.Infra.SnapshotManagers;
 
 public sealed class LocalSnapshotManagerTests : IDisposable
 {
