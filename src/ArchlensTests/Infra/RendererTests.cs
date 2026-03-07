@@ -421,7 +421,7 @@ public sealed class RendererTests : IDisposable
             SaveLocation: saveDir);
 
         await new JsonRenderer().RenderViewsAndSaveToFiles(
-            TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts);
+            TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts, ct: default);
 
         var files = Directory.GetFiles(saveDir).Select(Path.GetFileName).ToHashSet();
         Assert.Contains("Archlens-viewA.json", files);
@@ -439,7 +439,7 @@ public sealed class RendererTests : IDisposable
             SaveLocation: saveDir);
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
-        await new JsonRenderer().RenderDiffViewsAndSaveToFiles(graph, graph, opts);
+        await new JsonRenderer().RenderDiffViewsAndSaveToFiles(graph, graph, opts, ct: default);
 
         var files = Directory.GetFiles(saveDir).Select(Path.GetFileName).ToHashSet();
         Assert.Contains("Archlens-diff-viewA.json", files);
@@ -457,7 +457,7 @@ public sealed class RendererTests : IDisposable
 
         var ex = await Record.ExceptionAsync(() =>
             new JsonRenderer().RenderViewsAndSaveToFiles(
-                TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts));
+                TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts, ct: default));
 
         Assert.Null(ex);
     }
