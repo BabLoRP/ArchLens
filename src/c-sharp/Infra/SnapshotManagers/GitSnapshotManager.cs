@@ -11,21 +11,21 @@ using System.Threading.Tasks;
 
 namespace Archlens.Infra.SnapshotManagers;
 
-public sealed class GitSnaphotManager : ISnapshotManager
+public sealed class GitSnapshotManager : ISnapshotManager
 {
     private readonly string _gitDirName;
     private readonly string _gitFileName;
-    private readonly LocalSnaphotManager _localManager;
+    private readonly LocalSnapshotManager _localManager;
     private readonly HttpClient _http; // injected for tests
 
-    public GitSnaphotManager(string gitDirName, string gitFileName)
+    public GitSnapshotManager(string gitDirName, string gitFileName)
         : this(gitDirName, gitFileName, handler: null) { }
 
-    public GitSnaphotManager(string gitDirName, string gitFileName, HttpMessageHandler handler)
+    public GitSnapshotManager(string gitDirName, string gitFileName, HttpMessageHandler handler)
     {
         _gitDirName = gitDirName;
         _gitFileName = gitFileName;
-        _localManager = new LocalSnaphotManager(gitDirName, gitFileName);
+        _localManager = new LocalSnapshotManager(gitDirName, gitFileName);
         _http = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: true);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("Archlens-GitSnapshot/1.0");
     }

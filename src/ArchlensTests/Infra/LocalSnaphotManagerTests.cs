@@ -28,7 +28,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     {
         var dirName = ".archlens";
         var fileName = "snapshot.json";
-        var snapshotManager = new LocalSnaphotManager(dirName, fileName);
+        var snapshotManager = new LocalSnapshotManager(dirName, fileName);
 
         var opts = MakeOptions();
 
@@ -71,7 +71,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     [Fact]
     public async Task SaveThenLoad_Get_Name_And_LastWriteTime()
     {
-        var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
+        var snapshotManager = new LocalSnapshotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
         var rootPath = _fs.Root;
@@ -109,7 +109,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     [Fact]
     public async Task GetLastSavedDependencyGraphAsync_ReturnsNull_WhenFileMissing()
     {
-        var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
+        var snapshotManager = new LocalSnapshotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
@@ -123,7 +123,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var customDir = "_state";
         var customFile = "dep.json";
 
-        var snapshotManager = new LocalSnaphotManager(customDir, customFile);
+        var snapshotManager = new LocalSnapshotManager(customDir, customFile);
         var opts = MakeOptions();
 
         var graph = new ProjectDependencyGraph(_fs.Root);
@@ -137,7 +137,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     [Fact]
     public async Task Load_ReturnsGraph_WhenFilePresent()
     {
-        var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
+        var snapshotManager = new LocalSnapshotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
@@ -151,7 +151,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     [Fact]
     public async Task Load_ReturnsMultiLevelGraph_WhenPresent()
     {
-        var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
+        var snapshotManager = new LocalSnapshotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
         var root = _fs.Root;
@@ -175,7 +175,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
     [Fact]
     public async Task Load_ReturnsSubModuleDependencies_WhenPresent()
     {
-        var snapshotManager = new LocalSnaphotManager(".archlens", "snapshot.json");
+        var snapshotManager = new LocalSnapshotManager(".archlens", "snapshot.json");
         var opts = MakeOptions();
 
         var root = _fs.Root;
