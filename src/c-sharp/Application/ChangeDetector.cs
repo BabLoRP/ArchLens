@@ -49,9 +49,11 @@ public sealed class ChangeDetector
             : BuildDeltaStructure(projectRoot, current, lastSavedGraph, ct);
 
         var (deletedFiles, deletedDirs) = DiscoverDeletedPaths(
+            projectRoot,
             lastSavedGraph,
             current.Files,
             current.DirRels,
+            rules,
             ct);
 
         var collapsedDeletedDirs = CollapseDeletedDirectories(deletedDirs);
@@ -303,9 +305,11 @@ public sealed class ChangeDetector
     }
 
     private static (List<RelativePath> deletedFilesRel, List<RelativePath> deletedDirsRel) DiscoverDeletedPaths(
+        string projectRoot,
         ProjectDependencyGraph? lastSavedGraph,
         IReadOnlyDictionary<RelativePath, ProjectItemMeta> currentFiles,
         IReadOnlySet<RelativePath> currentDirs,
+        ExclusionRule rules,
         CancellationToken ct)
     {
         List<RelativePath> deletedFiles = [];
@@ -319,6 +323,10 @@ public sealed class ChangeDetector
             ct.ThrowIfCancellationRequested();
 
             if (IsProjectRoot(item.Path))
+                continue;
+
+            var absPath = PathNormaliser.GetAbsolutePath(projectRoot, item.Path.Value);
+            if (IsExcluded(projectRoot, absPath, rules))
                 continue;
 
             if (item.Type == ProjectItemType.File)
