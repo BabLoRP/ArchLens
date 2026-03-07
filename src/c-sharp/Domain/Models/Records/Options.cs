@@ -28,5 +28,5 @@ public sealed record SnapshotOptions(
     SnapshotManager SnapshotManager,
     GitInfo GitInfo,
     string SnapshotDir = ".archlens",
-    string SnapshotFile = "snaphot"
+    string SnapshotFile = "snapshot"
 );
