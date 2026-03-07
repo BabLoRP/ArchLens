@@ -73,7 +73,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     }
 
     [Fact]
-    public async Task BUG_SingleLevelImport_PathUsesSlashes_NotDots()
+    public async Task SingleLevelImport_PathUsesSlashes_NotDots()
     {
         var path = Write("A.java", "import com.example.Domain;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
@@ -84,7 +84,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     }
 
     [Fact]
-    public async Task BUG_MultiLevelImport_PathUsesSlashes_NotDots()
+    public async Task MultiLevelImport_PathUsesSlashes_NotDots()
     {
         var path = Write("A.java", "import com.example.Domain.Models.Records;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
@@ -94,7 +94,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     }
 
     [Fact]
-    public async Task BUG_StaticImport_PathUsesSlashes_NotDots()
+    public async Task StaticImport_PathUsesSlashes_NotDots()
     {
         var path = Write("A.java", "import static com.example.Domain.Utils.PathHelper;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
@@ -104,7 +104,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     }
 
     [Fact]
-    public async Task BUG_WildcardImport_MapsToParentDirectory()
+    public async Task WildcardImport_MapsToParentDirectory()
     {
         var path = Write("A.java", "import com.example.Domain.Models.*;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
@@ -115,7 +115,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     }
 
     [Fact]
-    public async Task BUG_CancellationToken_Propagates_WhenPreCancelled()
+    public async Task CancellationToken_Propagates_WhenPreCancelled()
     {
         var path = Write("A.java", """
             import com.example.Domain;

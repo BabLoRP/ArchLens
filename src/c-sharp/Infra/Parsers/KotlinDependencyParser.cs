@@ -18,6 +18,7 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
         string path,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var imports = new List<RelativePath>();
 
         if (string.IsNullOrWhiteSpace(_rootPackage))
@@ -34,8 +35,11 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
             string? line;
             while ((line = await reader.ReadLineAsync(ct)) != null)
             {
-                ct.ThrowIfCancellationRequested();
-
+                if (ct.IsCancellationRequested)
+                {
+                    reader.Close();
+                    ct.ThrowIfCancellationRequested();
+                }
                 var match = regex.Match(line);
                 if (!match.Success)
                     continue;
@@ -43,10 +47,12 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
                 var dep = match.Groups[1].Value.Trim();
                 if (dep.Length > 0)
                 {
-                    var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, dep);
+                    var packagePath = dep.TrimEnd('*').TrimEnd('.').Replace('.', '/');
+                    var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, packagePath);
                     imports.Add(rel);
                 }
             }
+            reader.Close();
 
             return imports;
         }
