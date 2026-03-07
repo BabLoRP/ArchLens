@@ -13,11 +13,6 @@ namespace Archlens.Infra;
 
 public class ConfigManager(string _path)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     private sealed class ConfigDto
     {
         public required string ProjectRoot { get; set; }
@@ -64,19 +59,11 @@ public class ConfigManager(string _path)
 
         await using var fileStream = File.OpenRead(configFile);
 
-        ConfigDto dto;
-        try
-        {
-            dto = await JsonSerializer.DeserializeAsync<ConfigDto>(
-                fileStream,
-                JsonOptions,
-                ct
-            ) ?? throw new InvalidOperationException($"Could not parse JSON in {configFile}.");
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException($"Could not parse JSON in {configFile}.", ex);
-        }
+        var dto = await JsonSerializer.DeserializeAsync<ConfigDto>(
+            fileStream,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+            ct
+        ) ?? throw new InvalidOperationException($"Could not parse JSON in {configFile}.");
 
         var baseDir = Path.GetDirectoryName(configFile) ?? Environment.CurrentDirectory;
 
@@ -159,9 +146,11 @@ public class ConfigManager(string _path)
         if (!Path.IsPathFullyQualified(root))
             root = Path.Join(baseDir, root);
 
-        return Directory.Exists(root)
-            ? new DirectoryInfo(root).FullName
-            : root;
+        var dir = Directory.Exists(root)
+            ? new DirectoryInfo(root)
+            : new FileInfo(root).Directory!;
+
+        return dir.FullName;
     }
 
     private static string NormalizeExtension(string ext)
@@ -218,6 +207,7 @@ public class ConfigManager(string _path)
         );
     }
 
+
     private static SnapshotManager MapSnapshotManager(bool diff)
     {
         return diff ? SnapshotManager.Git : SnapshotManager.Local;
@@ -244,7 +234,7 @@ public class ConfigManager(string _path)
         return [.. viewDtos.Select(v =>
             new View(
                 v.Key,
-                [.. v.Value.Packages.Select<PackageDto, Package>(p => new(p.Path, p.Depth ?? 0))],
+                [.. v.Value.Packages.Select<PackageDto,Package>(p => new(p.Path, p.Depth ?? 0))],
                 v.Value.IgnorePackages
             ))];
     }
