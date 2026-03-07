@@ -5,7 +5,6 @@ using Archlens.Domain.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,7 +23,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
             ? graph
             : lastSavedDependencyGraph.MergeOverwrite(graph);
 
-        ApplyDeletions(merged, changes, _options.FullRootPath);
+        ApplyDeletions(merged, changes);
 
         return merged;
     }
@@ -68,7 +67,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
                     foreach (var parser in _dependencyParsers)
                     {
                         var dependencies = await parser.ParseFileDependencies(itemAbsPath, ct).ConfigureAwait(false);
-                        dependencyPaths = [.. dependencies];
+                        dependencyPaths.AddRange(dependencies);
                     }
 
                     graph.UpsertProjectItem(item, ProjectItemType.File);
@@ -89,13 +88,13 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         return graph;
     }
 
-    private static void ApplyDeletions(ProjectDependencyGraph graph, ProjectChanges changes, string absRoot)
+    private static void ApplyDeletions(ProjectDependencyGraph graph, ProjectChanges changes)
     {
-        var deletedFiles = changes.DeletedFiles;
-        var deletedDirs = changes.DeletedDirectories;
-        
-        foreach (var deletedItem in deletedFiles.Concat(deletedDirs))
-            graph.RemoveProjectItem(deletedItem);
+        foreach (var file in changes.DeletedFiles)
+            graph.RemoveProjectItem(file);
+
+        foreach (var dir in changes.DeletedDirectories)
+            graph.RemoveProjectItemRecursive(dir);
     }
 }
 
