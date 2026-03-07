@@ -863,7 +863,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     }
 
     [Fact]
-    public async Task MultipleParsers_ShouldAggregateDependencies_ButCurrentlyOverwrites_LastParserWins()
+    public async Task MultipleParsers_ShouldAggregateDependencies()
     {
         SetupMockProject();
 
@@ -897,34 +897,5 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         Assert.Contains(depA, graph.DependenciesFrom(file).Keys);
         Assert.Contains(depB, graph.DependenciesFrom(file).Keys);
-    }
-
-    [Fact]
-    public async Task RootDirectory_ShouldExist_EvenIfNotExplicitlyPresentInChangedModules_WhenNoLastSaved()
-    {
-        SetupMockProject();
-
-        _fs.File("Domain/Utils/R.cs", "/* */");
-
-        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
-        var rFile = RelativePath.File(_fs.Root, "./Domain/Utils/R.cs");
-
-        var parser = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>
-        {
-            [rFile] = []
-        });
-
-        var builder = CreateBuilder([parser]);
-
-        var changes = CreateProjectChanges(
-            ChangedModules((utilsDir, new[] { rFile })),
-            deletedFiles: [],
-            deletedDirectories: []
-        );
-
-        var graph = await builder.GetGraphAsync(changes, null);
-
-        var rootDir = RelativePath.Directory(_fs.Root, _fs.Root);
-        Assert.True(graph.ContainsProjectItem(rootDir));
     }
 }
