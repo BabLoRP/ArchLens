@@ -5,7 +5,7 @@ using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
 using System.Net;
 
-namespace ArchlensTests.Infra;
+namespace ArchlensTests.Infra.SnapshotManagers;
 
 public sealed class GitSnapShotManagerTests : IDisposable
 {
