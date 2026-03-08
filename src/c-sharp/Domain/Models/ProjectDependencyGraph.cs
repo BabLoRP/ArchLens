@@ -347,7 +347,13 @@ public class ProjectDependencyGraph(string projectRoot)
             target._projectItems[path] = item;
 
         foreach (var (parent, children) in source._childrenByParent)
-            target._childrenByParent[parent] = [.. children];
+        {
+            if (!target._childrenByParent.TryGetValue(parent, out var existing))
+                target._childrenByParent[parent] = [.. children];
+            else
+                foreach (var child in children)
+                    existing.Add(child);
+        }
 
         foreach (var (child, parent) in source._parentByChild)
             target._parentByChild[child] = parent;
