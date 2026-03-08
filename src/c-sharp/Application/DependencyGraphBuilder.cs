@@ -72,7 +72,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
 
                     graph.UpsertProjectItem(item, ProjectItemType.File);
                     graph.AddChild(parent, item);
-                    graph.AddDependencies(item, dependencyPaths);
+                    graph.SetDependencies(item, dependencyPaths);
                 }
                 catch (OperationCanceledException)
                 {
