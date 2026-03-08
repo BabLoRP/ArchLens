@@ -392,7 +392,8 @@ public sealed class ChangeDetector
     {
         var path = GetRelative(projectRoot, content);
 
-        if (rules.DirPrefixes.Any(rule => (path + '/').StartsWith(rule, StringComparison.OrdinalIgnoreCase)))
+        if (rules.DirPrefixes.Any(rule => (path + '/').StartsWith(rule, StringComparison.OrdinalIgnoreCase) 
+                || ('/' + path + '/').Contains('/' + rule, StringComparison.OrdinalIgnoreCase)))
             return true;
 
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
