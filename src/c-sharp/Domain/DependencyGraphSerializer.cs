@@ -142,8 +142,11 @@ public static class DependencyGraphSerializer
             var from = RelativePath.File(projectRoot, entry.From);
 
             var dependencies = entry.Dependencies.ToDictionary(
-                d => RelativePath.File(projectRoot, d.To),
-                d => new Dependency(d.Count, d.Type));
+                    d => itemTypeByPath.TryGetValue(d.To, out var targetType)
+                        ? ToRelativePath(projectRoot, d.To, targetType)
+                        : RelativePath.File(projectRoot, d.To),
+                    d => new Dependency(d.Count, d.Type)
+                );
 
             graph.AddDependencies(from, dependencies);
         }
