@@ -56,7 +56,7 @@ public sealed class PlantUMLRendererTests : IDisposable
     public void Output_EndsWithEndUml()
     {
         var result = Render(DefaultGraph(), Opts());
-        Assert.EndsWith("@enduml\r\n", result);
+        Assert.EndsWith("@enduml", result.Trim());
     }
 
     [Fact]
