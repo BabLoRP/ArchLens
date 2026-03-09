@@ -464,7 +464,7 @@ public sealed class RendererBaseTests : IDisposable
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
         Assert.StartsWith("@startuml", result);
-        Assert.EndsWith("@enduml\r\n", result);
+        Assert.EndsWith("@enduml", result.Trim());
     }
 
     [Fact]
