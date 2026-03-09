@@ -7,7 +7,7 @@
         "branch": "master"
     },
     "snapshotDir": ".archlens",
-    "snapshotFile": "snaphot",
+    "snapshotFile": "snapshot",
     "saveLocation": "/diagrams/",
     "exclusions": [
         "obj/",
