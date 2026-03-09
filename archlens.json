@@ -9,7 +9,6 @@
     "snapshotDir": ".archlens",
     "snapshotFile": "snaphot",
     "saveLocation": "/diagrams/",
-    "format": "puml",
     "exclusions": [
         "obj/",
         "bin/",
