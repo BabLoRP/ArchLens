@@ -1,5 +1,6 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
 
 namespace ArchlensTests.Utils;
 
@@ -13,6 +14,17 @@ public sealed class TestHttpHandler : HttpMessageHandler
         {
             Content = body is null ? null : new StringContent(body, System.Text.Encoding.UTF8, mediaType)
         };
+        _map[url] = msg;
+    }
+
+    public void When(string url, HttpStatusCode status, byte[]? body, string mediaType = "application/octet-stream")
+    {
+        var msg = new HttpResponseMessage(status);
+        if (body is not null)
+        {
+            msg.Content = new ByteArrayContent(body);
+            msg.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        }
         _map[url] = msg;
     }
 
@@ -33,8 +45,10 @@ internal static class HttpResponseMessageExtensions
         var clone = new HttpResponseMessage(msg.StatusCode);
         if (msg.Content is not null)
         {
-            var content = msg.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-            clone.Content = new StringContent(content, System.Text.Encoding.UTF8, msg.Content.Headers.ContentType?.MediaType ?? "application/json");
+            var bytes = msg.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+            var mediaType = msg.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+            clone.Content = new ByteArrayContent(bytes);
+            clone.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
         }
         foreach (var h in msg.Headers) clone.Headers.TryAddWithoutValidation(h.Key, h.Value);
         clone.RequestMessage = new HttpRequestMessage();

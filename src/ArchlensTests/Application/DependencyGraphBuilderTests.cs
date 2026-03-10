@@ -4,6 +4,7 @@ using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
+using System.Collections.Concurrent;
 
 namespace ArchlensTests.Application;
 
@@ -55,7 +56,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
     private sealed class DependencyParserSpy(string root, IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> _map) : IDependencyParser
     {
-        public List<RelativePath> Calls { get; } = [];
+        public ConcurrentBag<RelativePath> Calls { get; } = [];
 
         public Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string absPath, CancellationToken ct = default)
         {
@@ -216,13 +217,12 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var domainDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
         var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
 
-        // Note: modelsDir exists (SetupMockProject), but we do NOT include it as a module key.
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>());
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
             (rootDirPath, new[] { domainDirPath }),
-            (domainDirPath, new[] { modelsDirPath }) // modelsDir only appears as content
+            (domainDirPath, new[] { modelsDirPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -241,7 +241,6 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        // The file exists on disk so the builder can parse it.
         _fs.File("Domain/Factories/DependencyParserFactory.cs", "/* */");
 
         var depFactoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
@@ -252,7 +251,6 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var lastSavedGraph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
-        // Change the dependencies for the same logical file.
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
             [depFactoryFilePath] = [newDepPath, enumsPath]
@@ -268,7 +266,6 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
-        // Find by either absolute or normalised path; the graph should resolve it.
         var depFactoryProjectItem = RequireItem(graph, depFactoryFilePath);
 
         var infraPath = RelativePath.Directory(_fs.Root, "./Infra/");
@@ -308,11 +305,9 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
-        // Something not in the changed set should still exist.
         Assert.True(graph.ContainsProjectItem(renderFactoryPath));
         Assert.True(graph.ContainsProjectItem(dependencyGraphPath));
 
-        // And the changed file should exist with the changed dep.
         var optionsItem = RequireItem(graph, optionsPath);
         Assert.Contains(changedDep, graph.DependenciesFrom(optionsItem.Path).Keys);
     }
@@ -752,7 +747,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var bad = RelativePath.File(_fs.Root, "./Domain/Factories/Bad.cs");
         var good = RelativePath.File(_fs.Root, "./Domain/Factories/Good.cs");
 
-        var parser = new ThrowingParser("Bad.cs", new InvalidOperationException("boom"));
+        var parser = new ThrowingParser("Bad.cs", new InvalidOperationException("Contains Bad.cs"));
         var builder = CreateBuilder([parser]);
 
         var changes = CreateProjectChanges(

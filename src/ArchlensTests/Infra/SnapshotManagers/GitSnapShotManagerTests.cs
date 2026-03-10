@@ -60,7 +60,7 @@ public sealed class GitSnapShotManagerTests : IDisposable
         var mainUrl = $"https://raw.githubusercontent.com/owner/repo/refs/heads/main/{cleanRoot}/.archlens/snapshot.json";
 
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
-        handler.When(mainUrl, HttpStatusCode.OK, DependencyGraphSerializer.Serialize(graph));
+        handler.When(mainUrl, HttpStatusCode.OK, DependencyGraphSerializer.Serialize(graph), "application/octet-stream");
 
         var opts = MakeOptions("https://github.com/owner/repo");
 
