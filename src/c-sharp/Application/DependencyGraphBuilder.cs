@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Interfaces;
@@ -36,6 +37,8 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         var root = RelativePath.Directory(rootFull, rootFull);
         var graph = new ProjectDependencyGraph(rootFull);
 
+        var fileItems = new List<(RelativePath Parent, RelativePath Item, string AbsPath)>();
+
         foreach (var (parent, items) in changedModules)
         {
             ct.ThrowIfCancellationRequested();
@@ -53,26 +56,15 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
 
                     var itemAbsPath = PathNormaliser.GetAbsolutePath(rootFull, item.Value);
 
-                    static bool IsDirectory(string path) => Path.GetExtension(path).Length == 0;
-                    var isItemDirectory = IsDirectory(itemAbsPath);
-
-                    if (isItemDirectory)
+                    if (Path.GetExtension(itemAbsPath).Length == 0)
                     {
                         graph.UpsertProjectItem(item, ProjectItemType.Directory);
                         graph.AddChild(parent, item);
-                        continue;
                     }
-
-                    List<RelativePath> dependencyPaths = [];
-                    foreach (var parser in _dependencyParsers)
+                    else
                     {
-                        var dependencies = await parser.ParseFileDependencies(itemAbsPath, ct).ConfigureAwait(false);
-                        dependencyPaths.AddRange(dependencies);
+                        fileItems.Add((parent, item, itemAbsPath));
                     }
-
-                    graph.UpsertProjectItem(item, ProjectItemType.File);
-                    graph.AddChild(parent, item);
-                    graph.SetDependencies(item, dependencyPaths);
                 }
                 catch (OperationCanceledException)
                 {
@@ -81,10 +73,48 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
-                    continue;
                 }
             }
         }
+
+        var parsedDeps = new (RelativePath Parent, RelativePath Item, IReadOnlyList<RelativePath> Deps)?[fileItems.Count];
+
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, fileItems.Count),
+            new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Environment.ProcessorCount },
+            async (i, innerCt) =>
+            {
+                var (parent, item, absPath) = fileItems[i];
+                try
+                {
+                    var deps = new List<RelativePath>();
+                    foreach (var parser in _dependencyParsers)
+                    {
+                        var d = await parser.ParseFileDependencies(absPath, innerCt).ConfigureAwait(false);
+                        deps.AddRange(d);
+                    }
+                    parsedDeps[i] = (parent, item, deps);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
+                }
+            });
+
+        foreach (var entry in parsedDeps)
+        {
+            if (entry is not { } parsed)
+                continue;
+
+            graph.UpsertProjectItem(parsed.Item, ProjectItemType.File);
+            graph.AddChild(parsed.Parent, parsed.Item);
+            graph.SetDependencies(parsed.Item, parsed.Deps);
+        }
+
         return graph;
     }
 
