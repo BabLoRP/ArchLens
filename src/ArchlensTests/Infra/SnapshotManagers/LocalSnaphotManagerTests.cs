@@ -43,7 +43,10 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         Assert.True(Directory.Exists(expectedDir));
         Assert.True(File.Exists(expectedFile));
 
-        var json = await File.ReadAllTextAsync(expectedFile);
+        var bytes = await File.ReadAllBytesAsync(expectedFile);
+        Assert.NotEmpty(bytes);
+
+        var loaded = DependencyGraphSerializer.Deserialize(bytes, rootPath);
 
         var root = RelativePath.Directory(rootPath, rootPath);
         var application = RelativePath.Directory(rootPath, "./Application/");
@@ -56,16 +59,16 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
         var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        Assert.Contains(root.ToString(), json);
-        Assert.Contains(application.ToString(), json);
-        Assert.Contains(infra.ToString(), json);
-        Assert.Contains(domain.ToString(), json);
-        Assert.Contains(interfaces.ToString(), json);
-        Assert.Contains(factory.ToString(), json);
-        Assert.Contains(models.ToString(), json);
-        Assert.Contains(records.ToString(), json);
-        Assert.Contains(enums.ToString(), json);
-        Assert.Contains(utils.ToString(), json);
+        Assert.Contains(root, loaded.ProjectItems);
+        Assert.Contains(application, loaded.ProjectItems);
+        Assert.Contains(infra, loaded.ProjectItems);
+        Assert.Contains(domain, loaded.ProjectItems);
+        Assert.Contains(interfaces, loaded.ProjectItems);
+        Assert.Contains(factory, loaded.ProjectItems);
+        Assert.Contains(models, loaded.ProjectItems);
+        Assert.Contains(records, loaded.ProjectItems);
+        Assert.Contains(enums, loaded.ProjectItems);
+        Assert.Contains(utils, loaded.ProjectItems);
     }
 
     [Fact]
