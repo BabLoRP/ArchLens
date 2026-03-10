@@ -56,11 +56,5 @@ public static class DependencyAggregator
     }
 
     private static bool IsInternalToDirectory(RelativePath directoryPath, RelativePath dependencyTarget)
-    {
-        var dir = EnsureTrailingSlash(directoryPath.Value);
-        return dependencyTarget.Value.StartsWith(dir, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string EnsureTrailingSlash(string path) =>
-        path.EndsWith('/') || path.EndsWith('\\') ? path : path + '/';
+        => dependencyTarget.Value.StartsWith(directoryPath.Value, StringComparison.OrdinalIgnoreCase);
 }
