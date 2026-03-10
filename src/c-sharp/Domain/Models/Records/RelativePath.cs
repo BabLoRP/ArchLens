@@ -16,4 +16,6 @@ public readonly record struct RelativePath
         => new(PathNormaliser.NormaliseModule(projectRoot, input));
 
     public string GetName() => Value.Split('/').Where(s => !string.IsNullOrEmpty(s)).Last() ?? Value;
+
+    public override string ToString() => Value;
 }
