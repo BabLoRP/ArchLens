@@ -128,10 +128,9 @@ public abstract class RendererBase
                 .Where(x => graph.GetProjectItem(x.Path)?.Type == ProjectItemType.Directory)
                 .ToList();
 
-        var visibleNodes = new Dictionary<RelativePath, RenderNode>();
-        var childrenByParent = new Dictionary<RelativePath, List<RelativePath>>();
-        var rootNodes = new List<RelativePath>();
-        var selectedRoots = new HashSet<RelativePath>();
+        var visibleNodes    = new Dictionary<RelativePath, RenderNode>();
+        var childrenByParent= new Dictionary<RelativePath, HashSet<RelativePath>>();
+        var selectedRoots   = new HashSet<RelativePath>();
 
         foreach (var (root, depth) in packageRoots)
         {
@@ -140,9 +139,6 @@ public abstract class RendererBase
                 continue;
 
             selectedRoots.Add(root);
-
-            if (!rootNodes.Contains(root))
-                rootNodes.Add(root);
 
             AddVisibleDirectories(
                 graph,
@@ -164,9 +160,7 @@ public abstract class RendererBase
                 kv => kv.Key,
                 kv => (IReadOnlyList<RelativePath>)[.. kv.Value.OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)]),
             Edges: edges,
-            RootNodes: [.. rootNodes
-                .Distinct()
-                .OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)]
+            RootNodes: [.. selectedRoots.OrderBy(p => p.Value, StringComparer.OrdinalIgnoreCase)]
         );
     }
 
@@ -311,7 +305,7 @@ public abstract class RendererBase
         int remainingDepth,
         HashSet<RelativePath> ignore,
         Dictionary<RelativePath, RenderNode> visibleNodes,
-        Dictionary<RelativePath, List<RelativePath>> childrenByParent)
+        Dictionary<RelativePath, HashSet<RelativePath>> childrenByParent)
     {
         var item = graph.GetProjectItem(dir);
         if (item is null || item.Type != ProjectItemType.Directory || ignore.Contains(dir))
@@ -342,14 +336,13 @@ public abstract class RendererBase
 
             if (visibleNodes.ContainsKey(child))
             {
-                if (!childrenByParent.TryGetValue(dir, out var list))
+                if (!childrenByParent.TryGetValue(dir, out var set))
                 {
-                    list = [];
-                    childrenByParent[dir] = list;
+                    set = [];
+                    childrenByParent[dir] = set;
                 }
 
-                if (!list.Contains(child))
-                    list.Add(child);
+                set.Add(child);
             }
         }
     }
