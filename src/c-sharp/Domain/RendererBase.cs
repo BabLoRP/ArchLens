@@ -352,15 +352,26 @@ public abstract class RendererBase
         IReadOnlySet<RelativePath> selectedRoots,
         IReadOnlySet<RelativePath> visibleDirs)
     {
+
+        var ancestorCache = new Dictionary<RelativePath, RelativePath?>();
+
+        RelativePath? CachedAncestor(RelativePath path)
+        {
+            if (!ancestorCache.TryGetValue(path, out var result))
+                ancestorCache[path] = result = NearestVisibleAncestor(graph, path, visibleDirs);
+            return result;
+        }
+
         var edgeMap = new Dictionary<(RelativePath From, RelativePath To), Dependency>();
         var relationsMap = new Dictionary<(RelativePath From, RelativePath To), List<RenderRelation>>();
+        var relationsKeySet = new Dictionary<(RelativePath From, RelativePath To), HashSet<(RelativePath, RelativePath)>>();
 
         foreach (var item in graph.ProjectItems.Values)
         {
             if (!IsUnderAnyRoot(item.Path, selectedRoots))
                 continue;
 
-            var fromVisible = NearestVisibleAncestor(graph, item.Path, visibleDirs);
+            var fromVisible = CachedAncestor(item.Path);
             if (fromVisible is null)
                 continue;
 
@@ -369,7 +380,7 @@ public abstract class RendererBase
                 if (!IsUnderAnyRoot(depTarget, selectedRoots))
                     continue;
 
-                var toVisible = NearestVisibleAncestor(graph, depTarget, visibleDirs);
+                var toVisible = CachedAncestor(depTarget);
                 if (toVisible is null || fromVisible.Value.Equals(toVisible.Value))
                     continue;
 
@@ -384,11 +395,11 @@ public abstract class RendererBase
                 {
                     rels = [];
                     relationsMap[key] = rels;
+                    relationsKeySet[key] = [];
                 }
 
-                if (!rels.Any(r => r.FromFile.Equals(item.Path) && r.ToFile.Equals(depTarget)))
+                if (relationsKeySet[key].Add((item.Path, depTarget)))
                     rels.Add(new RenderRelation(item.Path, depTarget));
-
             }
         }
 
