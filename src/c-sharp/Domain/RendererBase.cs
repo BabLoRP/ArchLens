@@ -446,6 +446,9 @@ public abstract class RendererBase
 
     private static bool IsUnderAnyRoot(RelativePath path, IReadOnlySet<RelativePath> roots)
     {
-        return roots.Any(r => path.Value.StartsWith(r.Value, StringComparison.OrdinalIgnoreCase));
+        foreach (var root in roots)
+            if (path.Value.StartsWith(root.Value, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
     }
 }
