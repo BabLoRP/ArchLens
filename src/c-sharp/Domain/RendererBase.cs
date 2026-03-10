@@ -69,11 +69,11 @@ public abstract class RendererBase
 
     public async Task RenderViewsAndSaveToFiles(ProjectDependencyGraph graph, RenderOptions options, CancellationToken ct)
     {
-        foreach (var view in options.Views)
+        await Task.WhenAll(options.Views.Select(async view =>
         {
             var content = RenderView(graph, view, options);
-            await SaveViewToFileAsync(content, view, options, diff: false, ct);
-        }
+            await SaveViewToFileAsync(content, view, options);
+        }));
     }
 
     public async Task RenderDiffViewsAndSaveToFiles(
@@ -82,11 +82,11 @@ public abstract class RendererBase
         RenderOptions options,
         CancellationToken ct)
     {
-        foreach (var view in options.Views)
+        await Task.WhenAll(options.Views.Select(async view =>
         {
             var content = RenderDiffView(localGraph, remoteGraph, view, options);
             await SaveViewToFileAsync(content, view, options, diff: true, ct);
-        }
+        }));
     }
 
     public async Task SaveViewToFileAsync(string content, View view, RenderOptions options, bool diff = false, CancellationToken ct = default)
