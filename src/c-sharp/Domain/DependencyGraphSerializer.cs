@@ -1,119 +1,144 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
+using MessagePack;
+using MessagePack.Resolvers;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Archlens.Domain;
 
 public static class DependencyGraphSerializer
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly MessagePackSerializerOptions MsgPackOptions =
+        MessagePackSerializerOptions.Standard
+            .WithResolver(StandardResolver.Instance)
+            .WithCompression(MessagePackCompression.Lz4BlockArray);
+
+    [MessagePackObject]
+    public sealed class GraphSnapshotDto
     {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() }
-    };
+        [Key(0)] public int Version { get; set; }
+        [Key(1)] public List<ProjectItemDto> Items { get; set; } = [];
+        [Key(2)] public List<ContainmentDto> Contains { get; set; } = [];
+        [Key(3)] public List<DependencySetDto> DependsOn { get; set; } = [];
+    }
 
-    private sealed record GraphSnapshotDto(
-        int Version,
-        IEnumerable<ProjectItemDto> Items,
-        IEnumerable<ContainmentDto> Contains,
-        IEnumerable<DependencySetDto> DependsOn
-    );
+    [MessagePackObject]
+    public sealed class ProjectItemDto
+    {
+        [Key(0)] public string Path { get; set; } = "";
+        [Key(1)] public string Name { get; set; } = "";
+        [Key(2)] public DateTime LastWriteTime { get; set; }
+        [Key(3)] public int Type { get; set; }
+    }
 
-    private sealed record ProjectItemDto(
-        string Path,
-        string Name,
-        DateTime LastWriteTime,
-        ProjectItemType Type
-    );
+    [MessagePackObject]
+    public sealed class ContainmentDto
+    {
+        [Key(0)] public string Parent { get; set; } = "";
+        [Key(1)] public List<string> Children { get; set; } = [];
+    }
 
-    private sealed record ContainmentDto(
-        string Parent,
-        List<string> Children
-    );
+    [MessagePackObject]
+    public sealed class DependencySetDto
+    {
+        [Key(0)] public string From { get; set; } = "";
+        [Key(1)] public List<DependencyDto> Dependencies { get; set; } = [];
+    }
 
-    private sealed record DependencySetDto(
-        string From,
-        List<DependencyDto> Dependencies
-    );
+    [MessagePackObject]
+    public sealed class DependencyDto
+    {
+        [Key(0)] public string To { get; set; } = "";
+        [Key(1)] public int Count { get; set; }
+        [Key(2)] public int Type { get; set; }
+    }
 
-    private sealed record DependencyDto(
-        string To,
-        int Count,
-        DependencyType Type
-    );
-
-    public static string Serialize(ProjectDependencyGraph graph, int version = 1)
+    public static byte[] Serialize(ProjectDependencyGraph graph, int version = 1)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
         var items = graph.ProjectItems.Values
             .OrderBy(i => i.Path.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(i => new ProjectItemDto(
-                Path: i.Path.Value,
-                Name: i.Name,
-                LastWriteTime: i.LastWriteTime,
-                Type: i.Type));
+            .Select(i => new ProjectItemDto
+            {
+                Path = i.Path.Value,
+                Name = i.Name,
+                LastWriteTime = i.LastWriteTime,
+                Type = (int)i.Type,
+            })
+            .ToList();
 
         var contains = graph.ProjectItems.Values
             .Where(i => i.Type == ProjectItemType.Directory)
             .OrderBy(i => i.Path.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(dir => new ContainmentDto(
-                Parent: dir.Path.Value,
-                Children: [.. graph.ChildrenOf(dir.Path)
+            .Select(dir => new ContainmentDto
+            {
+                Parent = dir.Path.Value,
+                Children = [.. graph.ChildrenOf(dir.Path)
                     .Select(p => p.Value)
-                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)]))
-            .Where(x => x.Children.Count > 0);
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)],
+            })
+            .Where(x => x.Children.Count > 0)
+            .ToList();
 
         var dependsOn = graph.ProjectItems.Values
             .Where(i => i.Type == ProjectItemType.File)
             .OrderBy(i => i.Path.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(file => new DependencySetDto(
-                From: file.Path.Value,
-                Dependencies: [.. graph.DependenciesFrom(file.Path)
+            .Select(file => new DependencySetDto
+            {
+                From = file.Path.Value,
+                Dependencies = [.. graph.DependenciesFrom(file.Path)
                     .OrderBy(kv => kv.Key.Value, StringComparer.OrdinalIgnoreCase)
-                    .Select(kv => new DependencyDto(
-                        To: kv.Key.Value,
-                        Count: kv.Value.Count,
-                        Type: kv.Value.Type))]))
-            .Where(x => x.Dependencies.Count > 0);
+                    .Select(kv => new DependencyDto
+                    {
+                        To = kv.Key.Value,
+                        Count = kv.Value.Count,
+                        Type = (int)kv.Value.Type,
+                    })],
+            })
+            .Where(x => x.Dependencies.Count > 0)
+            .ToList();
 
-        var dto = new GraphSnapshotDto(
-            Version: version,
-            Items: items,
-            Contains: contains,
-            DependsOn: dependsOn
-        );
+        var dto = new GraphSnapshotDto
+        {
+            Version = version,
+            Items = items,
+            Contains = contains,
+            DependsOn = dependsOn,
+        };
 
-        return JsonSerializer.Serialize(dto, JsonOptions);
+        return MessagePackSerializer.Serialize(dto, MsgPackOptions);
     }
 
-    public static ProjectDependencyGraph Deserialize(string json, string projectRoot)
+    public static ProjectDependencyGraph Deserialize(byte[] data, string projectRoot)
     {
-        if (string.IsNullOrWhiteSpace(json))
-            throw new ArgumentException("JSON is required.", nameof(json));
+        if (data is null || data.Length == 0)
+            throw new ArgumentException("Data is required to serialise.", nameof(data));
 
         if (string.IsNullOrWhiteSpace(projectRoot))
             throw new ArgumentException("Project root is required.", nameof(projectRoot));
 
-        var dto = JsonSerializer.Deserialize<GraphSnapshotDto>(json, JsonOptions)
-            ?? throw new InvalidOperationException("Failed to deserialize dependency graph snapshot.");
+        var dto = MessagePackSerializer.Deserialize<GraphSnapshotDto>(data, MsgPackOptions)
+            ?? throw new InvalidOperationException("Failed to deserialise dependency graph snapshot.");
 
         var graph = new ProjectDependencyGraph(projectRoot);
 
         var items = dto.Items
             .Select(i =>
             {
-                var path = ToRelativePath(projectRoot, i.Path, i.Type);
+                var type = (ProjectItemType)i.Type;
+                var path = type == ProjectItemType.Directory
+                    ? RelativePath.Directory(projectRoot, i.Path)
+                    : RelativePath.File(projectRoot, i.Path);
                 return new ProjectItem(
                     Path: path,
                     Name: i.Name,
                     LastWriteTime: i.LastWriteTime,
-                    Type: i.Type);
-            });
+                    Type: type);
+            })
+            .ToList();
 
         graph.UpsertProjectItems(items);
 
@@ -131,7 +156,9 @@ public static class DependencyGraphSerializer
                 if (!itemTypeByPath.TryGetValue(childPath, out var childType))
                     throw new InvalidOperationException($"Child '{childPath}' does not exist in snapshot items.");
 
-                return ToRelativePath(projectRoot, childPath, childType);
+                return childType == ProjectItemType.Directory
+                    ? RelativePath.Directory(projectRoot, childPath)
+                    : RelativePath.File(projectRoot, childPath);
             });
 
             graph.AddChildren(parent, children);
@@ -142,22 +169,17 @@ public static class DependencyGraphSerializer
             var from = RelativePath.File(projectRoot, entry.From);
 
             var dependencies = entry.Dependencies.ToDictionary(
-                    d => itemTypeByPath.TryGetValue(d.To, out var targetType)
-                        ? ToRelativePath(projectRoot, d.To, targetType)
-                        : RelativePath.File(projectRoot, d.To),
-                    d => new Dependency(d.Count, d.Type)
-                );
+                d => itemTypeByPath.TryGetValue(d.To, out var targetType)
+                    ? (targetType == ProjectItemType.Directory
+                        ? RelativePath.Directory(projectRoot, d.To)
+                        : RelativePath.File(projectRoot, d.To))
+                    : RelativePath.File(projectRoot, d.To),
+                d => new Dependency(d.Count, (DependencyType)d.Type)
+            );
 
             graph.AddDependencies(from, dependencies);
         }
 
         return graph;
-    }
-
-    private static RelativePath ToRelativePath(string projectRoot, string path, ProjectItemType type)
-    {
-        return type == ProjectItemType.Directory
-            ? RelativePath.Directory(projectRoot, path)
-            : RelativePath.File(projectRoot, path);
     }
 }

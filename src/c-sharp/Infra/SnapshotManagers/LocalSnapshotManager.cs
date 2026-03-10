@@ -20,8 +20,8 @@ public sealed class LocalSnapshotManager(string _localDirName, string _localFile
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, _localFileName);
 
-        var json = DependencyGraphSerializer.Serialize(graph);
-        await File.WriteAllTextAsync(path, json, ct);
+        var bytes = DependencyGraphSerializer.Serialize(graph);
+        await File.WriteAllBytesAsync(path, bytes, ct);
     }
 
     public async Task<ProjectDependencyGraph?> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default)
@@ -35,9 +35,11 @@ public sealed class LocalSnapshotManager(string _localDirName, string _localFile
         if (!File.Exists(path))
             return null;
 
-        var json = await File.ReadAllTextAsync(path, ct);
-        var graph = DependencyGraphSerializer.Deserialize(json, root);
-
-        return graph ?? null;
+        var bytes = await File.ReadAllBytesAsync(path, ct);
+        try
+        {
+            return DependencyGraphSerializer.Deserialize(bytes, root);
+        }
+        catch { return null; }
     }
 }

@@ -45,10 +45,10 @@ public sealed class GitSnapshotManager : ISnapshotManager
 
         try
         {
-            var json = await HttpGetAsync(url, ct).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(json))
+            var data = await HttpGetAsync(url, ct).ConfigureAwait(false);
+            if (data is null || data.Length == 0)
                 throw new Exception("Unable to find main branch's graph snapshot");
-            var graph = DependencyGraphSerializer.Deserialize(json, options.BaseOptions.FullRootPath);
+            var graph = DependencyGraphSerializer.Deserialize(data, options.BaseOptions.FullRootPath);
             if (graph is not null) return graph;
         }
         catch (OperationCanceledException) { throw; }
@@ -107,10 +107,10 @@ public sealed class GitSnapshotManager : ISnapshotManager
         return sb.ToString();
     }
 
-    private async Task<string> HttpGetAsync(string url, CancellationToken ct)
+    private async Task<byte[]> HttpGetAsync(string url, CancellationToken ct)
     {
         using var resp = await _http.GetAsync(url, ct).ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
     }
 }
