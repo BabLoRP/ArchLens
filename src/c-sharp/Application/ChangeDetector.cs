@@ -361,10 +361,17 @@ public sealed class ChangeDetector
 
         foreach (var d in ordered)
         {
-            if (kept.Any(parent => d.Value.StartsWith(parent.Value, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            kept.Add(d);
+            bool dominated = false;
+            foreach (var parent in kept)
+            {
+                if (d.Value.StartsWith(parent.Value, StringComparison.OrdinalIgnoreCase))
+                {
+                    dominated = true;
+                    break;
+                }
+            }
+            if (!dominated)
+                kept.Add(d);
         }
         return kept;
     }
@@ -392,9 +399,16 @@ public sealed class ChangeDetector
     {
         var path = GetRelative(projectRoot, content);
 
-        if (rules.DirPrefixes.Any(rule => (path + '/').StartsWith(rule, StringComparison.OrdinalIgnoreCase)
-                || ('/' + path + '/').Contains('/' + rule, StringComparison.OrdinalIgnoreCase)))
-            return true;
+        // Plain loops — this is called for every file and directory during the scan,
+        // so avoiding LINQ enumerator allocations per call matters.
+        var pathWithSlash = path + '/';
+        var pathWithBothSlashes = '/' + path + '/';
+        foreach (var rule in rules.DirPrefixes)
+        {
+            if (pathWithSlash.StartsWith(rule, StringComparison.OrdinalIgnoreCase)
+                || pathWithBothSlashes.Contains('/' + rule, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
 
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         foreach (var segment in segments)
