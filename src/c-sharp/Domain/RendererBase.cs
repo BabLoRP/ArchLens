@@ -128,9 +128,9 @@ public abstract class RendererBase
                 .Where(x => graph.GetProjectItem(x.Path)?.Type == ProjectItemType.Directory)
                 .ToList();
 
-        var visibleNodes    = new Dictionary<RelativePath, RenderNode>();
-        var childrenByParent= new Dictionary<RelativePath, HashSet<RelativePath>>();
-        var selectedRoots   = new HashSet<RelativePath>();
+        var visibleNodes = new Dictionary<RelativePath, RenderNode>();
+        var childrenByParent = new Dictionary<RelativePath, HashSet<RelativePath>>();
+        var selectedRoots = new HashSet<RelativePath>();
 
         foreach (var (root, depth) in packageRoots)
         {
