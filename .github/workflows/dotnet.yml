@@ -7,6 +7,47 @@ on:
     branches: [ "master" ]
 
 jobs:
+  lint:
+    name: Lint
+    if: github.event_name == 'pull_request' || github.event_name == 'draft'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore src/c-sharp/Archlens.sln
+
+      - name: Remove unused imports
+        run: >
+          dotnet format style src/c-sharp/Archlens.sln
+          --diagnostics IDE0005
+          --severity warn
+          --no-restore
+          --verbosity diagnostic
+          # To exclude files or folders, append e.g.:
+          #   --exclude "src/c-sharp/SomeFolder/**/*.cs"
+          #   --exclude "src/c-sharp/SomeFolder/**"
+          # To ignore specific lines of code, wrap it in #pragma warning disable IDE0005
+
+      - name: Commit fixes (if any)
+        run: |
+          git diff --quiet && echo "Nothing to fix." && exit 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: remove unused imports"
+          git push
+
   build:
     runs-on: ubuntu-latest
     steps:
