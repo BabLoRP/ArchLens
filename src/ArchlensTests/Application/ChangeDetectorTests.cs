@@ -1,9 +1,9 @@
-﻿using Archlens.Application;
+﻿using System.Runtime.InteropServices;
+using Archlens.Application;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
-using System.Runtime.InteropServices;
 
 namespace ArchlensTests.Application;
 

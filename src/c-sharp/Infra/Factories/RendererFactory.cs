@@ -1,8 +1,8 @@
+using System;
 using Archlens.Domain;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.Renderers;
-using System;
 
 namespace Archlens.Infra.Factories;
 

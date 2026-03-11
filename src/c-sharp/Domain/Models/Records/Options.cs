@@ -1,5 +1,5 @@
-﻿using Archlens.Domain.Models.Enums;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Archlens.Domain.Models.Enums;
 
 namespace Archlens.Domain.Models.Records;
 

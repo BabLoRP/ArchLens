@@ -1,6 +1,6 @@
 namespace Archlens.Domain.Models.Enums;
 
-public enum SnapshotManager 
+public enum SnapshotManager
 {
     Git,
     Local

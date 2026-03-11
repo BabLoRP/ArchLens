@@ -1,10 +1,10 @@
-using Archlens.Domain;
-using Archlens.Domain.Models.Records;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Archlens.Domain;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Renderers;
 

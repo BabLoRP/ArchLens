@@ -1,5 +1,5 @@
-﻿using Archlens.Domain.Utils;
-using System.Linq;
+﻿using System.Linq;
+using Archlens.Domain.Utils;
 
 namespace Archlens.Domain.Models.Records;
 

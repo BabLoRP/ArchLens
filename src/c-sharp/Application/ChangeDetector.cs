@@ -1,13 +1,13 @@
-﻿using Archlens.Domain.Models;
-using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Models;
+using Archlens.Domain.Models.Records;
+using Archlens.Domain.Utils;
 using ProjectChanges = Archlens.Domain.Models.Records.ProjectChanges;
 using ProjectDependencyGraph = Archlens.Domain.Models.ProjectDependencyGraph;
 
@@ -321,7 +321,7 @@ public sealed class ChangeDetector
         List<RelativePath> deletedFiles = [];
         List<RelativePath> deletedDirs = [];
 
-        if (lastSavedGraph is null  || lastSavedGraph.ProjectItems is null)
+        if (lastSavedGraph is null || lastSavedGraph.ProjectItems is null)
             return (deletedFiles, deletedDirs);
 
         foreach (var item in lastSavedGraph.ProjectItems.Values)
@@ -392,7 +392,7 @@ public sealed class ChangeDetector
     {
         var path = GetRelative(projectRoot, content);
 
-        if (rules.DirPrefixes.Any(rule => (path + '/').StartsWith(rule, StringComparison.OrdinalIgnoreCase) 
+        if (rules.DirPrefixes.Any(rule => (path + '/').StartsWith(rule, StringComparison.OrdinalIgnoreCase)
                 || ('/' + path + '/').Contains('/' + rule, StringComparison.OrdinalIgnoreCase)))
             return true;
 

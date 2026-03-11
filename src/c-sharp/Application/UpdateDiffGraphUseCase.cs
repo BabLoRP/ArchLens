@@ -1,9 +1,9 @@
-using Archlens.Domain;
-using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models.Records;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain;
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Application;
 

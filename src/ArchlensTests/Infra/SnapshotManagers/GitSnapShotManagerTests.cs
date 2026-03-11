@@ -1,9 +1,9 @@
-﻿using Archlens.Domain;
+﻿using System.Net;
+using Archlens.Domain;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.SnapshotManagers;
 using ArchlensTests.Utils;
-using System.Net;
 
 namespace ArchlensTests.Infra.SnapshotManagers;
 
@@ -20,7 +20,7 @@ public sealed class GitSnapShotManagerTests : IDisposable
         SnapshotManager: SnapshotManager.Git,
         SnapshotDir: ".archlens",
         SnapshotFile: "snapshot.json",
-        GitInfo: new (gitUrl, branch)
+        GitInfo: new(gitUrl, branch)
     );
 
     [Fact]

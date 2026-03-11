@@ -1,5 +1,3 @@
-using Archlens.Domain.Models.Enums;
-using Archlens.Domain.Models.Records;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +6,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Models.Enums;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra;
 

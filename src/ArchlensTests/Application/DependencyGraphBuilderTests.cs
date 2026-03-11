@@ -1,9 +1,9 @@
-﻿using Archlens.Application;
+﻿using System.Text;
+using Archlens.Application;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
-using System.Text;
 
 namespace ArchlensTests.Application;
 
@@ -725,7 +725,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (domainDir, new[] { utilsDir, utilsDir, utilsDir }), 
+            (domainDir, new[] { utilsDir, utilsDir, utilsDir }),
             (utilsDir, new[] { uFile })
         );
 
@@ -792,7 +792,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
         Assert.Contains(utilsDir, lastSaved.DependenciesFrom(depGraph).Keys);
 
-        _fs.File("Domain/Models/DependencyGraph.cs", "/* */"); 
+        _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
 
         var modelsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/");
         var changes = CreateProjectChanges(
@@ -833,7 +833,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var task = builder.GetGraphAsync(changes, null, cts.Token);
 
-        await blocking.Started.Task; 
+        await blocking.Started.Task;
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await task);

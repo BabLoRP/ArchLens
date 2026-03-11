@@ -1,10 +1,10 @@
-﻿using Archlens.Application;
+﻿using System;
+using System.IO;
+using System.Threading.Tasks;
+using Archlens.Application;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra;
 using Archlens.Infra.Factories;
-using System;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace Archlens.CLI;
 
@@ -75,7 +75,7 @@ public class Program
         }
     }
 
-    private async static Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff = false, string format = "puml")
+    private static async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff = false, string format = "puml")
     {
         var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
 

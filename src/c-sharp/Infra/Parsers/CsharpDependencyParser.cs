@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
 
 namespace Archlens.Infra.Parsers;
 

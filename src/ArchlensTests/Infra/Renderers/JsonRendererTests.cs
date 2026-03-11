@@ -1,9 +1,9 @@
-﻿using Archlens.Domain.Models;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace ArchlensTests.Infra.Renderers;
 
