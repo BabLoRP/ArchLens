@@ -230,3 +230,8 @@ pip-selfcheck.json
 /.envrc
 
 **.dll
+
+**/.dotnet
+**/.dotnet/
+.dotnet/
+.dotnet
