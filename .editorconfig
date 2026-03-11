@@ -1,23 +1,12 @@
 root = true
 
 [*]
-indent_style             = tab
 insert_final_newline     = true
 trim_trailing_whitespace = true
 
 [*.cs]
 tab_width   = 4
-
 dotnet_diagnostic.IDE0055.severity = warning
-
-csharp_new_line_before_open_brace = true
-csharp_new_line_before_members_in_object_initializers = true
-
-# Indentation
-csharp_indent_case_contents                                        = true
-csharp_indent_switch_labels                                        = true
-csharp_indent_block_contents                                       = true
-csharp_indent_braces                                               = false
 
 # Spacing
 csharp_space_after_cast                                           = false
