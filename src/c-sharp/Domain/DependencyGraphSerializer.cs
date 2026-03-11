@@ -1,10 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using MessagePack;
 using MessagePack.Resolvers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Archlens.Domain;
 

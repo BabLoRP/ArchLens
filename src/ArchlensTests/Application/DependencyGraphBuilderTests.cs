@@ -1,10 +1,10 @@
-﻿using System.Text;
+﻿using System.Collections.Concurrent;
+using System.Text;
 using Archlens.Application;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using ArchlensTests.Utils;
-using System.Collections.Concurrent;
 
 namespace ArchlensTests.Application;
 

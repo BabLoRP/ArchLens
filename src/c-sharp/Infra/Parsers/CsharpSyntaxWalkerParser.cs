@@ -1,13 +1,13 @@
-using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models.Records;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models.Records;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Archlens.Infra.Parsers;
 

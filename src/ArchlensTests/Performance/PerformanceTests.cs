@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Archlens.Application;
 using Archlens.Domain;
 using Archlens.Domain.Interfaces;
@@ -5,7 +6,6 @@ using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.Renderers;
-using System.Diagnostics;
 
 namespace ArchlensTests.Performance;
 
