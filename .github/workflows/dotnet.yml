@@ -27,14 +27,17 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore src/c-sharp/Archlens.sln
 
-      - name: Auto-fix lint issues & remove unused imports
-        run: |
+      - name: Remove unused imports
+        run: >
+          dotnet format style src/c-sharp/Archlens.sln
+          --diagnostics IDE0005
+          --severity warn
+          --no-restore
+          --verbosity diagnostic
           # To exclude files or folders, append e.g.:
           #   --exclude "src/c-sharp/SomeFolder/**/*.cs"
-          # To suppress a specific rule in code, use: #pragma warning disable <RULE_ID>
-          dotnet format src/c-sharp/Archlens.sln 
-          --no-restore 
-          --verbosity diagnostic
+          #   --exclude "src/c-sharp/SomeFolder/**"
+          # To ignore specific lines of code, wrap it in #pragma warning disable IDE0005
 
       - name: Commit fixes (if any)
         run: |
@@ -42,7 +45,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "chore: auto-fix lint issues"
+          git commit -m "chore: remove unused imports"
           git push
 
   build:
@@ -53,7 +56,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 8.0.x
 
       - name: Restore dependencies
         run: dotnet restore src/c-sharp/Archlens.sln
