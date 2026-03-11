@@ -29,15 +29,11 @@ jobs:
 
       - name: Remove unused imports
         run: >
-          dotnet format style src/c-sharp/Archlens.sln
-          --diagnostics IDE0005
-          --severity warn
-          --no-restore
-          --verbosity diagnostic
+          dotnet format style src/c-sharp/Archlens.sln --severity warn --no-restore --verbosity diagnostic
           # To exclude files or folders, append e.g.:
           #   --exclude "src/c-sharp/SomeFolder/**/*.cs"
           #   --exclude "src/c-sharp/SomeFolder/**"
-          # To ignore specific lines of code, wrap it in #pragma warning disable IDE0005
+          # To ignore specific lines of code, wrap it in e.g. #pragma warning disable IDE0005
 
       - name: Commit fixes (if any)
         run: |
@@ -56,7 +52,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 9.0.x
 
       - name: Restore dependencies
         run: dotnet restore src/c-sharp/Archlens.sln
