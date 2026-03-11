@@ -1,11 +1,10 @@
-﻿using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Parsers;
 
@@ -22,7 +21,7 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
     {
         var deps = new List<RelativePath>();
 
-        
+
         if (string.IsNullOrEmpty(_projectImportPrefix))
             return deps; // if we do not know the project prefix we cannot decide what is internal
 

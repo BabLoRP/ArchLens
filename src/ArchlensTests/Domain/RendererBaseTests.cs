@@ -1,8 +1,8 @@
+using System.Text.RegularExpressions;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
-using System.Text.RegularExpressions;
 
 namespace ArchlensTests.Domain;
 

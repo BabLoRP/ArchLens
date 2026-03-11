@@ -51,7 +51,7 @@ public class ProjectDependencyGraph(string projectRoot)
 
     public RelativePath UpsertProjectItem(RelativePath path, ProjectItemType type)
     {
-        if(string.IsNullOrWhiteSpace(path.Value))
+        if (string.IsNullOrWhiteSpace(path.Value))
             throw new ArgumentNullException(nameof(path));
 
         var id = NormalisePath(path, type);
@@ -66,7 +66,8 @@ public class ProjectDependencyGraph(string projectRoot)
         try
         {
             lastWriteTime = File.GetLastWriteTimeUtc(absPath);
-        } catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             throw new InvalidOperationException($"Failed to access file system for path '{absPath}'.", ex);
         }

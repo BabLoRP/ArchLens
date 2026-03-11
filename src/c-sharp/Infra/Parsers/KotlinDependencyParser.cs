@@ -1,12 +1,11 @@
-﻿using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models.Records;
-using Archlens.Domain.Utils;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Parsers;
 

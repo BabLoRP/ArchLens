@@ -1,13 +1,13 @@
-using Archlens.Domain;
-using Archlens.Domain.Interfaces;
-using Archlens.Domain.Models;
-using Archlens.Domain.Models.Records;
 using System;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain;
+using Archlens.Domain.Interfaces;
+using Archlens.Domain.Models;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.SnapshotManagers;
 
@@ -32,7 +32,7 @@ public sealed class GitSnapshotManager : ISnapshotManager
 
     public async Task SaveGraphAsync(ProjectDependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
         => await _localManager.SaveGraphAsync(graph, options, ct);
-    
+
     public async Task<ProjectDependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.GitInfo.Url))
@@ -53,7 +53,7 @@ public sealed class GitSnapshotManager : ISnapshotManager
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception e)
-        { 
+        {
             throw new Exception($"Error fetching graph snapshot from GitHub: {e.Message}");
         }
         return null;

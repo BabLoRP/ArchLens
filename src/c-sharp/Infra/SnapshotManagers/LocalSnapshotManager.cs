@@ -1,10 +1,10 @@
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Archlens.Domain;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Archlens.Infra.SnapshotManagers;
 

@@ -1,10 +1,10 @@
-﻿using Archlens.Domain.Models;
-using Archlens.Domain.Models.Records;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Archlens.Domain.Models;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Domain;
 

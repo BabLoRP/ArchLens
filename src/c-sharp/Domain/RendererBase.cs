@@ -1,11 +1,11 @@
-using Archlens.Domain.Models;
-using Archlens.Domain.Models.Records;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Archlens.Domain.Models;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Domain;
 
@@ -128,10 +128,10 @@ public abstract class RendererBase
                 .Where(x => graph.GetProjectItem(x.Path)?.Type == ProjectItemType.Directory)
                 .ToList();
 
-        var visibleNodes    = new Dictionary<RelativePath, RenderNode>();
-        var childrenByParent= new Dictionary<RelativePath, List<RelativePath>>();
-        var rootNodes       = new List<RelativePath>();
-        var selectedRoots   = new HashSet<RelativePath>();
+        var visibleNodes = new Dictionary<RelativePath, RenderNode>();
+        var childrenByParent = new Dictionary<RelativePath, List<RelativePath>>();
+        var rootNodes = new List<RelativePath>();
+        var selectedRoots = new HashSet<RelativePath>();
 
         foreach (var (root, depth) in packageRoots)
         {
@@ -402,7 +402,7 @@ public abstract class RendererBase
         return [.. edgeMap
             .OrderBy(kv => kv.Key.From.Value, StringComparer.OrdinalIgnoreCase)
             .ThenBy(kv => kv.Key.To.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(kv => 
+            .Select(kv =>
             {
                 relationsMap.TryGetValue(kv.Key, out var rels);
                 rels ??= [];

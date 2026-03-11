@@ -1,12 +1,12 @@
-using Archlens.Domain;
-using Archlens.Domain.Models;
-using Archlens.Domain.Models.Records;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Archlens.Domain;
+using Archlens.Domain.Models;
+using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Renderers;
 
