@@ -304,7 +304,7 @@ public class ProjectDependencyGraph(string projectRoot)
         if (!_dependenciesBySource.TryGetValue(source, out var deps))
             return false;
 
-        if (deps.TryGetValue(target, out Dependency dependency))
+        if (deps.TryGetValue(target, out Dependency? dependency))
         {
             if (dependency.Count == 1)
                 deps.Remove(target);

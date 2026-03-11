@@ -15,36 +15,36 @@ public class ConfigManager(string _path)
 {
     private sealed class ConfigDto
     {
-        public string ProjectRoot { get; set; }
-        public string RootFolder { get; set; }
-        public string ProjectName { get; set; }
-        public string Name { get; set; }
+        public string? ProjectRoot { get; set; }
+        public string? RootFolder { get; set; }
+        public string? ProjectName { get; set; }
+        public string? Name { get; set; }
         public string? Format { get; set; }
         [JsonPropertyName("github")]
-        public GithubDto GitInfo { get; set; }
-        public string SnapshotDir { get; set; }
-        public string SnapshotFile { get; set; }
-        public string[] Exclusions { get; set; }
-        public string[] FileExtensions { get; set; }
-        public Dictionary<string, ViewDto> Views { get; set; }
-        public string SaveLocation { get; set; }
+        public GithubDto? GitInfo { get; set; }
+        public string? SnapshotDir { get; set; }
+        public string? SnapshotFile { get; set; }
+        public string[]? Exclusions { get; set; }
+        public string[]? FileExtensions { get; set; }
+        public Dictionary<string, ViewDto>? Views { get; set; }
+        public string? SaveLocation { get; set; }
     }
 
     private sealed class GithubDto
     {
-        public string Url { get; set; }
-        public string Branch { get; set; }
+        public string? Url { get; set; }
+        public string? Branch { get; set; }
     }
 
     private sealed class ViewDto
     {
-        public PackageDto[] Packages { get; set; }
-        public string[] IgnorePackages { get; set; }
+        public PackageDto[]? Packages { get; set; }
+        public string[]? IgnorePackages { get; set; }
     }
 
     private sealed class PackageDto
     {
-        public string Path { get; set; }
+        public string? Path { get; set; }
         public int? Depth { get; set; }
     }
 
@@ -198,12 +198,12 @@ public class ConfigManager(string _path)
         return languages;
     }
 
-    private static GitInfo MapGitInfo(GithubDto dto)
+    private static GitInfo MapGitInfo(GithubDto? dto)
     {
         return new GitInfo
         (
-            Url: dto.Url ?? "",
-            Branch: dto.Branch ?? ""
+            Url: dto?.Url ?? "",
+            Branch: dto?.Branch ?? ""
         );
     }
 
@@ -224,18 +224,19 @@ public class ConfigManager(string _path)
         };
     }
 
-    private static string MapPath(string baseDir, string relpath)
+    private static string? MapPath(string baseDir, string? relpath)
     {
-        return $"{baseDir}/{relpath}";
+        return relpath is null ? null : $"{baseDir}/{relpath}";
     }
 
-    private static List<View> MapViews(Dictionary<string, ViewDto> viewDtos)
+    private static List<View> MapViews(Dictionary<string, ViewDto>? viewDtos)
     {
+        if (viewDtos is null) return [];
         return [.. viewDtos.Select(v =>
             new View(
                 v.Key,
-                [.. v.Value.Packages.Select<PackageDto,Package>(p => new(p.Path, p.Depth ?? 0))],
-                v.Value.IgnorePackages
+                [.. (v.Value.Packages ?? []).Select<PackageDto, Package>(p => new(p.Path ?? "", p.Depth ?? 0))],
+                v.Value.IgnorePackages ?? []
             ))];
     }
 }
