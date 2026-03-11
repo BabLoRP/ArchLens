@@ -26,7 +26,7 @@ class CsharpDependencyParser(ParserOptions _options) : IDependencyParser
         {
             StreamReader sr = new(path);
 
-            string line = await sr.ReadLineAsync(ct);
+            string? line = await sr.ReadLineAsync(ct);
 
             while (line != null)
             {

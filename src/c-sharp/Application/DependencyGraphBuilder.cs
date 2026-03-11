@@ -14,7 +14,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
 {
     public async Task<ProjectDependencyGraph> GetGraphAsync(
         ProjectChanges changes,
-        ProjectDependencyGraph lastSavedDependencyGraph,
+        ProjectDependencyGraph? lastSavedDependencyGraph,
         CancellationToken ct = default)
     {
         var graph = await BuildGraphAsync(changes.ChangedFilesByDirectory, ct);

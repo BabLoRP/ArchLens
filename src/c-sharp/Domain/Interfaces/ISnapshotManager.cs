@@ -9,5 +9,5 @@ public interface ISnapshotManager
     Task SaveGraphAsync(ProjectDependencyGraph graph,
                    SnapshotOptions options,
                    CancellationToken ct = default);
-    Task<ProjectDependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default);
+    Task<ProjectDependencyGraph?> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default);
 }

@@ -17,7 +17,7 @@ public sealed class ChangeDetectorTests : IDisposable
                 ProjectRoot: _fs.Root,
                 ProjectName: "TestProject"
             ),
-            Languages: languages,
+            Languages: languages ?? [],
             Exclusions: exclusions ?? [],
             FileExtensions: extensions ?? [".cs"]
         );

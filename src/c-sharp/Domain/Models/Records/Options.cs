@@ -20,7 +20,7 @@ public sealed record RenderOptions(
     BaseOptions BaseOptions,
     RenderFormat Format,
     IReadOnlyList<View> Views,
-    string SaveLocation
+    string? SaveLocation
 );
 
 public sealed record SnapshotOptions(

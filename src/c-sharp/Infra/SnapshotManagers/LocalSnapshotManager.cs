@@ -24,7 +24,7 @@ public sealed class LocalSnapshotManager(string _localDirName, string _localFile
         await File.WriteAllTextAsync(path, json, ct);
     }
 
-    public async Task<ProjectDependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default)
+    public async Task<ProjectDependencyGraph?> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct = default)
     {
         var root = string.IsNullOrEmpty(options.BaseOptions.FullRootPath)
             ? Path.GetFullPath(options.BaseOptions.ProjectRoot)
