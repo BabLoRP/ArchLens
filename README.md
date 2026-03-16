@@ -38,7 +38,7 @@ pip install archlens
 
 > **Note:** Administrative rights may be required. We recommend using a virtual environment.
 >
-> **Python version:** ArchLens has been tested on Python 3.9–3.11. Do **not** use Python 3.14. Python 3.12 and 3.10 are recommended.
+> **Python version:** Python 3.10 are recommended is recommended; Later versions might cause issues.
 
 ### C# projects and multi-language support
 
