@@ -38,7 +38,7 @@ pip install archlens
 
 > **Note:** Administrative rights may be required. We recommend using a virtual environment.
 >
-> **Python version:** Python 3.10 are recommended is recommended; Later versions might cause issues.
+> **Python version:** Python 3.10 is recommended; Later versions might cause issues.
 
 ### C# projects and multi-language support
 
