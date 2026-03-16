@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Archlens.Application;
-using Archlens.Domain;
 using Archlens.Domain.Interfaces;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Enums;
