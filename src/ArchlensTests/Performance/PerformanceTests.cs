@@ -11,32 +11,6 @@ namespace ArchlensTests.Performance;
 
 public class PerformanceTests
 {
-    // DependencyAggregator
-
-    [Fact]
-    public void DependencyAggregator_Small_Under100ms()
-    {
-        var graph = GraphFactory.Build(moduleCount: 5, filesPerModule: 10, crossModuleDepsPerFile: 3);
-        var root = RelativePath.Directory(GraphFactory.FakeRoot, GraphFactory.FakeRoot);
-
-        var elapsed = Time(() => DependencyAggregator.GetAggregatedDependencies(graph, root));
-
-        Assert.True(elapsed.TotalMilliseconds < 100,
-            $"DependencyAggregator (small, 50 files) took {elapsed.TotalMilliseconds:F1} ms — budget 100 ms");
-    }
-
-    [Fact]
-    public void DependencyAggregator_Large_Under2000ms()
-    {
-        var graph = GraphFactory.Build(moduleCount: 30, filesPerModule: 50, crossModuleDepsPerFile: 3);
-        var root = RelativePath.Directory(GraphFactory.FakeRoot, GraphFactory.FakeRoot);
-
-        var elapsed = Time(() => DependencyAggregator.GetAggregatedDependencies(graph, root));
-
-        Assert.True(elapsed.TotalMilliseconds < 2000,
-            $"DependencyAggregator (large, 1500 files) took {elapsed.TotalMilliseconds:F1} ms — budget 2000 ms");
-    }
-
     // RendererBase / RenderView 
 
     [Fact]

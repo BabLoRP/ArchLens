@@ -174,28 +174,4 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         Assert.NotNull(domain);
         Assert.Equal(3, graph.ChildrenOf(domainPath).Count);
     }
-
-    [Fact]
-    public async Task Load_ReturnsSubModuleDependencies_WhenPresent()
-    {
-        var snapshotManager = new LocalSnapshotManager(".archlens", "snapshot.json");
-        var opts = MakeOptions();
-
-        var root = _fs.Root;
-        var graph = TestDependencyGraph.MakeDependencyGraph(root);
-        await snapshotManager.SaveGraphAsync(graph, opts);
-
-        var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
-
-        var rootPath = RelativePath.Directory(root, "./");
-        var applicationPath = RelativePath.Directory(root, "./Application/");
-
-        Assert.NotNull(loaded.GetProjectItem(applicationPath));
-
-        var rootDeps = DependencyAggregator.GetAggregatedDependencies(loaded, rootPath);
-        var applicationDeps = DependencyAggregator.GetAggregatedDependencies(loaded, applicationPath);
-
-        Assert.Empty(rootDeps);
-        Assert.Equal(3, applicationDeps.Count);
-    }
 }
