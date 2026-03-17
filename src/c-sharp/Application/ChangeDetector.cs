@@ -291,8 +291,8 @@ public sealed class ChangeDetector
 
             string[] subdirs = [];
             string[] fileAbsList = [];
-            try { subdirs = Directory.GetDirectories(dirAbs); } catch { }
-            try { fileAbsList = Directory.GetFiles(dirAbs); } catch { }
+            try { subdirs = Directory.GetDirectories(dirAbs); } catch { /* ignore */}
+            try { fileAbsList = Directory.GetFiles(dirAbs); } catch { /* ignore */}
 
             foreach (var fileAbs in fileAbsList)
             {
