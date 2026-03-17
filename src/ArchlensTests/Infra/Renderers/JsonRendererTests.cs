@@ -24,7 +24,7 @@ public sealed class JsonRendererTests : IDisposable
             FullRootPath: _fs.Root),
         Format: default,
         Views: [new View(viewName, packages ?? [], ignore ?? [])],
-        SaveLocation: null);
+        SaveLocation: $"{_fs.Root}/diagrams");
 
     private static JsonObject ParseJson(string json) =>
         JsonNode.Parse(json)!.AsObject();
