@@ -30,7 +30,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Utils"));
     }
 
-    private ProjectChanges CreateProjectChanges(IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> changedFilesByDirectory,
+    private static ProjectChanges CreateProjectChanges(IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> changedFilesByDirectory,
                                                 IReadOnlyList<RelativePath> deletedFiles,
                                                 IReadOnlyList<RelativePath> deletedDirectories) =>
         new(changedFilesByDirectory, deletedFiles, deletedDirectories);
