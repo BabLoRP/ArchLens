@@ -30,7 +30,10 @@ public class TestFileSystem : IDisposable
         return abs;
     }
 
+#pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
     public void Dispose()
+#pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
+
     {
         try { Directory.Delete(Root, recursive: true); } catch { /* ignore */ }
     }
