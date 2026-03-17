@@ -218,40 +218,11 @@ public sealed class ChangeDetector
 
         foreach (var entry in exclusions)
         {
-            var exclusion = (entry ?? string.Empty).Trim();
-            if (exclusion.Length == 0) continue;
+            var norm = NormaliseExclusionEntry(entry);
+            if (norm is null) continue;
 
-            if (exclusion.StartsWith("**/", StringComparison.Ordinal)) exclusion = exclusion[3..];
-
-            var norm = exclusion.Replace('\\', '/');
-            if (norm.EndsWith('.')) norm = norm[..^1];
-
-            // relative path with trailing '/' -> dir
-            if (norm.EndsWith('/'))
-            {
-                var p = norm;
-                if (p.StartsWith("./", StringComparison.Ordinal)) p = p[2..];
-                if (!p.EndsWith('/')) p += "/";
-                dirPrefixes.Add(p);
-                continue;
-            }
-
-            // a relative path without trailing '/' -> dir
-            if (norm.Contains('/'))
-            {
-                var p = norm;
-                if (!p.EndsWith('/')) p += "/";
-                dirPrefixes.Add(p);
-                continue;
-            }
-
-            // Filename wildcard like "*.dev.cs" -> suffix on filename
-            if (norm.StartsWith("*.", StringComparison.Ordinal))
-            {
-                suffixes.Add(norm[1..]);
-                continue;
-            }
-
+            if (ToDirPrefix(norm) is { } prefix) { dirPrefixes.Add(prefix); continue; }
+            if (norm.StartsWith("*.", StringComparison.Ordinal)) { suffixes.Add(norm[1..]); continue; }
             segments.Add(norm);
         }
 
@@ -260,6 +231,35 @@ public sealed class ChangeDetector
             Segments: [.. segments],
             FileSuffixes: [.. suffixes]
         );
+    }
+
+    // Returns null for blank/empty entries; otherwise strips **/  prefix, normalises slashes, and trims trailing dot.
+    private static string? NormaliseExclusionEntry(string? entry)
+    {
+        var exclusion = (entry ?? string.Empty).Trim();
+        if (exclusion.Length == 0) return null;
+
+        if (exclusion.StartsWith("**/", StringComparison.Ordinal)) exclusion = exclusion[3..];
+
+        var norm = exclusion.Replace('\\', '/');
+        return norm.EndsWith('.') ? norm[..^1] : norm;
+    }
+
+    // Returns the canonical dir-prefix form when norm represents a directory pattern, otherwise null.
+    private static string? ToDirPrefix(string norm)
+    {
+        // relative path with trailing '/' -> dir
+        if (norm.EndsWith('/'))
+        {
+            var p = norm.StartsWith("./", StringComparison.Ordinal) ? norm[2..] : norm;
+            return p.EndsWith('/') ? p : p + "/";
+        }
+
+        // relative path containing '/' but no trailing slash -> dir
+        if (norm.Contains('/'))
+            return norm + "/";
+
+        return null;
     }
 
     private static ProjectFileStructure ScanCurrentProjectFileStructure(
