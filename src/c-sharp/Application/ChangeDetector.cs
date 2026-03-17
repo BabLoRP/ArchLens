@@ -389,7 +389,10 @@ public sealed class ChangeDetector
         return deletedDirsRel.Any(deletedDir => fileRel.Value.StartsWith(deletedDir.Value, StringComparison.OrdinalIgnoreCase));
     }
 
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance
     private static IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> FreezeChanged(
+#pragma warning restore CA1859 // Use concrete types when possible for improved performance
+
         Dictionary<RelativePath, List<RelativePath>> changed)
     {
         return changed.ToDictionary(
