@@ -215,7 +215,10 @@ public abstract class RendererBase
     private static IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> MergeChildren(
         RenderGraph localRender,
         RenderGraph remoteRender,
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance
         IReadOnlySet<RelativePath> visibleNodes)
+#pragma warning restore CA1859 // Use concrete types when possible for improved performance
+
     {
         var merged = new Dictionary<RelativePath, HashSet<RelativePath>>();
 
