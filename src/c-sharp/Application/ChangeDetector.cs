@@ -378,16 +378,7 @@ public sealed class ChangeDetector
 
         foreach (var d in ordered)
         {
-            bool dominated = false;
-            foreach (var parent in kept)
-            {
-                if (d.Value.StartsWith(parent.Value, StringComparison.OrdinalIgnoreCase))
-                {
-                    dominated = true;
-                    break;
-                }
-            }
-            if (!dominated)
+            if (!kept.Any(parent => d.Value.StartsWith(parent.Value, StringComparison.OrdinalIgnoreCase)))
                 kept.Add(d);
         }
         return kept;
