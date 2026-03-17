@@ -407,6 +407,8 @@ public sealed class ChangeDetector
         var pathSeparater = '/';
         var pathWithSlash = path + pathSeparater;
         var pathWithBothSlashes = pathSeparater + path + pathSeparater;
+
+        // Do not change to linq - this is called on every file in a project and linq would allocate too much space on large systems
         foreach (var rule in rules.DirPrefixes)
         {
             if (pathWithSlash.StartsWith(rule, StringComparison.OrdinalIgnoreCase)
@@ -415,6 +417,7 @@ public sealed class ChangeDetector
         }
 
         var segments = path.Split(pathSeparater, StringSplitOptions.RemoveEmptyEntries);
+        // Do not change to linq - this is called on every file in a project and linq would allocate too much space on large systems
         foreach (var segment in segments)
         {
             foreach (var ban in rules.Segments)
@@ -425,6 +428,7 @@ public sealed class ChangeDetector
         }
 
         var fileName = Path.GetFileName(path);
+        // Do not change to linq - this is called on every file in a project and linq would allocate too much space on large systems
         foreach (var suf in rules.FileSuffixes)
         {
             if (fileName.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
