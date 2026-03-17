@@ -386,12 +386,7 @@ public sealed class ChangeDetector
 
     private static bool IsUnderAnyDeletedDirectory(RelativePath fileRel, IReadOnlyList<RelativePath> deletedDirsRel)
     {
-        foreach (var deletedDir in deletedDirsRel)
-        {
-            if (fileRel.Value.StartsWith(deletedDir.Value, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
+        return deletedDirsRel.Any(deletedDir => fileRel.Value.StartsWith(deletedDir.Value, StringComparison.OrdinalIgnoreCase));
     }
 
     private static IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> FreezeChanged(
