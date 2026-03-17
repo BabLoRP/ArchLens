@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Archlens.Infra;
 
@@ -48,6 +49,7 @@ public class ConfigManager(string _path)
         public int? Depth { get; set; }
     }
 
+    private readonly JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };
     public async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> LoadAsync(bool diff = false, string format = "puml", CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_path))
@@ -61,7 +63,7 @@ public class ConfigManager(string _path)
 
         var dto = await JsonSerializer.DeserializeAsync<ConfigDto>(
             fileStream,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+            jsonOptions,
             ct
         ) ?? throw new InvalidOperationException($"Could not parse JSON in {configFile}.");
 
