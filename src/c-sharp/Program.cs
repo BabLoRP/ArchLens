@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Archlens.Application;
@@ -19,52 +19,28 @@ public class Program
             : new FileInfo(path).Directory!;
 
         var format = args.Length < 2 ? "puml" : args[1].Trim();
-        var diff = args.Length < 3 ? false : args[2].Trim() == "diff";
+        var diff = args.Length >= 3 && args[2].Trim() == "diff";
 
         await CLI(root.FullName, format, diff);
     }
 
-    public static string CLISync(string config_path, string format = "puml", bool diff = false)
+    public static string CLISync(string configPath, string format = "puml", bool diff = false)
     {
-        return CLI(config_path, format, diff).GetAwaiter().GetResult();
+        return CLI(configPath, format, diff).GetAwaiter().GetResult();
     }
 
-    public static async Task<string> CLI(string config_path, string format = "puml", bool diff = false)
+    public static async Task<string> CLI(string configPath, string format = "puml", bool diff = false)
     {
         try
         {
-            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await GetOptions(config_path, diff, format);
+            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await LoadOptions(configPath, diff, format);
 
             var snapshotManager = SnapshotManagerFactory.SelectSnapshotManager(snapshotOptions);
             var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
             var renderer = RendererFactory.SelectRenderer(renderOptions);
 
-            if (diff)
-            {
-                var updateDiffGraphUseCase = new UpdateDiffGraphUseCase(
-                                                        baseOptions,
-                                                        parserOptions,
-                                                        renderOptions,
-                                                        snapshotOptions,
-                                                        parsers,
-                                                        renderer,
-                                                        snapshotManager);
-
-                await updateDiffGraphUseCase.RunAsync();
-            }
-            else
-            {
-                var updateGraphUseCase = new UpdateGraphUseCase(
-                                                        baseOptions,
-                                                        parserOptions,
-                                                        renderOptions,
-                                                        snapshotOptions,
-                                                        parsers,
-                                                        renderer,
-                                                        snapshotManager);
-
-                await updateGraphUseCase.RunAsync();
-            }
+            var useCase = new UpdateGraphUseCase(baseOptions, parserOptions, renderOptions, snapshotOptions, parsers, renderer, snapshotManager, diff);
+            await useCase.RunAsync();
 
             return "";
         }
@@ -75,12 +51,10 @@ public class Program
         }
     }
 
-    private static async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> GetOptions(string args, bool diff = false, string format = "puml")
+    private static async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> LoadOptions(string configPath, bool diff = false, string format = "puml")
     {
-        var configPath = args.Length > 0 ? args : FindConfigFile("archlens.json");
-
-        var configManager = new ConfigManager(configPath);
-
+        var resolvedPath = configPath.Length > 0 ? configPath : FindConfigFile("archlens.json");
+        var configManager = new ConfigManager(resolvedPath);
         return await configManager.LoadAsync(diff, format);
     }
 

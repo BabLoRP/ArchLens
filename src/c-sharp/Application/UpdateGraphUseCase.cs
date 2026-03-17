@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,7 +15,8 @@ public sealed class UpdateGraphUseCase(
     SnapshotOptions snapshotOptions,
     IReadOnlyList<IDependencyParser> parsers,
     RendererBase renderer,
-    ISnapshotManager snapshotManager
+    ISnapshotManager snapshotManager,
+    bool diff = false
     )
 {
     public async Task RunAsync(CancellationToken ct = default)
@@ -23,7 +25,16 @@ public sealed class UpdateGraphUseCase(
         var projectChanges = await ChangeDetector.GetProjectChangesAsync(parserOptions, snapshotGraph, ct);
         var graph = await new DependencyGraphBuilder(parsers, baseOptions).GetGraphAsync(projectChanges, snapshotGraph, ct);
 
-        await renderer.RenderViewsAndSaveToFiles(graph, renderOptions, ct);
+        if (diff)
+        {
+            if (snapshotGraph is null)
+                throw new InvalidOperationException("Diff mode requires a saved snapshot, but none was found.");
+
+            await renderer.RenderDiffViewsAndSaveToFiles(graph, snapshotGraph, renderOptions, ct);
+        }
+        else
+            await renderer.RenderViewsAndSaveToFiles(graph, renderOptions, ct);
+
         await snapshotManager.SaveGraphAsync(graph, snapshotOptions, ct);
     }
 }
