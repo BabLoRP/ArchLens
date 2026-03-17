@@ -19,7 +19,7 @@ public sealed partial class RendererBaseTests : IDisposable
         ),
         Format: default,
         Views: [new View("completeView", [], []), new View("ignoringView", [], ["./Infra/"])],
-        SaveLocation: null
+        SaveLocation: $"{_fs.Root}/diagrams"
     );
 
     private RenderOptions MakeOptions(
@@ -33,7 +33,7 @@ public sealed partial class RendererBaseTests : IDisposable
             FullRootPath: _fs.Root),
         Format: default,
         Views: [new View(viewName, packages ?? [], ignore ?? [])],
-        SaveLocation: saveLocation);
+        SaveLocation: saveLocation ?? $"{_fs.Root}/diagrams");
 
     private static string Minify(string s) => StringOneOrMoreRegex().Replace(s, "");
 
