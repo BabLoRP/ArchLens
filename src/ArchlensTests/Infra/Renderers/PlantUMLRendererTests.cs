@@ -22,7 +22,7 @@ public sealed class PlantUMLRendererTests : IDisposable
             FullRootPath: _fs.Root),
         Format: default,
         Views: [new View(viewName, packages ?? [], ignore ?? [])],
-        SaveLocation: null);
+        SaveLocation: $"{_fs.Root}/diagrams");
 
     private ProjectDependencyGraph DefaultGraph() =>
         TestDependencyGraph.MakeDependencyGraph(_fs.Root);
