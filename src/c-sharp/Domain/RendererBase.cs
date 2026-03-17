@@ -256,50 +256,45 @@ public abstract class RendererBase
         RenderGraph localRender,
         RenderGraph remoteRender)
     {
-        var localEdges = localRender.Edges.ToDictionary(
-            e => (e.From, e.To),
-            e => e);
-
-        var remoteEdges = remoteRender.Edges.ToDictionary(
-            e => (e.From, e.To),
-            e => e);
+        var localEdges = localRender.Edges.ToDictionary(e => (e.From, e.To), e => e);
+        var remoteEdges = remoteRender.Edges.ToDictionary(e => (e.From, e.To), e => e);
 
         var allKeys = new HashSet<(RelativePath From, RelativePath To)>(localEdges.Keys);
         allKeys.UnionWith(remoteEdges.Keys);
 
         return [.. allKeys
-            .Select(key =>
-            {
-                var hasLocal = localEdges.TryGetValue(key, out var localEdge);
-                var hasRemote = remoteEdges.TryGetValue(key, out var remoteEdge);
-
-                var localCount = hasLocal ? localEdge!.Count : 0;
-                var remoteCount = hasRemote ? remoteEdge!.Count : 0;
-                var delta = localCount - remoteCount;
-
-                var state =
-                    delta > 0 ? RenderState.CREATED :
-                    delta < 0 ? RenderState.DELETED :
-                    RenderState.NEUTRAL;
-
-                IReadOnlyList<RenderRelation> relations = state switch
-                {
-                    RenderState.DELETED => hasRemote ? remoteEdge!.Relations : [],
-                    _ => hasLocal ? localEdge!.Relations : []
-                };
-
-                return new RenderEdge(
-                    From: key.From,
-                    To: key.To,
-                    Count: localCount,
-                    Delta: delta,
-                    Type: hasLocal ? localEdge!.Type : remoteEdge!.Type,
-                    State: state,
-                    Relations: relations
-                );
-            })
+            .Select(key => MergeToDiffEdge(key, localEdges.GetValueOrDefault(key), remoteEdges.GetValueOrDefault(key)))
             .OrderBy(e => e.From.Value, StringComparer.OrdinalIgnoreCase)
             .ThenBy(e => e.To.Value, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static RenderEdge MergeToDiffEdge(
+        (RelativePath From, RelativePath To) key,
+        RenderEdge? local,
+        RenderEdge? remote)
+    {
+        var localCount = local?.Count ?? 0;
+        var remoteCount = remote?.Count ?? 0;
+        var delta = localCount - remoteCount;
+
+        var state =
+            delta > 0 ? RenderState.CREATED :
+            delta < 0 ? RenderState.DELETED :
+            RenderState.NEUTRAL;
+
+        var relations = state == RenderState.DELETED
+            ? remote?.Relations ?? []
+            : local?.Relations ?? [];
+
+        return new RenderEdge(
+            From: key.From,
+            To: key.To,
+            Count: localCount,
+            Delta: delta,
+            Type: (local ?? remote)!.Type,
+            State: state,
+            Relations: relations
+        );
     }
 
     private static void AddVisibleDirectories(
