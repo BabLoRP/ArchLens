@@ -81,6 +81,16 @@ public sealed class ChangeDetector
         ProjectDependencyGraph lastSavedGraph,
         CancellationToken ct)
     {
+        var changedFiles = CollectChangedFiles(current, lastSavedGraph, ct);
+        var neededDirs = CollectNeededDirs(projectRoot, current, changedFiles, lastSavedGraph, ct);
+        return BuildDelta(current, neededDirs, changedFiles, lastSavedGraph, ct);
+    }
+
+    private static HashSet<RelativePath> CollectChangedFiles(
+        ProjectFileStructure current,
+        ProjectDependencyGraph lastSavedGraph,
+        CancellationToken ct)
+    {
         HashSet<RelativePath> changedFiles = [];
 
         foreach (var (fileRel, meta) in current.Files)
@@ -88,23 +98,27 @@ public sealed class ChangeDetector
             ct.ThrowIfCancellationRequested();
 
             var lastItem = lastSavedGraph.GetProjectItem(fileRel);
-            if (lastItem is null)
-            {
-                changedFiles.Add(fileRel);
-                continue;
-            }
+            var isNew = lastItem is null;
+            var isModified = !isNew && TrimMilliseconds(meta.LastWriteUtc) > TrimMilliseconds(lastItem!.LastWriteTime);
 
-            if (TrimMilliseconds(meta.LastWriteUtc) > TrimMilliseconds(lastItem.LastWriteTime))
+            if (isNew || isModified)
                 changedFiles.Add(fileRel);
         }
 
+        return changedFiles;
+    }
+
+    private static HashSet<RelativePath> CollectNeededDirs(
+        string projectRoot,
+        ProjectFileStructure current,
+        HashSet<RelativePath> changedFiles,
+        ProjectDependencyGraph lastSavedGraph,
+        CancellationToken ct)
+    {
         HashSet<RelativePath> neededDirs = [];
 
         foreach (var file in changedFiles)
-        {
-            var parent = current.Files[file].ParentDirRel;
-            AddDirAndAncestors(projectRoot, parent, neededDirs, lastSavedGraph, ct);
-        }
+            AddDirAndAncestors(projectRoot, current.Files[file].ParentDirRel, neededDirs, lastSavedGraph, ct);
 
         foreach (var dir in current.DirRels)
         {
@@ -113,44 +127,50 @@ public sealed class ChangeDetector
                 AddDirAndAncestors(projectRoot, dir, neededDirs, lastSavedGraph, ct);
         }
 
+        return neededDirs;
+    }
+
+    private static Dictionary<RelativePath, List<RelativePath>> BuildDelta(
+        ProjectFileStructure current,
+        HashSet<RelativePath> neededDirs,
+        HashSet<RelativePath> changedFiles,
+        ProjectDependencyGraph lastSavedGraph,
+        CancellationToken ct)
+    {
         var delta = new Dictionary<RelativePath, List<RelativePath>>();
 
         foreach (var dir in neededDirs)
         {
             ct.ThrowIfCancellationRequested();
 
-            var isNewDir = !lastSavedGraph.ContainsProjectItem(dir);
-
             if (!current.ChildrenByDir.TryGetValue(dir, out var children))
             {
-                if (isNewDir)
+                if (!lastSavedGraph.ContainsProjectItem(dir))
                     delta[dir] = [];
                 continue;
             }
 
-            var list = new List<RelativePath>();
+            var relevantChildren = children
+                .Where(child => IsChildRelevant(child, current.DirRels, neededDirs, changedFiles, lastSavedGraph))
+                .ToList();
 
-            foreach (var child in children)
-            {
-                var childItemIsDir = current.DirRels.Contains(child);
-
-                if (childItemIsDir)
-                {
-                    if (neededDirs.Contains(child) || !lastSavedGraph.ContainsProjectItem(child))
-                        list.Add(child);
-                }
-                else
-                {
-                    if (changedFiles.Contains(child))
-                        list.Add(child);
-                }
-            }
-
-            if (list.Count > 0)
-                delta[dir] = list;
+            if (relevantChildren.Count > 0)
+                delta[dir] = relevantChildren;
         }
 
         return delta;
+    }
+
+    private static bool IsChildRelevant(
+        RelativePath child,
+        HashSet<RelativePath> currentDirRels,
+        HashSet<RelativePath> neededDirs,
+        HashSet<RelativePath> changedFiles,
+        ProjectDependencyGraph lastSavedGraph)
+    {
+        return currentDirRels.Contains(child)
+            ? neededDirs.Contains(child) || !lastSavedGraph.ContainsProjectItem(child)
+            : changedFiles.Contains(child);
     }
 
     private static void AddDirAndAncestors(
