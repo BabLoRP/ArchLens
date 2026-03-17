@@ -63,7 +63,10 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
             ct.ThrowIfCancellationRequested();
             graph.UpsertProjectItem(parent, ProjectItemType.Directory);
             foreach (var item in items)
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 TryClassifyItem(item, parent, root, graph, fileItems, ct);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
         }
 
         return fileItems;
