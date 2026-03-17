@@ -129,11 +129,8 @@ public static class DependencyGraphSerializer
             .Select(i =>
             {
                 var type = (ProjectItemType)i.Type;
-                var path = type == ProjectItemType.Directory
-                    ? RelativePath.Directory(projectRoot, i.Path)
-                    : RelativePath.File(projectRoot, i.Path);
                 return new ProjectItem(
-                    Path: path,
+                    Path: ToRelativePath(projectRoot, i.Path, type),
                     Name: i.Name,
                     LastWriteTime: i.LastWriteTime,
                     Type: type);
@@ -150,36 +147,37 @@ public static class DependencyGraphSerializer
         foreach (var entry in dto.Contains)
         {
             var parent = RelativePath.Directory(projectRoot, entry.Parent);
-
-            var children = entry.Children.Select(childPath =>
-            {
-                if (!itemTypeByPath.TryGetValue(childPath, out var childType))
-                    throw new InvalidOperationException($"Child '{childPath}' does not exist in snapshot items.");
-
-                return childType == ProjectItemType.Directory
-                    ? RelativePath.Directory(projectRoot, childPath)
-                    : RelativePath.File(projectRoot, childPath);
-            });
-
+            var children = entry.Children.Select(childPath => ResolveChildPath(projectRoot, childPath, itemTypeByPath));
             graph.AddChildren(parent, children);
         }
 
         foreach (var entry in dto.DependsOn)
         {
             var from = RelativePath.File(projectRoot, entry.From);
-
             var dependencies = entry.Dependencies.ToDictionary(
-                d => itemTypeByPath.TryGetValue(d.To, out var targetType)
-                    ? (targetType == ProjectItemType.Directory
-                        ? RelativePath.Directory(projectRoot, d.To)
-                        : RelativePath.File(projectRoot, d.To))
-                    : RelativePath.File(projectRoot, d.To),
-                d => new Dependency(d.Count, (DependencyType)d.Type)
-            );
-
+                d => ResolveDependencyTarget(projectRoot, d.To, itemTypeByPath),
+                d => new Dependency(d.Count, (DependencyType)d.Type));
             graph.AddDependencies(from, dependencies);
         }
 
         return graph;
+    }
+
+    private static RelativePath ToRelativePath(string projectRoot, string path, ProjectItemType type)
+        => type == ProjectItemType.Directory
+            ? RelativePath.Directory(projectRoot, path)
+            : RelativePath.File(projectRoot, path);
+
+    private static RelativePath ResolveChildPath(string projectRoot, string childPath, Dictionary<string, ProjectItemType> itemTypeByPath)
+    {
+        if (!itemTypeByPath.TryGetValue(childPath, out var childType))
+            throw new InvalidOperationException($"Child '{childPath}' does not exist in snapshot items.");
+        return ToRelativePath(projectRoot, childPath, childType);
+    }
+
+    private static RelativePath ResolveDependencyTarget(string projectRoot, string path, Dictionary<string, ProjectItemType> itemTypeByPath)
+    {
+        var type = itemTypeByPath.TryGetValue(path, out var t) ? t : ProjectItemType.File;
+        return ToRelativePath(projectRoot, path, type);
     }
 }
