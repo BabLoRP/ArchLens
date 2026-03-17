@@ -380,6 +380,7 @@ public sealed class ConfigManagerTests : IDisposable
     {
         var path = WriteConfig(new(SaveLocation: "\"diagrams\""));
         var (_, _, renderOptions, _) = await Manager(path).LoadAsync();
+        Assert.NotNull(renderOptions.SaveLocation);
         Assert.NotEmpty(renderOptions.SaveLocation);
         Assert.Contains("diagrams", renderOptions.SaveLocation);
     }
