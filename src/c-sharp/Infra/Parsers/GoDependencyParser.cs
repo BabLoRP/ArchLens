@@ -37,36 +37,31 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
             if (line is null)
                 break;
 
-            var trimmed = line.Trim();
-
-            if (!insideBlock)
-            {
-                if (!trimmed.StartsWith("import", StringComparison.Ordinal))
-                    continue;
-
-                if (!trimmed.Contains('('))
-                {
-                    ExtractImportFromLine(trimmed, deps);
-                    continue;
-                }
-
-                insideBlock = true;
-                ExtractImportFromLine(trimmed, deps);
-                if (trimmed.Contains(')'))
-                    insideBlock = false;
-            }
-            else
-            {
-                if (trimmed.StartsWith(")", StringComparison.Ordinal))
-                {
-                    insideBlock = false;
-                    continue;
-                }
-                ExtractImportFromLine(trimmed, deps);
-            }
+            insideBlock = ProcessImportLine(line.Trim(), insideBlock, deps);
         }
 
         return deps;
+    }
+    private bool ProcessImportLine(string trimmed, bool insideBlock, List<RelativePath> deps)
+    {
+        if (insideBlock)
+        {
+            if (trimmed.StartsWith(')'))
+                return false;
+
+            ExtractImportFromLine(trimmed, deps);
+            return true;
+        }
+
+        if (!trimmed.StartsWith("import", StringComparison.Ordinal))
+            return false;
+
+        ExtractImportFromLine(trimmed, deps);
+
+        if (!trimmed.Contains('('))
+            return false;
+
+        return !trimmed.Contains(')');
     }
 
     private void ExtractImportFromLine(string line, List<RelativePath> deps)
