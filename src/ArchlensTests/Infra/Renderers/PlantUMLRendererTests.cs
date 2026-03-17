@@ -36,8 +36,10 @@ public sealed class PlantUMLRendererTests : IDisposable
         RenderOptions opts) =>
         _renderer.RenderDiffView(local, remote, opts.Views[0], opts);
 
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance
     private static IReadOnlyList<string> Lines(string output) =>
-        output.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+        [.. output.Split('\n').Select(l => l.TrimEnd('\r'))];
+#pragma warning restore CA1859 // Use concrete types when possible for improved performance
 
     [Fact]
     public void FileExtension_IsPuml()
