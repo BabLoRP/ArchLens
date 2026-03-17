@@ -94,7 +94,11 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
         var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
 
-        var loadedItems = loaded.ProjectItems;
+        var loadedItems = loaded?.ProjectItems;
+
+        if (loadedItems is null)
+            Assert.Fail("Loaded items is null");
+
         Assert.Contains(root, loadedItems);
         Assert.Contains(application, loadedItems);
         Assert.Contains(infra, loadedItems);
@@ -106,7 +110,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         Assert.Contains(enums, loadedItems);
         Assert.Contains(utils, loadedItems);
 
-        Assert.Equal(graph.GetProjectItem(root).LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"), loaded.GetProjectItem(root).LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"));
+        Assert.Equal(graph?.GetProjectItem(root)?.LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"), loaded?.GetProjectItem(root)?.LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"));
     }
 
     [Fact]
@@ -148,7 +152,7 @@ public sealed class LocalSnapshotManagerTests : IDisposable
 
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
-        Assert.Equal(graph.ProjectItems, loaded.ProjectItems);
+        Assert.Equal(graph.ProjectItems, loaded?.ProjectItems);
     }
 
     [Fact]
@@ -163,13 +167,13 @@ public sealed class LocalSnapshotManagerTests : IDisposable
 
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
-        Assert.Equal(graph.ProjectItems, loaded.ProjectItems);
+        Assert.Equal(graph.ProjectItems, loaded?.ProjectItems);
 
         var rootPath = RelativePath.Directory(root, "./");
-        Assert.Equal(graph.ChildrenOf(rootPath).Count, loaded.ChildrenOf(rootPath).Count);
+        Assert.Equal(graph.ChildrenOf(rootPath).Count, loaded?.ChildrenOf(rootPath).Count);
 
         var domainPath = RelativePath.Directory(root, "./Domain/");
-        var domain = loaded.GetProjectItem(domainPath);
+        var domain = loaded?.GetProjectItem(domainPath);
 
         Assert.NotNull(domain);
         Assert.Equal(3, graph.ChildrenOf(domainPath).Count);
