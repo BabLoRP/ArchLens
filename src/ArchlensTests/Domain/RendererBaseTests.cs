@@ -6,7 +6,7 @@ using ArchlensTests.Utils;
 
 namespace ArchlensTests.Domain;
 
-public sealed class RendererBaseTests : IDisposable
+public sealed partial class RendererBaseTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
     public void Dispose() => _fs.Dispose();
@@ -35,7 +35,7 @@ public sealed class RendererBaseTests : IDisposable
         Views: [new View(viewName, packages ?? [], ignore ?? [])],
         SaveLocation: saveLocation);
 
-    private static string Minify(string s) => Regex.Replace(s, @"\s+", "");
+    private static string Minify(string s) => StringOneOrMoreRegex().Replace(s, "");
 
 
     [Fact]
@@ -130,9 +130,9 @@ public sealed class RendererBaseTests : IDisposable
         Assert.Contains("\"edges\": [", result);
         Assert.EndsWith("}", result);
 
-        result = Regex.Replace(result, @"\s*", "");
-        newEdge = Regex.Replace(newEdge, @"\s*", "");
-        deletedEdge = Regex.Replace(deletedEdge, @"\s*", "");
+        result = StringZeroMoreRegex().Replace(result, "");
+        newEdge = StringZeroMoreRegex().Replace(newEdge, "");
+        deletedEdge = StringZeroMoreRegex().Replace(deletedEdge, "");
 
         Assert.Contains(newEdge, result);
         Assert.Contains(deletedEdge, result);
@@ -178,7 +178,7 @@ public sealed class RendererBaseTests : IDisposable
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var result = new JsonRenderer().RenderView(graph, opts.Views[0], opts);
 
-        var froms = Regex.Matches(result, @"""fromPackage""\s*:\s*""([^""]+)""")
+        var froms = FromRegex().Matches(result)
                          .Select(m => m.Groups[1].Value)
                          .ToList();
 
@@ -283,7 +283,7 @@ public sealed class RendererBaseTests : IDisposable
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var result = Minify(new JsonRenderer().RenderDiffView(graph, graph, opts.Views[0], opts));
 
-        Assert.Empty(Regex.Matches(result, @"""state"":""(CREATED|DELETED)"""));
+        Assert.Empty(StateRegex().Matches(result));
     }
 
     [Fact]
@@ -524,4 +524,13 @@ public sealed class RendererBaseTests : IDisposable
             new JsonRenderer().RenderDiffView(local, remote, opts.Views[0], opts),
             new JsonRenderer().RenderDiffView(local, remote, opts.Views[0], opts));
     }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex StringOneOrMoreRegex();
+    [GeneratedRegex(@"\s*")]
+    private static partial Regex StringZeroMoreRegex();
+    [GeneratedRegex(@"""fromPackage""\s*:\s*""([^""]+)""")]
+    private static partial Regex FromRegex();
+    [GeneratedRegex(@"""state"":""(CREATED|DELETED)""")]
+    private static partial Regex StateRegex();
 }
