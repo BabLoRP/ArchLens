@@ -31,7 +31,11 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
 
         while (!reader.EndOfStream)
         {
-            ct.ThrowIfCancellationRequested();
+            if (ct.IsCancellationRequested)
+            {
+                reader.Close();
+                ct.ThrowIfCancellationRequested();
+            }
 
             var line = await reader.ReadLineAsync(ct);
             if (line is null)
@@ -40,6 +44,7 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
             insideBlock = ProcessImportLine(line.Trim(), insideBlock, deps);
         }
 
+        reader.Close();
         return deps;
     }
     private bool ProcessImportLine(string trimmed, bool insideBlock, List<RelativePath> deps)
