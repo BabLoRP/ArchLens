@@ -37,85 +37,101 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         var root = RelativePath.Directory(rootFull, rootFull);
         var graph = new ProjectDependencyGraph(rootFull);
 
+        var fileItems = CollectFileItems(changedModules, root, graph, ct);
+        var parsedDeps = await ParseAllAsync(fileItems, ct);
+
+        foreach (var (parent, item, deps) in parsedDeps)
+        {
+            graph.UpsertProjectItem(item, ProjectItemType.File);
+            graph.AddChild(parent, item);
+            graph.SetDependencies(item, deps);
+        }
+
+        return graph;
+    }
+
+    private List<(RelativePath Parent, RelativePath Item, string AbsPath)> CollectFileItems(
+        IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> changedModules,
+        RelativePath root,
+        ProjectDependencyGraph graph,
+        CancellationToken ct)
+    {
         var fileItems = new List<(RelativePath Parent, RelativePath Item, string AbsPath)>();
 
         foreach (var (parent, items) in changedModules)
         {
             ct.ThrowIfCancellationRequested();
-
             graph.UpsertProjectItem(parent, ProjectItemType.Directory);
-
             foreach (var item in items)
-            {
-                try
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    if (string.IsNullOrWhiteSpace(item.Value) || item.Value.Trim() == root.Value)
-                        continue;
-
-                    var itemAbsPath = PathNormaliser.GetAbsolutePath(rootFull, item.Value);
-
-                    if (Path.GetExtension(itemAbsPath).Length == 0)
-                    {
-                        graph.UpsertProjectItem(item, ProjectItemType.Directory);
-                        graph.AddChild(parent, item);
-                    }
-                    else
-                    {
-                        fileItems.Add((parent, item, itemAbsPath));
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
-                }
-            }
+                TryClassifyItem(item, parent, root, graph, fileItems, ct);
         }
 
-        var parsedDeps = new (RelativePath Parent, RelativePath Item, IReadOnlyList<RelativePath> Deps)?[fileItems.Count];
+        return fileItems;
+    }
+
+    private void TryClassifyItem(
+        RelativePath item,
+        RelativePath parent,
+        RelativePath root,
+        ProjectDependencyGraph graph,
+        List<(RelativePath Parent, RelativePath Item, string AbsPath)> fileItems,
+        CancellationToken ct)
+    {
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(item.Value) || item.Value.Trim() == root.Value)
+                return;
+
+            var absPath = PathNormaliser.GetAbsolutePath(_options.FullRootPath, item.Value);
+
+            if (Path.GetExtension(absPath).Length == 0)
+            {
+                graph.UpsertProjectItem(item, ProjectItemType.Directory);
+                graph.AddChild(parent, item);
+            }
+            else
+            {
+                fileItems.Add((parent, item, absPath));
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}"); }
+    }
+
+    private async Task<IEnumerable<(RelativePath Parent, RelativePath Item, IReadOnlyList<RelativePath> Deps)>> ParseAllAsync(
+        List<(RelativePath Parent, RelativePath Item, string AbsPath)> fileItems,
+        CancellationToken ct)
+    {
+        var results = new (RelativePath Parent, RelativePath Item, IReadOnlyList<RelativePath> Deps)?[fileItems.Count];
 
         await Parallel.ForEachAsync(
             Enumerable.Range(0, fileItems.Count),
             new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Environment.ProcessorCount },
-            async (i, innerCt) =>
-            {
-                var (parent, item, absPath) = fileItems[i];
-                try
-                {
-                    var deps = new List<RelativePath>();
-                    foreach (var parser in _dependencyParsers)
-                    {
-                        var d = await parser.ParseFileDependencies(absPath, innerCt).ConfigureAwait(false);
-                        deps.AddRange(d);
-                    }
-                    parsedDeps[i] = (parent, item, deps);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
-                }
-            });
+            async (i, innerCt) => results[i] = await ParseFileItemAsync(fileItems[i], innerCt).ConfigureAwait(false));
 
-        foreach (var entry in parsedDeps)
+        return results.Where(r => r.HasValue).Select(r => r!.Value);
+    }
+
+    private async Task<(RelativePath Parent, RelativePath Item, IReadOnlyList<RelativePath> Deps)?> ParseFileItemAsync(
+        (RelativePath Parent, RelativePath Item, string AbsPath) fileItem,
+        CancellationToken ct)
+    {
+        var (parent, item, absPath) = fileItem;
+        try
         {
-            if (entry is not { } parsed)
-                continue;
-
-            graph.UpsertProjectItem(parsed.Item, ProjectItemType.File);
-            graph.AddChild(parsed.Parent, parsed.Item);
-            graph.SetDependencies(parsed.Item, parsed.Deps);
+            var deps = new List<RelativePath>();
+            foreach (var parser in _dependencyParsers)
+                deps.AddRange(await parser.ParseFileDependencies(absPath, ct).ConfigureAwait(false));
+            return (parent, item, deps);
         }
-
-        return graph;
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
+            return null;
+        }
     }
 
     private static void ApplyDeletions(ProjectDependencyGraph graph, ProjectChanges changes)
