@@ -6,7 +6,7 @@ using Archlens.Infra.SnapshotManagers;
 
 namespace Archlens.Infra.Factories;
 
-public sealed class SnapshotManagerFactory
+public static class SnapshotManagerFactory
 {
     public static ISnapshotManager SelectSnapshotManager(SnapshotOptions o) => o.SnapshotManager switch
     {

@@ -6,7 +6,7 @@ using Archlens.Infra.Renderers;
 
 namespace Archlens.Infra.Factories;
 
-public sealed class RendererFactory
+public static class RendererFactory
 {
     public static RendererBase SelectRenderer(RenderOptions options) => options.Format switch
     {

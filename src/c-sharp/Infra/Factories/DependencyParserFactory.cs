@@ -7,7 +7,7 @@ using Archlens.Infra.Parsers;
 
 namespace Archlens.Infra.Factories;
 
-public sealed class DependencyParserFactory
+public static class DependencyParserFactory
 {
     public static IReadOnlyList<IDependencyParser> SelectDependencyParser(ParserOptions o)
     {
