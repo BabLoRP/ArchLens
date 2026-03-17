@@ -358,16 +358,10 @@ public sealed class ChangeDetector
             if (IsExcluded(projectRoot, absPath, rules))
                 continue;
 
-            if (item.Type == ProjectItemType.File)
-            {
-                if (!currentFiles.ContainsKey(item.Path))
-                    deletedFiles.Add(item.Path);
-            }
-            else
-            {
-                if (!currentDirs.Contains(item.Path))
-                    deletedDirs.Add(item.Path);
-            }
+            var isFile = item.Type == ProjectItemType.File;
+            var isDeleted = isFile ? !currentFiles.ContainsKey(item.Path) : !currentDirs.Contains(item.Path);
+            if (isDeleted)
+                (isFile ? deletedFiles : deletedDirs).Add(item.Path);
         }
         return (deletedFiles, deletedDirs);
     }
