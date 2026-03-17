@@ -19,14 +19,17 @@ public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalk
 
         public override void VisitUsingDirective(UsingDirectiveSyntax node)
         {
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
             if (node.Name.ToString().StartsWith(projectName))
                 Usings.Add(node);
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
+
         }
     }
 
-    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string path, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RelativePath>> ParseFileDependencies(string absPath, CancellationToken ct = default)
     {
-        var text = await File.ReadAllTextAsync(path, ct);
+        var text = await File.ReadAllTextAsync(absPath, ct);
         var tree = CSharpSyntaxTree.ParseText(text, cancellationToken: ct);
         var walker = new UsingCollector(_options.BaseOptions.ProjectName);
         walker.Visit(tree.GetCompilationUnitRoot(ct));
@@ -34,7 +37,7 @@ public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalk
         return [.. walker.Usings
             .Select(u =>
             {
-                var rel = u.Name.ToString()
+                var rel = u?.Name?.ToString()
                     .Replace(".", "/")
                     .Replace(_options.BaseOptions.ProjectName, ".") + "/";
                 return RelativePath.Directory(_options.BaseOptions.FullRootPath, rel);
