@@ -37,7 +37,7 @@ public class JavaDependencyParser(ParserOptions _options) : IDependencyParser
                 }
 
                 string regex = $$"""import\s+(static\s+)?{{_options.BaseOptions.ProjectName}}\.(.+);""";
-                var match = Regex.Match(line, regex);
+                var match = Regex.Match(line, regex, RegexOptions.None, TimeSpan.FromMilliseconds(200));
                 if (match.Success)
                 {
                     var packagePath = match.Groups[2].Value.TrimEnd('*').TrimEnd('.').Replace('.', '/');
