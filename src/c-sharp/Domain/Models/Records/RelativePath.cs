@@ -15,7 +15,7 @@ public readonly record struct RelativePath
     public static RelativePath Directory(string projectRoot, string input)
         => new(PathNormaliser.NormaliseModule(projectRoot, input));
 
-    public string GetName() => Value.Split('/').Where(s => !string.IsNullOrEmpty(s)).Last() ?? Value;
+    public string GetName() => Value.Split('/').Last(s => !string.IsNullOrEmpty(s)) ?? Value;
 
     public override string ToString() => Value;
 }
