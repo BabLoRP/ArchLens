@@ -26,13 +26,13 @@ public sealed class JsonRendererTests : IDisposable
         Views: [new View(viewName, packages ?? [], ignore ?? [])],
         SaveLocation: null);
 
-    private JsonObject ParseJson(string json) =>
+    private static JsonObject ParseJson(string json) =>
         JsonNode.Parse(json)!.AsObject();
 
-    private JsonArray Packages(JsonObject root) =>
+    private static JsonArray Packages(JsonObject root) =>
         root["packages"]!.AsArray();
 
-    private JsonArray Edges(JsonObject root) =>
+    private static JsonArray Edges(JsonObject root) =>
         root["edges"]!.AsArray();
 
     private ProjectDependencyGraph DefaultGraph() =>
