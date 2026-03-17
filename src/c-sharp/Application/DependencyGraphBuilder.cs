@@ -69,7 +69,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         return fileItems;
     }
 
-    private void TryClassifyItem(
+    private async Task TryClassifyItem(
         RelativePath item,
         RelativePath parent,
         RelativePath root,
@@ -97,7 +97,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
             }
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}"); }
+        catch (Exception ex) { await Console.Error.WriteLineAsync($"Error while processing '{item.Value}': {ex}"); }
     }
 
     private async Task<IEnumerable<(RelativePath Parent, RelativePath Item, IReadOnlyList<RelativePath> Deps)>> ParseAllAsync(
@@ -129,7 +129,7 @@ public sealed class DependencyGraphBuilder(IReadOnlyList<IDependencyParser> _dep
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error while processing '{item.Value}': {ex}");
+            await Console.Error.WriteLineAsync($"Error while processing '{item.Value}': {ex}");
             return null;
         }
     }
