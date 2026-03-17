@@ -334,7 +334,10 @@ public sealed class ChangeDetector
         string projectRoot,
         ProjectDependencyGraph? lastSavedGraph,
         IReadOnlyDictionary<RelativePath, ProjectItemMeta> currentFiles,
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance
         IReadOnlySet<RelativePath> currentDirs,
+#pragma warning restore CA1859 // Use concrete types when possible for improved performance
+
         ExclusionRule rules,
         CancellationToken ct)
     {
