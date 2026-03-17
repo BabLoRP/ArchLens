@@ -99,7 +99,7 @@ public abstract class RendererBase
         var filename = $"{options.BaseOptions.ProjectName}{diffString}-{view.ViewName}.{FileExtension}";
         var path = Path.Combine(dir, filename);
 
-        await File.WriteAllTextAsync(path, content);
+        await File.WriteAllTextAsync(path, content, ct);
     }
 
     private static RenderGraph BuildRenderGraph(
