@@ -116,7 +116,7 @@ public class ConfigManager(string _path)
     {
         var format = MapFormat(dto.Format ?? formatString);
         var views = MapViews(dto.Views);
-        var saveLoc = MapPath(baseDir, dto.SaveLocation);
+        var saveLoc = MapPath(baseDir, dto.SaveLocation) ?? $"{baseDir}/diagrams";
 
         return new RenderOptions(
             BaseOptions: options,
