@@ -297,6 +297,86 @@ public abstract class RendererBase
         );
     }
 
+    private static List<RenderEdge> AggregateEdgesToVisibleDirectories(
+        ProjectDependencyGraph graph,
+        IReadOnlySet<RelativePath> selectedRoots,
+        IReadOnlySet<RelativePath> visibleDirs)
+    {
+        var (edgeMap, relationsMap) = BuildEdgeMaps(graph, selectedRoots, visibleDirs);
+
+        return [.. edgeMap
+            .OrderBy(kv => kv.Key.From.Value, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(kv => kv.Key.To.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new RenderEdge(
+                From: kv.Key.From,
+                To: kv.Key.To,
+                Count: kv.Value.Count,
+                Delta: 0,
+                Type: kv.Value.Type,
+                State: RenderState.NEUTRAL,
+                Relations: relationsMap.GetValueOrDefault(kv.Key) ?? []))];
+    }
+
+    private static (Dictionary<(RelativePath From, RelativePath To), Dependency> EdgeMap, Dictionary<(RelativePath From, RelativePath To), List<RenderRelation>> RelationsMap) BuildEdgeMaps(
+        ProjectDependencyGraph graph,
+        IReadOnlySet<RelativePath> selectedRoots,
+        IReadOnlySet<RelativePath> visibleDirs)
+    {
+        var ancestorCache = new Dictionary<RelativePath, RelativePath?>();
+        RelativePath? CachedAncestor(RelativePath path)
+        {
+            if (!ancestorCache.TryGetValue(path, out var result))
+                ancestorCache[path] = result = NearestVisibleAncestor(graph, path, visibleDirs);
+            return result;
+        }
+
+        var edgeMap = new Dictionary<(RelativePath From, RelativePath To), Dependency>();
+        var relationsMap = new Dictionary<(RelativePath From, RelativePath To), List<RenderRelation>>();
+        var relationsKeySet = new Dictionary<(RelativePath From, RelativePath To), HashSet<(RelativePath, RelativePath)>>();
+
+        foreach (var item in graph.ProjectItems.Values)
+        {
+            if (!IsUnderAnyRoot(item.Path, selectedRoots)) continue;
+            var fromVisible = CachedAncestor(item.Path);
+            if (fromVisible is null) continue;
+
+            foreach (var (depTarget, dep) in graph.DependenciesFrom(item.Path))
+            {
+                if (!IsUnderAnyRoot(depTarget, selectedRoots)) continue;
+                var toVisible = CachedAncestor(depTarget);
+                if (toVisible is null || fromVisible.Value.Equals(toVisible.Value)) continue;
+
+                var key = (fromVisible.Value, toVisible.Value);
+
+                edgeMap[key] = edgeMap.TryGetValue(key, out var existing)
+                    ? existing with { Count = existing.Count + dep.Count }
+                    : dep;
+
+                AccumulateRelation(key, item.Path, depTarget, relationsMap, relationsKeySet);
+            }
+        }
+
+        return (edgeMap, relationsMap);
+    }
+
+    private static void AccumulateRelation(
+        (RelativePath From, RelativePath To) key,
+        RelativePath itemPath,
+        RelativePath depTarget,
+        Dictionary<(RelativePath From, RelativePath To), List<RenderRelation>> relationsMap,
+        Dictionary<(RelativePath From, RelativePath To), HashSet<(RelativePath, RelativePath)>> relationsKeySet)
+    {
+        if (!relationsMap.TryGetValue(key, out var rels))
+        {
+            rels = [];
+            relationsMap[key] = rels;
+            relationsKeySet[key] = [];
+        }
+
+        if (relationsKeySet[key].Add((itemPath, depTarget)))
+            rels.Add(new RenderRelation(itemPath, depTarget));
+    }
+
     private static void AddVisibleDirectories(
         ProjectDependencyGraph graph,
         RelativePath dir,
@@ -343,82 +423,6 @@ public abstract class RendererBase
                 set.Add(child);
             }
         }
-    }
-
-    private static List<RenderEdge> AggregateEdgesToVisibleDirectories(
-        ProjectDependencyGraph graph,
-        IReadOnlySet<RelativePath> selectedRoots,
-        IReadOnlySet<RelativePath> visibleDirs)
-    {
-
-        var ancestorCache = new Dictionary<RelativePath, RelativePath?>();
-
-        RelativePath? CachedAncestor(RelativePath path)
-        {
-            if (!ancestorCache.TryGetValue(path, out var result))
-                ancestorCache[path] = result = NearestVisibleAncestor(graph, path, visibleDirs);
-            return result;
-        }
-
-        var edgeMap = new Dictionary<(RelativePath From, RelativePath To), Dependency>();
-        var relationsMap = new Dictionary<(RelativePath From, RelativePath To), List<RenderRelation>>();
-        var relationsKeySet = new Dictionary<(RelativePath From, RelativePath To), HashSet<(RelativePath, RelativePath)>>();
-
-        foreach (var item in graph.ProjectItems.Values)
-        {
-            if (!IsUnderAnyRoot(item.Path, selectedRoots))
-                continue;
-
-            var fromVisible = CachedAncestor(item.Path);
-            if (fromVisible is null)
-                continue;
-
-            foreach (var (depTarget, dep) in graph.DependenciesFrom(item.Path))
-            {
-                if (!IsUnderAnyRoot(depTarget, selectedRoots))
-                    continue;
-
-                var toVisible = CachedAncestor(depTarget);
-                if (toVisible is null || fromVisible.Value.Equals(toVisible.Value))
-                    continue;
-
-                var key = (fromVisible.Value, toVisible.Value);
-
-                if (edgeMap.TryGetValue(key, out var existing))
-                    edgeMap[key] = existing with { Count = existing.Count + dep.Count };
-                else
-                    edgeMap[key] = dep;
-
-                if (!relationsMap.TryGetValue(key, out var rels))
-                {
-                    rels = [];
-                    relationsMap[key] = rels;
-                    relationsKeySet[key] = [];
-                }
-
-                if (relationsKeySet[key].Add((item.Path, depTarget)))
-                    rels.Add(new RenderRelation(item.Path, depTarget));
-            }
-        }
-
-        return [.. edgeMap
-            .OrderBy(kv => kv.Key.From.Value, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(kv => kv.Key.To.Value, StringComparer.OrdinalIgnoreCase)
-            .Select(kv =>
-            {
-                relationsMap.TryGetValue(kv.Key, out var rels);
-                rels ??= [];
-
-                return new RenderEdge(
-                From: kv.Key.From,
-                To: kv.Key.To,
-                Count: kv.Value.Count,
-                Delta: 0,
-                Type: kv.Value.Type,
-                State: RenderState.NEUTRAL,
-                rels
-            );
-            })];
     }
 
     private static RelativePath? NearestVisibleAncestor(
