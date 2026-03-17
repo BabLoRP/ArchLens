@@ -8,7 +8,7 @@ using Archlens.Domain.Models.Records;
 
 namespace Archlens.Infra.Renderers;
 
-public sealed class PlantUMLRenderer : RendererBase
+public sealed partial class PlantUMLRenderer : RendererBase
 {
     public override string FileExtension => "puml";
 
@@ -112,7 +112,7 @@ public sealed class PlantUMLRenderer : RendererBase
 
     private static string ToAlias(string path)
     {
-        var alias = Regex.Replace(path, @"[^\w]", "");
+        var alias = AliasRegex().Replace(path, "");
 
         if (string.IsNullOrWhiteSpace(alias))
             return "node";
@@ -125,4 +125,9 @@ public sealed class PlantUMLRenderer : RendererBase
 
     private static string Escape(string value) =>
         value.Replace("\"", "\\\"");
+
+
+    [GeneratedRegex(@"[^\w]")]
+    private static partial Regex AliasRegex();
+
 }
