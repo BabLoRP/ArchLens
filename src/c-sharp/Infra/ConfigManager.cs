@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Archlens.Domain.Models.Enums;
 using Archlens.Domain.Models.Records;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Archlens.Infra;
 
