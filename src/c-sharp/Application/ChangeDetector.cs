@@ -404,19 +404,17 @@ public sealed class ChangeDetector
     private static bool IsExcluded(string projectRoot, string content, ExclusionRule rules)
     {
         var path = GetRelative(projectRoot, content);
-
-        // Plain loops — this is called for every file and directory during the scan,
-        // so avoiding LINQ enumerator allocations per call matters.
-        var pathWithSlash = path + '/';
-        var pathWithBothSlashes = '/' + path + '/';
+        var pathSeparater = '/';
+        var pathWithSlash = path + pathSeparater;
+        var pathWithBothSlashes = pathSeparater + path + pathSeparater;
         foreach (var rule in rules.DirPrefixes)
         {
             if (pathWithSlash.StartsWith(rule, StringComparison.OrdinalIgnoreCase)
-                || pathWithBothSlashes.Contains('/' + rule, StringComparison.OrdinalIgnoreCase))
+                || pathWithBothSlashes.Contains(pathSeparater + rule, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
 
-        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var segments = path.Split(pathSeparater, StringSplitOptions.RemoveEmptyEntries);
         foreach (var segment in segments)
         {
             foreach (var ban in rules.Segments)
