@@ -25,7 +25,7 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
 
         var regex = new Regex(
             $@"^\s*import\s+{Regex.Escape(_rootPackage)}\.(.+?)(\s+as\s+\w+)?\s*$",
-            RegexOptions.Compiled);
+            RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
 
         try
         {
