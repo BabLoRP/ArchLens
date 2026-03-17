@@ -179,7 +179,10 @@ public class ConfigManager(string _path)
         return string.Empty;
     }
 
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance
     private static IReadOnlyList<Language> MapLanguage(string[] fileExtensions)
+#pragma warning restore CA1859 // Use concrete types when possible for improved performance
+
     {
         List<Language> languages = [];
 
