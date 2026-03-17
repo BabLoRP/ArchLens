@@ -732,7 +732,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Assert.Equal(uFile, parser.Calls[0]);
 
         var domainChildren = graph.ChildrenOf(domainDir);
-        Assert.Single(domainChildren.Where(x => x.Equals(utilsDir)));
+        Assert.Single(domainChildren, x => x.Equals(utilsDir));
     }
 
     [Fact]
