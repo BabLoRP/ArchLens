@@ -27,10 +27,12 @@ public sealed class UpdateGraphUseCase(
 
         if (diff)
         {
-            if (snapshotGraph is null)
+            var compareGraph = await snapshotManager.GetLastSavedDependencyGraphAsync(snapshotOptions, ct);
+
+            if (compareGraph is null)
                 throw new InvalidOperationException("Diff mode requires a saved snapshot, but none was found.");
 
-            await renderer.RenderDiffViewsAndSaveToFiles(graph, snapshotGraph, renderOptions, ct);
+            await renderer.RenderDiffViewsAndSaveToFiles(graph, compareGraph, renderOptions, ct);
         }
         else
             await renderer.RenderViewsAndSaveToFiles(graph, renderOptions, ct);
