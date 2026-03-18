@@ -1,0 +1,1 @@
+namespace TestRepo.Inventory.Stock.Tags;
