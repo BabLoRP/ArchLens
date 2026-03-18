@@ -36,7 +36,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     [Fact]
     public async Task Captures_BasicImport()
     {
-        var path = Write("A.java", "import com.example.Domain;");
+        var path = Write("A.java", "import com.example.Inventory;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
     }
@@ -44,7 +44,7 @@ public sealed class JavaDependencyParserTests : IDisposable
     [Fact]
     public async Task Captures_StaticImport()
     {
-        var path = Write("A.java", "import static com.example.Domain.Utils;");
+        var path = Write("A.java", "import static com.example.Inventory.Tools;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
     }
@@ -55,7 +55,7 @@ public sealed class JavaDependencyParserTests : IDisposable
         var path = Write("A.java", """
             import java.util.List;
             import org.springframework.Component;
-            import com.example.Domain;
+            import com.example.Inventory;
             """);
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
@@ -65,8 +65,8 @@ public sealed class JavaDependencyParserTests : IDisposable
     public async Task Captures_MultipleImports()
     {
         var path = Write("A.java", """
-            import com.example.Domain;
-            import com.example.Infra;
+            import com.example.Inventory;
+            import com.example.Warehouse;
             """);
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Equal(2, result.Count);
@@ -75,42 +75,42 @@ public sealed class JavaDependencyParserTests : IDisposable
     [Fact]
     public async Task SingleLevelImport_PathUsesSlashes_NotDots()
     {
-        var path = Write("A.java", "import com.example.Domain;");
+        var path = Write("A.java", "import com.example.Inventory;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/"), result[0]);
+        Assert.Equal(Dir("./Inventory/"), result[0]);
         Assert.DoesNotContain('.', result[0].Value.Replace("./", ""));
     }
 
     [Fact]
     public async Task MultiLevelImport_PathUsesSlashes_NotDots()
     {
-        var path = Write("A.java", "import com.example.Domain.Models.Records;");
+        var path = Write("A.java", "import com.example.Inventory.Stock.Labels;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Models/Records/"), result[0]);
+        Assert.Equal(Dir("./Inventory/Stock/Labels/"), result[0]);
     }
 
     [Fact]
     public async Task StaticImport_PathUsesSlashes_NotDots()
     {
-        var path = Write("A.java", "import static com.example.Domain.Utils.PathHelper;");
+        var path = Write("A.java", "import static com.example.Inventory.Tools.PathHelper;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Utils/PathHelper/"), result[0]);
+        Assert.Equal(Dir("./Inventory/Tools/PathHelper/"), result[0]);
     }
 
     [Fact]
     public async Task WildcardImport_MapsToParentDirectory()
     {
-        var path = Write("A.java", "import com.example.Domain.Models.*;");
+        var path = Write("A.java", "import com.example.Inventory.Stock.*;");
         var result = await new JavaDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Models/"), result[0]);
+        Assert.Equal(Dir("./Inventory/Stock/"), result[0]);
         Assert.DoesNotContain('*', result[0].Value);
     }
 
@@ -118,8 +118,8 @@ public sealed class JavaDependencyParserTests : IDisposable
     public async Task CancellationToken_Propagates_WhenPreCancelled()
     {
         var path = Write("A.java", """
-            import com.example.Domain;
-            import com.example.Infra;
+            import com.example.Inventory;
+            import com.example.Warehouse;
             """);
         var cts = new CancellationTokenSource();
         cts.Cancel();
