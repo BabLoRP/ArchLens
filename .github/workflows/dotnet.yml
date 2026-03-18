@@ -29,7 +29,7 @@ jobs:
 
       - name: Remove unused imports
         run: >
-          dotnet format style src/c-sharp/Archlens.sln --severity warn --no-restore --verbosity diagnostic
+          dotnet format style src/c-sharp/Archlens.sln --severity warn --no-restore --verbosity diagnostic --exclude "src/ArchlensTests/TestRepo"
           # To exclude files or folders, append e.g.:
           #   --exclude "src/c-sharp/SomeFolder/**/*.cs"
           #   --exclude "src/c-sharp/SomeFolder/**"
