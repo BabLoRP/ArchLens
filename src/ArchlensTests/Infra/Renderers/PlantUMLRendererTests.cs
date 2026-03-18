@@ -1,4 +1,4 @@
-﻿using Archlens.Domain.Models;
+using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.Renderers;
 using ArchlensTests.Utils;
@@ -118,11 +118,11 @@ public sealed class PlantUMLRendererTests : IDisposable
     }
 
     [Fact]
-    public void Packages_ContainDomainAndInfra()
+    public void Packages_ContainInventoryAndWarehouse()
     {
         var result = Render(DefaultGraph(), Opts());
-        Assert.Contains("package \"Domain\"", result);
-        Assert.Contains("package \"Infra\"", result);
+        Assert.Contains("package \"Inventory\"", result);
+        Assert.Contains("package \"Warehouse\"", result);
     }
 
     [Fact]
@@ -145,43 +145,43 @@ public sealed class PlantUMLRendererTests : IDisposable
     [Fact]
     public void Package_ChildIsIndentedRelativeToParent()
     {
-        var opts = Opts(packages: [new Package("./Domain/", 2)]);
+        var opts = Opts(packages: [new Package("./Inventory/", 2)]);
         var result = Render(DefaultGraph(), opts);
 
-        var domainLine = result.Split('\n')
-            .First(l => l.Contains("package \"Domain\""));
-        var modelsLine = result.Split('\n')
-            .First(l => l.Contains("package \"Models\""));
+        var inventoryLine = result.Split('\n')
+            .First(l => l.Contains("package \"Inventory\""));
+        var stockLine = result.Split('\n')
+            .First(l => l.Contains("package \"Stock\""));
 
-        var domainIndent = domainLine.Length - domainLine.TrimStart().Length;
-        var modelsIndent = modelsLine.Length - modelsLine.TrimStart().Length;
+        var inventoryIndent = inventoryLine.Length - inventoryLine.TrimStart().Length;
+        var stockIndent = stockLine.Length - stockLine.TrimStart().Length;
 
-        Assert.True(modelsIndent > domainIndent, "Child package should be indented deeper than its parent");
+        Assert.True(stockIndent > inventoryIndent, "Child package should be indented deeper than its parent");
     }
 
     [Fact]
     public void Packages_EachIndentLevelIs4Spaces()
     {
-        var opts = Opts(packages: [new Package("./Domain/", 2)]);
+        var opts = Opts(packages: [new Package("./Inventory/", 2)]);
         var result = Render(DefaultGraph(), opts);
 
-        var modelsLine = result.Split('\n').First(l => l.Contains("package \"Models\""));
-        var indent = modelsLine.Length - modelsLine.TrimStart().Length;
+        var stockLine = result.Split('\n').First(l => l.Contains("package \"Stock\""));
+        var indent = stockLine.Length - stockLine.TrimStart().Length;
         Assert.Equal(4, indent);
     }
 
     [Fact]
     public void Packages_DoNotContainIgnoredPackage()
     {
-        var opts = Opts(ignore: ["./Infra/"]);
+        var opts = Opts(ignore: ["./Warehouse/"]);
         var result = Render(DefaultGraph(), opts);
-        Assert.DoesNotContain("package \"Infra\"", result);
+        Assert.DoesNotContain("package \"Warehouse\"", result);
     }
 
     [Fact]
     public void Packages_EmptyOutput_WhenAllIgnored()
     {
-        var opts = Opts(ignore: ["./Domain/", "./Infra/", "./Application/"]);
+        var opts = Opts(ignore: ["./Inventory/", "./Warehouse/", "./Shop/"]);
         var result = Render(DefaultGraph(), opts);
         Assert.DoesNotContain("package \"", result);
     }
@@ -189,19 +189,19 @@ public sealed class PlantUMLRendererTests : IDisposable
     [Fact]
     public void Packages_DepthOne_HidesSubPackages()
     {
-        var opts = Opts(packages: [new Package("./Domain/", 1)]);
+        var opts = Opts(packages: [new Package("./Inventory/", 1)]);
         var result = Render(DefaultGraph(), opts);
-        Assert.Contains("package \"Domain\"", result);
-        Assert.DoesNotContain("package \"Models\"", result);
+        Assert.Contains("package \"Inventory\"", result);
+        Assert.DoesNotContain("package \"Stock\"", result);
     }
 
     [Fact]
     public void Packages_DepthTwo_ShowsDirectChildren()
     {
-        var opts = Opts(packages: [new Package("./Domain/", 2)]);
+        var opts = Opts(packages: [new Package("./Inventory/", 2)]);
         var result = Render(DefaultGraph(), opts);
-        Assert.Contains("package \"Domain\"", result);
-        Assert.Contains("package \"Models\"", result);
+        Assert.Contains("package \"Inventory\"", result);
+        Assert.Contains("package \"Stock\"", result);
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public sealed class PlantUMLRendererTests : IDisposable
     [Fact]
     public void Edges_NotRendered_WhenAllPackagesIgnored()
     {
-        var opts = Opts(ignore: ["./Domain/", "./Infra/", "./Application/"]);
+        var opts = Opts(ignore: ["./Inventory/", "./Warehouse/", "./Shop/"]);
         var result = Render(DefaultGraph(), opts);
         Assert.DoesNotContain("-->", result);
     }
@@ -266,14 +266,14 @@ public sealed class PlantUMLRendererTests : IDisposable
     {
         var remote = DefaultGraph();
         var local = DefaultGraph();
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        local.AddDependency(records, factory);
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        local.AddDependency(labels, stockSupplier);
 
         var result = RenderDiff(local, remote, Opts());
 
         var createdLine = result.Split('\n')
-            .FirstOrDefault(l => l.Contains("#Green") && l.Contains("Domain --> Infra"));
+            .FirstOrDefault(l => l.Contains("#Green") && l.Contains("Inventory --> Warehouse"));
         Assert.NotNull(createdLine);
         Assert.Contains("+", createdLine);
     }
@@ -283,9 +283,9 @@ public sealed class PlantUMLRendererTests : IDisposable
     {
         var remote = DefaultGraph();
         var local = DefaultGraph();
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        local.RemoveDependency(factory, records);
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        local.RemoveDependency(stockSupplier, labels);
 
         var result = RenderDiff(local, remote, Opts());
 
@@ -327,14 +327,14 @@ public sealed class PlantUMLRendererTests : IDisposable
     {
         var local = DefaultGraph();
         var remote = DefaultGraph();
-        remote.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Infra/"));
+        remote.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Warehouse/"));
 
         var result = RenderDiff(local, remote, Opts());
-        var infraLine = result.Split('\n')
-            .FirstOrDefault(l => l.Contains("package \"Infra\""));
+        var warehouseLine = result.Split('\n')
+            .FirstOrDefault(l => l.Contains("package \"Warehouse\""));
 
-        Assert.NotNull(infraLine);
-        Assert.Contains("#LightGreen", infraLine);
+        Assert.NotNull(warehouseLine);
+        Assert.Contains("#LightGreen", warehouseLine);
     }
 
     [Fact]
@@ -342,14 +342,14 @@ public sealed class PlantUMLRendererTests : IDisposable
     {
         var local = DefaultGraph();
         var remote = DefaultGraph();
-        local.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Infra/"));
+        local.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Warehouse/"));
 
         var result = RenderDiff(local, remote, Opts());
-        var infraLine = result.Split('\n')
-            .FirstOrDefault(l => l.Contains("package \"Infra\""));
+        var warehouseLine = result.Split('\n')
+            .FirstOrDefault(l => l.Contains("package \"Warehouse\""));
 
-        Assert.NotNull(infraLine);
-        Assert.Contains("#LightCoral", infraLine);
+        Assert.NotNull(warehouseLine);
+        Assert.Contains("#LightCoral", warehouseLine);
     }
 
     [Fact]
@@ -371,9 +371,9 @@ public sealed class PlantUMLRendererTests : IDisposable
     {
         var remote = DefaultGraph();
         var local = DefaultGraph();
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        local.AddDependency(records, factory);
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        local.AddDependency(labels, stockSupplier);
 
         var result = RenderDiff(local, remote, Opts());
         Assert.Contains("#Green", result);
@@ -384,9 +384,9 @@ public sealed class PlantUMLRendererTests : IDisposable
     {
         var remote = DefaultGraph();
         var local = DefaultGraph();
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        local.RemoveDependency(factory, records);
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        local.RemoveDependency(stockSupplier, labels);
 
         var result = RenderDiff(local, remote, Opts());
         Assert.Contains("#Red", result);

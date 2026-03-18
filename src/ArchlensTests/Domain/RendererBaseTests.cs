@@ -18,7 +18,7 @@ public sealed partial class RendererBaseTests : IDisposable
             FullRootPath: _fs.Root
         ),
         Format: default,
-        Views: [new View("completeView", [], []), new View("ignoringView", [], ["./Infra/"])],
+        Views: [new View("completeView", [], []), new View("ignoringView", [], ["./Warehouse/"])],
         SaveLocation: $"{_fs.Root}/diagrams"
     );
 
@@ -67,8 +67,8 @@ public sealed partial class RendererBaseTests : IDisposable
         Assert.NotEmpty(result);
         Assert.StartsWith("@startuml", result);
         Assert.Contains("title completeView", result);
-        Assert.Contains("package \"Domain\" as Domain", result);
-        Assert.Contains("Infra", result);
+        Assert.Contains("package \"Inventory\" as Inventory", result);
+        Assert.Contains("Warehouse", result);
         Assert.EndsWith("@enduml", result.TrimEnd());
     }
 
@@ -84,8 +84,8 @@ public sealed partial class RendererBaseTests : IDisposable
         Assert.NotEmpty(result);
         Assert.StartsWith("@startuml", result);
         Assert.Contains("title ignoringView", result);
-        Assert.Contains("package \"Domain\" as Domain", result);
-        Assert.DoesNotContain("Infra", result);
+        Assert.Contains("package \"Inventory\" as Inventory", result);
+        Assert.DoesNotContain("Warehouse", result);
         Assert.EndsWith("@enduml", result.TrimEnd());
     }
 
@@ -99,26 +99,26 @@ public sealed partial class RendererBaseTests : IDisposable
         var remoteGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         var localGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
 
-        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
-        var dependencyParserFactory = RelativePath.File(rootPath, "./Infra/Factories/DependencyParserFactory.cs");
+        var labels = RelativePath.Directory(rootPath, "./Inventory/Stock/Labels/");
+        var stockSupplier = RelativePath.File(rootPath, "./Warehouse/Suppliers/StockSupplier.cs");
 
-        localGraph.RemoveDependency(dependencyParserFactory, records); // local removes one Infra -> Domain
-        localGraph.AddDependency(records, dependencyParserFactory);
-        localGraph.AddDependency(records, dependencyParserFactory);
+        localGraph.RemoveDependency(stockSupplier, labels); // local removes one Warehouse -> Inventory
+        localGraph.AddDependency(labels, stockSupplier);
+        localGraph.AddDependency(labels, stockSupplier);
 
         var result = renderer.RenderDiffView(localGraph, remoteGraph, opts.Views[0], opts);
 
         var newEdge = $$"""
                         "state": "CREATED",
-                        "fromPackage": "Domain",
-                        "toPackage": "Infra",
+                        "fromPackage": "Inventory",
+                        "toPackage": "Warehouse",
                         "label": "2 (+2)",
                         """;
 
         var deletedEdge = $$"""
                         "state": "DELETED",
-                        "fromPackage": "Infra",
-                        "toPackage": "Domain",
+                        "fromPackage": "Warehouse",
+                        "toPackage": "Inventory",
                         "label": "4 (-1)",
                         """;
 
@@ -149,22 +149,22 @@ public sealed partial class RendererBaseTests : IDisposable
         var remoteGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
         var localGraph = TestDependencyGraph.MakeDependencyGraph(opts.BaseOptions.ProjectRoot);
 
-        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
-        var dependencyParserFactory = RelativePath.File(rootPath, "./Infra/Factories/DependencyParserFactory.cs");
+        var labels = RelativePath.Directory(rootPath, "./Inventory/Stock/Labels/");
+        var stockSupplier = RelativePath.File(rootPath, "./Warehouse/Suppliers/StockSupplier.cs");
 
-        localGraph.AddDependency(records, dependencyParserFactory);
-        localGraph.RemoveDependency(dependencyParserFactory, records);
+        localGraph.AddDependency(labels, stockSupplier);
+        localGraph.RemoveDependency(stockSupplier, labels);
 
         string result = renderer.RenderDiffView(localGraph, remoteGraph, opts.Views[0], opts);
 
-        var newEdge = "Domain --> Infra #Green : 1 (+1)";
-        var deletedEdge = "Infra --> Domain #Red : 4 (-1)";
+        var newEdge = "Inventory --> Warehouse #Green : 1 (+1)";
+        var deletedEdge = "Warehouse --> Inventory #Red : 4 (-1)";
 
         Assert.NotEmpty(result);
         Assert.StartsWith("@startuml", result);
         Assert.Contains("title completeView", result);
-        Assert.Contains("package \"Domain\" as Domain", result);
-        Assert.Contains("Infra", result);
+        Assert.Contains("package \"Inventory\" as Inventory", result);
+        Assert.Contains("Warehouse", result);
         Assert.EndsWith("@enduml", result.TrimEnd());
 
         Assert.Contains(newEdge, result);
@@ -188,11 +188,11 @@ public sealed partial class RendererBaseTests : IDisposable
     [Fact]
     public void IgnoredPackageAbsentFromOutput()
     {
-        var opts = MakeOptions(ignore: ["./Infra/"]);
+        var opts = MakeOptions(ignore: ["./Warehouse/"]);
         var result = new PlantUMLRenderer().RenderView(
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
-        Assert.DoesNotContain("Infra", result);
+        Assert.DoesNotContain("Warehouse", result);
     }
 
     [Fact]
@@ -202,41 +202,41 @@ public sealed partial class RendererBaseTests : IDisposable
         var result = new PlantUMLRenderer().RenderView(
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
-        Assert.Contains("Domain", result);
-        Assert.Contains("Infra", result);
+        Assert.Contains("Inventory", result);
+        Assert.Contains("Warehouse", result);
     }
 
     [Fact]
     public void NoEdgesReferenceIgnoredPackage()
     {
-        var opts = MakeOptions(ignore: ["./Infra/"]);
+        var opts = MakeOptions(ignore: ["./Warehouse/"]);
         var result = new JsonRenderer().RenderView(
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
         var edgeSection = result.Contains("\"edges\"")
             ? result[result.IndexOf("\"edges\"")..]
             : "";
-        Assert.DoesNotContain("\"Infra\"", edgeSection);
+        Assert.DoesNotContain("\"Warehouse\"", edgeSection);
     }
 
     [Fact]
     public void DepthOneHidesSubPackages()
     {
-        var opts = MakeOptions(packages: [new Package("./Domain/", 1)]);
+        var opts = MakeOptions(packages: [new Package("./Inventory/", 1)]);
         var result = new JsonRenderer().RenderView(
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
-        Assert.DoesNotContain("Models", result);
+        Assert.DoesNotContain("Stock", result);
     }
 
     [Fact]
     public void DepthTwoShowsDirectChildren()
     {
-        var opts = MakeOptions(packages: [new Package("./Domain/", 2)]);
+        var opts = MakeOptions(packages: [new Package("./Inventory/", 2)]);
         var result = new JsonRenderer().RenderView(
             TestDependencyGraph.MakeDependencyGraph(_fs.Root), opts.Views[0], opts);
 
-        Assert.Contains("Models", result);
+        Assert.Contains("Stock", result);
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public sealed partial class RendererBaseTests : IDisposable
         var opts = MakeOptions();
         var remote = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var local = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
-        remote.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Infra/"));
+        remote.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Warehouse/"));
 
         var result = Minify(new JsonRenderer().RenderDiffView(local, remote, opts.Views[0], opts));
 
@@ -269,7 +269,7 @@ public sealed partial class RendererBaseTests : IDisposable
         var opts = MakeOptions();
         var remote = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var local = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
-        local.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Infra/"));
+        local.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Warehouse/"));
 
         var result = Minify(new JsonRenderer().RenderDiffView(local, remote, opts.Views[0], opts));
 
@@ -293,8 +293,8 @@ public sealed partial class RendererBaseTests : IDisposable
         var remote = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var local = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         local.AddDependency(
-            RelativePath.Directory(_fs.Root, "./Domain/Models/Records/"),
-            RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs"));
+            RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/"),
+            RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs"));
 
         var result = Minify(new JsonRenderer().RenderDiffView(local, remote, opts.Views[0], opts));
 
@@ -308,8 +308,8 @@ public sealed partial class RendererBaseTests : IDisposable
         var remote = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var local = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         local.AddDependency(
-            RelativePath.Directory(_fs.Root, "./Domain/Models/Records/"),
-            RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs"));
+            RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/"),
+            RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs"));
 
         var result = new PlantUMLRenderer().RenderDiffView(local, remote, opts.Views[0], opts);
 
@@ -324,8 +324,8 @@ public sealed partial class RendererBaseTests : IDisposable
         var remote = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var local = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         local.RemoveDependency(
-            RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs"),
-            RelativePath.Directory(_fs.Root, "./Domain/Models/Records/"));
+            RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs"),
+            RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/"));
 
         var result = new PlantUMLRenderer().RenderDiffView(local, remote, opts.Views[0], opts);
 
@@ -338,18 +338,18 @@ public sealed partial class RendererBaseTests : IDisposable
     {
         var opts = MakeOptions();
         var graph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
-        var recordA = RelativePath.File(_fs.Root, "./Domain/Models/RecordA.cs");
-        var recordB = RelativePath.File(_fs.Root, "./Domain/Models/RecordB.cs");
+        var itemA = RelativePath.File(_fs.Root, "./Inventory/Stock/ItemA.cs");
+        var itemB = RelativePath.File(_fs.Root, "./Inventory/Stock/ItemB.cs");
 
-        graph.UpsertProjectItem(recordA, ProjectItemType.File);
-        graph.UpsertProjectItem(recordB, ProjectItemType.File);
+        graph.UpsertProjectItem(itemA, ProjectItemType.File);
+        graph.UpsertProjectItem(itemB, ProjectItemType.File);
         graph.AddDependency(
-            RelativePath.File(_fs.Root, "./Domain/Models/RecordA.cs"),
-            RelativePath.File(_fs.Root, "./Domain/Models/RecordB.cs"));
+            RelativePath.File(_fs.Root, "./Inventory/Stock/ItemA.cs"),
+            RelativePath.File(_fs.Root, "./Inventory/Stock/ItemB.cs"));
 
         var result = Minify(new JsonRenderer().RenderView(graph, opts.Views[0], opts));
 
-        Assert.DoesNotContain(@"""fromPackage"":""Domain"",""toPackage"":""Domain""", result);
+        Assert.DoesNotContain(@"""fromPackage"":""Inventory"",""toPackage"":""Inventory""", result);
     }
 
     [Fact]
@@ -517,8 +517,8 @@ public sealed partial class RendererBaseTests : IDisposable
         var local = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         var remote = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
         local.AddDependency(
-            RelativePath.Directory(_fs.Root, "./Domain/Models/Records/"),
-            RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs"));
+            RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/"),
+            RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs"));
 
         Assert.Equal(
             new JsonRenderer().RenderDiffView(local, remote, opts.Views[0], opts),

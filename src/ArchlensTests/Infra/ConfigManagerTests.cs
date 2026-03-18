@@ -325,7 +325,7 @@ public sealed class ConfigManagerTests : IDisposable
             Views: """
             {
               "v": {
-                "packages": [{ "path": "./Domain/", "depth": 2 }],
+                "packages": [{ "path": "./Inventory/", "depth": 2 }],
                 "ignorePackages": []
               }
             }
@@ -334,7 +334,7 @@ public sealed class ConfigManagerTests : IDisposable
         var (_, _, renderOptions, _) = await Manager(path).LoadAsync();
         var pkg = Assert.Single(renderOptions.Views[0].Packages);
 
-        Assert.Equal("./Domain/", pkg.Path);
+        Assert.Equal("./Inventory/", pkg.Path);
         Assert.Equal(2, pkg.Depth);
     }
 
@@ -345,7 +345,7 @@ public sealed class ConfigManagerTests : IDisposable
             Views: """
             {
               "v": {
-                "packages": [{ "path": "./Domain/" }],
+                "packages": [{ "path": "./Inventory/" }],
                 "ignorePackages": []
               }
             }
@@ -364,15 +364,15 @@ public sealed class ConfigManagerTests : IDisposable
             {
               "v": {
                 "packages": [],
-                "ignorePackages": ["./Infra/", "./Application/"]
+                "ignorePackages": ["./Warehouse/", "./Shop/"]
               }
             }
             """));
 
         var (_, _, renderOptions, _) = await Manager(path).LoadAsync();
         var view = Assert.Single(renderOptions.Views);
-        Assert.Contains("./Infra/", view.IgnorePackages);
-        Assert.Contains("./Application/", view.IgnorePackages);
+        Assert.Contains("./Warehouse/", view.IgnorePackages);
+        Assert.Contains("./Shop/", view.IgnorePackages);
     }
 
     [Fact]

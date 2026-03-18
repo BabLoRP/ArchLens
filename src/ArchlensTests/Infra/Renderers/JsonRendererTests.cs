@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
@@ -84,8 +84,8 @@ public sealed class JsonRendererTests : IDisposable
         var packages = Packages(ParseJson(Render(DefaultGraph(), Opts())));
         var names = packages.Select(p => p!["name"]!.GetValue<string>()).ToList();
 
-        Assert.Contains("Domain", names);
-        Assert.Contains("Infra", names);
+        Assert.Contains("Inventory", names);
+        Assert.Contains("Warehouse", names);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public sealed class JsonRendererTests : IDisposable
     [Fact]
     public void Packages_EmptyList_WhenAllIgnored()
     {
-        var opts = Opts(ignore: ["./Domain/", "./Infra/", "./Application/"]);
+        var opts = Opts(ignore: ["./Inventory/", "./Warehouse/", "./Shop/"]);
         var packages = Packages(ParseJson(Render(DefaultGraph(), opts)));
         Assert.Empty(packages);
     }
@@ -138,33 +138,33 @@ public sealed class JsonRendererTests : IDisposable
     [Fact]
     public void Packages_DoNotIncludeIgnoredPackage()
     {
-        var opts = Opts(ignore: ["./Infra/"]);
+        var opts = Opts(ignore: ["./Warehouse/"]);
         var packages = Packages(ParseJson(Render(DefaultGraph(), opts)));
         var names = packages.Select(p => p!["name"]!.GetValue<string>()).ToList();
-        Assert.DoesNotContain("Infra", names);
+        Assert.DoesNotContain("Warehouse", names);
     }
 
     [Fact]
     public void Packages_DepthOne_HidesSubPackages()
     {
-        var opts = Opts(packages: [new Package("./Domain/", 1)]);
+        var opts = Opts(packages: [new Package("./Inventory/", 1)]);
         var packages = Packages(ParseJson(Render(DefaultGraph(), opts)));
         var names = packages.Select(p => p!["name"]!.GetValue<string>()).ToList();
 
-        Assert.Contains("Domain", names);
-        Assert.DoesNotContain("Models", names);
-        Assert.DoesNotContain("Records", names);
+        Assert.Contains("Inventory", names);
+        Assert.DoesNotContain("Stock", names);
+        Assert.DoesNotContain("Labels", names);
     }
 
     [Fact]
     public void Packages_DepthTwo_ShowsDirectChildren()
     {
-        var opts = Opts(packages: [new Package("./Domain/", 2)]);
+        var opts = Opts(packages: [new Package("./Inventory/", 2)]);
         var packages = Packages(ParseJson(Render(DefaultGraph(), opts)));
         var names = packages.Select(p => p!["name"]!.GetValue<string>()).ToList();
 
-        Assert.Contains("Domain", names);
-        Assert.Contains("Models", names);
+        Assert.Contains("Inventory", names);
+        Assert.Contains("Stock", names);
     }
 
     [Fact]
@@ -253,7 +253,7 @@ public sealed class JsonRendererTests : IDisposable
     [Fact]
     public void Edges_EmptyList_WhenAllPackagesIgnored()
     {
-        var opts = Opts(ignore: ["./Domain/", "./Infra/", "./Application/"]);
+        var opts = Opts(ignore: ["./Inventory/", "./Warehouse/", "./Shop/"]);
         var edges = Edges(ParseJson(Render(DefaultGraph(), opts)));
         Assert.Empty(edges);
     }
@@ -276,15 +276,15 @@ public sealed class JsonRendererTests : IDisposable
         var remote = DefaultGraph();
         var local = DefaultGraph();
 
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        local.AddDependency(records, factory);
-        local.AddDependency(records, factory);
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        local.AddDependency(labels, stockSupplier);
+        local.AddDependency(labels, stockSupplier);
 
         var edges = Edges(ParseJson(RenderDiff(local, remote, opts)));
         var created = edges.FirstOrDefault(e =>
-            e!["fromPackage"]!.GetValue<string>() == "Domain" &&
-            e!["toPackage"]!.GetValue<string>() == "Infra" &&
+            e!["fromPackage"]!.GetValue<string>() == "Inventory" &&
+            e!["toPackage"]!.GetValue<string>() == "Warehouse" &&
             e!["state"]!.GetValue<string>() == "CREATED");
 
         Assert.NotNull(created);
@@ -299,9 +299,9 @@ public sealed class JsonRendererTests : IDisposable
         var remote = DefaultGraph();
         var local = DefaultGraph();
 
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        local.RemoveDependency(factory, records);
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        local.RemoveDependency(stockSupplier, labels);
 
         var edges = Edges(ParseJson(RenderDiff(local, remote, opts)));
         var deleted = edges.FirstOrDefault(e => e!["state"]!.GetValue<string>() == "DELETED");
@@ -348,13 +348,13 @@ public sealed class JsonRendererTests : IDisposable
     {
         var local = DefaultGraph();
         var remote = DefaultGraph();
-        remote.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Infra/"));
+        remote.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Warehouse/"));
 
         var packages = Packages(ParseJson(RenderDiff(local, remote, Opts())));
-        var infra = packages.FirstOrDefault(p => p!["name"]!.GetValue<string>() == "Infra");
+        var warehouse = packages.FirstOrDefault(p => p!["name"]!.GetValue<string>() == "Warehouse");
 
-        Assert.NotNull(infra);
-        Assert.Equal("CREATED", infra!["state"]!.GetValue<string>());
+        Assert.NotNull(warehouse);
+        Assert.Equal("CREATED", warehouse!["state"]!.GetValue<string>());
     }
 
     [Fact]
@@ -362,13 +362,13 @@ public sealed class JsonRendererTests : IDisposable
     {
         var local = DefaultGraph();
         var remote = DefaultGraph();
-        local.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Infra/"));
+        local.RemoveProjectItemRecursive(RelativePath.Directory(_fs.Root, "./Warehouse/"));
 
         var packages = Packages(ParseJson(RenderDiff(local, remote, Opts())));
-        var infra = packages.FirstOrDefault(p => p!["name"]!.GetValue<string>() == "Infra");
+        var warehouse = packages.FirstOrDefault(p => p!["name"]!.GetValue<string>() == "Warehouse");
 
-        Assert.NotNull(infra);
-        Assert.Equal("DELETED", infra!["state"]!.GetValue<string>());
+        Assert.NotNull(warehouse);
+        Assert.Equal("DELETED", warehouse!["state"]!.GetValue<string>());
     }
 
     [Fact]
@@ -376,9 +376,9 @@ public sealed class JsonRendererTests : IDisposable
     {
         var remote = DefaultGraph();
         var local = DefaultGraph();
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        local.AddDependency(records, factory);
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        local.AddDependency(labels, stockSupplier);
 
         var edges = Edges(ParseJson(RenderDiff(local, remote, Opts())));
         var created = edges.Where(e => e!["state"]!.GetValue<string>() == "CREATED").ToList();
@@ -390,9 +390,9 @@ public sealed class JsonRendererTests : IDisposable
     {
         var remote = DefaultGraph();
         var local = DefaultGraph();
-        var factory = RelativePath.File(_fs.Root, "./Infra/Factories/DependencyParserFactory.cs");
-        var records = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        local.RemoveDependency(factory, records);
+        var stockSupplier = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/StockSupplier.cs");
+        var labels = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        local.RemoveDependency(stockSupplier, labels);
 
         var edges = Edges(ParseJson(RenderDiff(local, remote, Opts())));
         var deleted = edges.Where(e => e!["state"]!.GetValue<string>() == "DELETED").ToList();

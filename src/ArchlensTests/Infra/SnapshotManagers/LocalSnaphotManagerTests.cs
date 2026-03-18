@@ -1,4 +1,4 @@
-﻿using Archlens.Domain;
+using Archlens.Domain;
 using Archlens.Domain.Models;
 using Archlens.Domain.Models.Records;
 using Archlens.Infra.SnapshotManagers;
@@ -49,26 +49,26 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var loaded = DependencyGraphSerializer.Deserialize(bytes, rootPath);
 
         var root = RelativePath.Directory(rootPath, rootPath);
-        var application = RelativePath.Directory(rootPath, "./Application/");
-        var infra = RelativePath.Directory(rootPath, "./Infra/");
-        var domain = RelativePath.Directory(rootPath, "./Domain/");
-        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
-        var factory = RelativePath.Directory(rootPath, "./Infra/Factories/");
-        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
-        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
-        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
-        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
+        var shop = RelativePath.Directory(rootPath, "./Shop/");
+        var warehouse = RelativePath.Directory(rootPath, "./Warehouse/");
+        var inventory = RelativePath.Directory(rootPath, "./Inventory/");
+        var ports = RelativePath.Directory(rootPath, "./Inventory/Ports");
+        var suppliers = RelativePath.Directory(rootPath, "./Warehouse/Suppliers/");
+        var stock = RelativePath.Directory(rootPath, "./Inventory/Stock/");
+        var labels = RelativePath.Directory(rootPath, "./Inventory/Stock/Labels/");
+        var tags = RelativePath.Directory(rootPath, "./Inventory/Stock/Tags/");
+        var tools = RelativePath.Directory(rootPath, "./Inventory/Tools/");
 
         Assert.Contains(root, loaded.ProjectItems);
-        Assert.Contains(application, loaded.ProjectItems);
-        Assert.Contains(infra, loaded.ProjectItems);
-        Assert.Contains(domain, loaded.ProjectItems);
-        Assert.Contains(interfaces, loaded.ProjectItems);
-        Assert.Contains(factory, loaded.ProjectItems);
-        Assert.Contains(models, loaded.ProjectItems);
-        Assert.Contains(records, loaded.ProjectItems);
-        Assert.Contains(enums, loaded.ProjectItems);
-        Assert.Contains(utils, loaded.ProjectItems);
+        Assert.Contains(shop, loaded.ProjectItems);
+        Assert.Contains(warehouse, loaded.ProjectItems);
+        Assert.Contains(inventory, loaded.ProjectItems);
+        Assert.Contains(ports, loaded.ProjectItems);
+        Assert.Contains(suppliers, loaded.ProjectItems);
+        Assert.Contains(stock, loaded.ProjectItems);
+        Assert.Contains(labels, loaded.ProjectItems);
+        Assert.Contains(tags, loaded.ProjectItems);
+        Assert.Contains(tools, loaded.ProjectItems);
     }
 
     [Fact]
@@ -84,15 +84,15 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var loaded = await snapshotManager.GetLastSavedDependencyGraphAsync(opts);
 
         var root = RelativePath.Directory(rootPath, rootPath);
-        var application = RelativePath.Directory(rootPath, "./Application/");
-        var infra = RelativePath.Directory(rootPath, "./Infra/");
-        var domain = RelativePath.Directory(rootPath, "./Domain/");
-        var interfaces = RelativePath.Directory(rootPath, "./Domain/Interfaces");
-        var factory = RelativePath.Directory(rootPath, "./Infra/Factories/");
-        var models = RelativePath.Directory(rootPath, "./Domain/Models/");
-        var records = RelativePath.Directory(rootPath, "./Domain/Models/Records/");
-        var enums = RelativePath.Directory(rootPath, "./Domain/Models/Enums/");
-        var utils = RelativePath.Directory(rootPath, "./Domain/Utils/");
+        var shop = RelativePath.Directory(rootPath, "./Shop/");
+        var warehouse = RelativePath.Directory(rootPath, "./Warehouse/");
+        var inventory = RelativePath.Directory(rootPath, "./Inventory/");
+        var ports = RelativePath.Directory(rootPath, "./Inventory/Ports");
+        var suppliers = RelativePath.Directory(rootPath, "./Warehouse/Suppliers/");
+        var stock = RelativePath.Directory(rootPath, "./Inventory/Stock/");
+        var labels = RelativePath.Directory(rootPath, "./Inventory/Stock/Labels/");
+        var tags = RelativePath.Directory(rootPath, "./Inventory/Stock/Tags/");
+        var tools = RelativePath.Directory(rootPath, "./Inventory/Tools/");
 
         var loadedItems = loaded?.ProjectItems;
 
@@ -100,15 +100,15 @@ public sealed class LocalSnapshotManagerTests : IDisposable
             Assert.Fail("Loaded items is null");
 
         Assert.Contains(root, loadedItems);
-        Assert.Contains(application, loadedItems);
-        Assert.Contains(infra, loadedItems);
-        Assert.Contains(domain, loadedItems);
-        Assert.Contains(interfaces, loadedItems);
-        Assert.Contains(factory, loadedItems);
-        Assert.Contains(models, loadedItems);
-        Assert.Contains(records, loadedItems);
-        Assert.Contains(enums, loadedItems);
-        Assert.Contains(utils, loadedItems);
+        Assert.Contains(shop, loadedItems);
+        Assert.Contains(warehouse, loadedItems);
+        Assert.Contains(inventory, loadedItems);
+        Assert.Contains(ports, loadedItems);
+        Assert.Contains(suppliers, loadedItems);
+        Assert.Contains(stock, loadedItems);
+        Assert.Contains(labels, loadedItems);
+        Assert.Contains(tags, loadedItems);
+        Assert.Contains(tools, loadedItems);
 
         Assert.Equal(graph?.GetProjectItem(root)?.LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"), loaded?.GetProjectItem(root)?.LastWriteTime.ToString("dd-MM-yyyy HH:mm:ss"));
     }
@@ -172,10 +172,10 @@ public sealed class LocalSnapshotManagerTests : IDisposable
         var rootPath = RelativePath.Directory(root, "./");
         Assert.Equal(graph.ChildrenOf(rootPath).Count, loaded?.ChildrenOf(rootPath).Count);
 
-        var domainPath = RelativePath.Directory(root, "./Domain/");
-        var domain = loaded?.GetProjectItem(domainPath);
+        var inventoryPath = RelativePath.Directory(root, "./Inventory/");
+        var inventory = loaded?.GetProjectItem(inventoryPath);
 
-        Assert.NotNull(domain);
-        Assert.Equal(3, graph.ChildrenOf(domainPath).Count);
+        Assert.NotNull(inventory);
+        Assert.Equal(3, graph.ChildrenOf(inventoryPath).Count);
     }
 }

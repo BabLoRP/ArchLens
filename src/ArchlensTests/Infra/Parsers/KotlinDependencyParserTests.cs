@@ -28,7 +28,7 @@ public sealed class KotlinDependencyParserTests : IDisposable
     [Fact]
     public async Task Returns_Empty_WhenRootPackageIsEmpty()
     {
-        var path = Write("A.kt", "import com.example.Domain");
+        var path = Write("A.kt", "import com.example.Inventory");
         var result = await new KotlinDependencyParser(Opts("")).ParseFileDependencies(path);
         Assert.Empty(result);
     }
@@ -36,7 +36,7 @@ public sealed class KotlinDependencyParserTests : IDisposable
     [Fact]
     public async Task Returns_Empty_WhenRootPackageIsWhitespace()
     {
-        var path = Write("A.kt", "import com.example.Domain");
+        var path = Write("A.kt", "import com.example.Inventory");
         var result = await new KotlinDependencyParser(Opts("   ")).ParseFileDependencies(path);
         Assert.Empty(result);
     }
@@ -52,7 +52,7 @@ public sealed class KotlinDependencyParserTests : IDisposable
     [Fact]
     public async Task Captures_BasicImport()
     {
-        var path = Write("A.kt", "import com.example.Domain");
+        var path = Write("A.kt", "import com.example.Inventory");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
     }
@@ -60,7 +60,7 @@ public sealed class KotlinDependencyParserTests : IDisposable
     [Fact]
     public async Task Handles_ImportWithAlias()
     {
-        var path = Write("A.kt", "import com.example.Domain.Models as M");
+        var path = Write("A.kt", "import com.example.Inventory.Stock as S");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
     }
@@ -71,7 +71,7 @@ public sealed class KotlinDependencyParserTests : IDisposable
         var path = Write("A.kt", """
             import kotlin.collections.List
             import java.io.File
-            import com.example.Domain
+            import com.example.Inventory
             """);
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
@@ -81,8 +81,8 @@ public sealed class KotlinDependencyParserTests : IDisposable
     public async Task Captures_MultipleImports()
     {
         var path = Write("A.kt", """
-            import com.example.Domain
-            import com.example.Infra
+            import com.example.Inventory
+            import com.example.Warehouse
             """);
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Equal(2, result.Count);
@@ -91,7 +91,7 @@ public sealed class KotlinDependencyParserTests : IDisposable
     [Fact]
     public async Task Handles_LeadingWhitespace_InImportLine()
     {
-        var path = Write("A.kt", "    import com.example.Domain");
+        var path = Write("A.kt", "    import com.example.Inventory");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
         Assert.Single(result);
     }
@@ -99,53 +99,53 @@ public sealed class KotlinDependencyParserTests : IDisposable
     [Fact]
     public async Task AliasImport_DoesNotInclude_AliasInPath()
     {
-        var path = Write("A.kt", "import com.example.Domain as MyDomain");
+        var path = Write("A.kt", "import com.example.Inventory as MyInventory");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.DoesNotContain("MyDomain", result[0].Value);
+        Assert.DoesNotContain("MyInventory", result[0].Value);
         Assert.DoesNotContain("as", result[0].Value);
     }
 
     [Fact]
     public async Task SingleLevelImport_PathUsesSlashes_NotDots()
     {
-        var path = Write("A.kt", "import com.example.Domain");
+        var path = Write("A.kt", "import com.example.Inventory");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/"), result[0]);
+        Assert.Equal(Dir("./Inventory/"), result[0]);
         Assert.DoesNotContain('.', result[0].Value.Replace("./", ""));
     }
 
     [Fact]
     public async Task MultiLevelImport_PathUsesSlashes_NotDots()
     {
-        var path = Write("A.kt", "import com.example.Domain.Models.Records");
+        var path = Write("A.kt", "import com.example.Inventory.Stock.Labels");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Models/Records/"), result[0]);
+        Assert.Equal(Dir("./Inventory/Stock/Labels/"), result[0]);
     }
 
     [Fact]
     public async Task AliasImport_PathUsesSlashes_NotDots()
     {
-        var path = Write("A.kt", "import com.example.Domain.Models as M");
+        var path = Write("A.kt", "import com.example.Inventory.Stock as S");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Models/"), result[0]);
+        Assert.Equal(Dir("./Inventory/Stock/"), result[0]);
     }
 
     [Fact]
     public async Task WildcardImport_MapsToParentDirectory()
     {
-        var path = Write("A.kt", "import com.example.Domain.Models.*");
+        var path = Write("A.kt", "import com.example.Inventory.Stock.*");
         var result = await new KotlinDependencyParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Models/"), result[0]);
+        Assert.Equal(Dir("./Inventory/Stock/"), result[0]);
         Assert.DoesNotContain('*', result[0].Value);
     }
 
@@ -153,8 +153,8 @@ public sealed class KotlinDependencyParserTests : IDisposable
     public async Task CancellationToken_Propagates_WhenPreCancelled()
     {
         var path = Write("A.kt", """
-            import com.example.Domain
-            import com.example.Infra
+            import com.example.Inventory
+            import com.example.Warehouse
             """);
         var cts = new CancellationTokenSource();
         cts.Cancel();

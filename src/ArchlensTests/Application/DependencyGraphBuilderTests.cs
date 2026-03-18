@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text;
 using Archlens.Application;
 using Archlens.Domain.Interfaces;
@@ -21,13 +21,13 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
     private void SetupMockProject()
     {
-        Directory.CreateDirectory(Path.Combine(_fs.Root, "Application"));
+        Directory.CreateDirectory(Path.Combine(_fs.Root, "Shop"));
 
-        Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Factories"));
-        Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Interfaces"));
-        Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Models", "Enums"));
-        Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Models", "Records"));
-        Directory.CreateDirectory(Path.Combine(_fs.Root, "Domain", "Utils"));
+        Directory.CreateDirectory(Path.Combine(_fs.Root, "Inventory", "Suppliers"));
+        Directory.CreateDirectory(Path.Combine(_fs.Root, "Inventory", "Ports"));
+        Directory.CreateDirectory(Path.Combine(_fs.Root, "Inventory", "Stock", "Tags"));
+        Directory.CreateDirectory(Path.Combine(_fs.Root, "Inventory", "Stock", "Labels"));
+        Directory.CreateDirectory(Path.Combine(_fs.Root, "Inventory", "Tools"));
     }
 
     private static ProjectChanges CreateProjectChanges(IReadOnlyDictionary<RelativePath, IReadOnlyList<RelativePath>> changedFilesByDirectory,
@@ -77,43 +77,43 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Factories/DependencyParserFactory.cs", "/* */");
-        _fs.File("Domain/Factories/RendererFactory.cs", "/* */");
-        _fs.File("Domain/Models/Records/Options.cs", "/* */");
-        _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+        _fs.File("Inventory/Suppliers/StockSupplier.cs", "/* */");
+        _fs.File("Inventory/Suppliers/ShipmentSupplier.cs", "/* */");
+        _fs.File("Inventory/Stock/Labels/PriceTag.cs", "/* */");
+        _fs.File("Inventory/Stock/Catalogue.cs", "/* */");
 
-        var depFactoryFile = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
-        var rendFactoryFile = RelativePath.File(_fs.Root, "./Domain/Factories/RendererFactory.cs");
-        var optionsFile = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
-        var depGraphFile = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        var stockSupplierFile = RelativePath.File(_fs.Root, "./Inventory/Suppliers/StockSupplier.cs");
+        var shipmentSupplierFile = RelativePath.File(_fs.Root, "./Inventory/Suppliers/ShipmentSupplier.cs");
+        var priceTagFile = RelativePath.File(_fs.Root, "./Inventory/Stock/Labels/PriceTag.cs");
+        var catalogueFile = RelativePath.File(_fs.Root, "./Inventory/Stock/Catalogue.cs");
 
         var rootDir = RelativePath.Directory(_fs.Root, _fs.Root);
-        var domainDir = RelativePath.Directory(_fs.Root, "./Domain");
-        var factoriesDir = RelativePath.Directory(_fs.Root, "./Domain/Factories");
-        var modelsDir = RelativePath.Directory(_fs.Root, "./Domain/Models");
-        var recordsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/Records");
-        var enumsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums");
-        var interfacesDir = RelativePath.Directory(_fs.Root, "./Domain/Interfaces");
-        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils");
-        var infraDir = RelativePath.Directory(_fs.Root, "./Infra");
+        var inventoryDir = RelativePath.Directory(_fs.Root, "./Inventory");
+        var suppliersDir = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers");
+        var stockDir = RelativePath.Directory(_fs.Root, "./Inventory/Stock");
+        var labelsDir = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels");
+        var tagsDir = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Tags");
+        var portsDir = RelativePath.Directory(_fs.Root, "./Inventory/Ports");
+        var toolsDir = RelativePath.Directory(_fs.Root, "./Inventory/Tools");
+        var warehouseDir = RelativePath.Directory(_fs.Root, "./Warehouse");
 
         var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [rootDir] = [domainDir],
-            [domainDir] = [factoriesDir, interfacesDir, modelsDir, utilsDir],
-            [factoriesDir] = [depFactoryFile, rendFactoryFile],
-            [modelsDir] = [enumsDir, recordsDir, depGraphFile],
-            [recordsDir] = [optionsFile],
+            [rootDir] = [inventoryDir],
+            [inventoryDir] = [suppliersDir, portsDir, stockDir, toolsDir],
+            [suppliersDir] = [stockSupplierFile, shipmentSupplierFile],
+            [stockDir] = [tagsDir, labelsDir, catalogueFile],
+            [labelsDir] = [priceTagFile],
         };
 
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var parseMap = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [depFactoryFile] = [interfacesDir, enumsDir, recordsDir, infraDir],
-            [rendFactoryFile] = [interfacesDir, enumsDir, infraDir],
-            [optionsFile] = [enumsDir],
-            [depGraphFile] = [utilsDir]
+            [stockSupplierFile] = [portsDir, tagsDir, labelsDir, warehouseDir],
+            [shipmentSupplierFile] = [portsDir, tagsDir, warehouseDir],
+            [priceTagFile] = [tagsDir],
+            [catalogueFile] = [toolsDir]
         };
 
         var parser = new DependencyParserSpy(_fs.Root, parseMap);
@@ -122,23 +122,23 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var graph = await builder.GetGraphAsync(changes, null);
 
         var root = RequireItem(graph, rootDir);
-        var domain = RequireItem(graph, domainDir);
-        var factories = RequireItem(graph, factoriesDir);
-        var models = RequireItem(graph, modelsDir);
-        var depFactItem = RequireItem(graph, depFactoryFile);
-        var rendFactItem = RequireItem(graph, rendFactoryFile);
-        var optionsItem = RequireItem(graph, optionsFile);
-        var depGraphItem = RequireItem(graph, depGraphFile);
+        var inventory = RequireItem(graph, inventoryDir);
+        var suppliers = RequireItem(graph, suppliersDir);
+        var stock = RequireItem(graph, stockDir);
+        var stockSupplierItem = RequireItem(graph, stockSupplierFile);
+        var shipmentSupplierItem = RequireItem(graph, shipmentSupplierFile);
+        var priceTagItem = RequireItem(graph, priceTagFile);
+        var catalogueItem = RequireItem(graph, catalogueFile);
 
-        Assert.Contains(domain.Path, graph.ChildrenOf(rootDir));
-        Assert.Contains(factories.Path, graph.ChildrenOf(domainDir));
-        Assert.Contains(models.Path, graph.ChildrenOf(domainDir));
+        Assert.Contains(inventory.Path, graph.ChildrenOf(rootDir));
+        Assert.Contains(suppliers.Path, graph.ChildrenOf(inventoryDir));
+        Assert.Contains(stock.Path, graph.ChildrenOf(inventoryDir));
 
         Assert.Equal(4, parser.Calls.Count);
-        Assert.Contains(depFactItem.Path, parser.Calls);
-        Assert.Contains(rendFactItem.Path, parser.Calls);
-        Assert.Contains(optionsItem.Path, parser.Calls);
-        Assert.Contains(depGraphItem.Path, parser.Calls);
+        Assert.Contains(stockSupplierItem.Path, parser.Calls);
+        Assert.Contains(shipmentSupplierItem.Path, parser.Calls);
+        Assert.Contains(priceTagItem.Path, parser.Calls);
+        Assert.Contains(catalogueItem.Path, parser.Calls);
     }
 
     [Fact]
@@ -146,10 +146,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Factories/Duplicate.cs", "/* */");
+        _fs.File("Inventory/Suppliers/Duplicate.cs", "/* */");
 
-        var factoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
-        var csPath = RelativePath.File(_fs.Root, "./Domain/Factories/Duplicate.cs");
+        var suppliersDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
+        var csPath = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Duplicate.cs");
         var depPath = RelativePath.Directory(_fs.Root, "./Dep/");
 
         var parseMap = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
@@ -161,14 +161,14 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (factoryDirPath, new[] { csPath, csPath, csPath })
+            (suppliersDirPath, new[] { csPath, csPath, csPath })
         );
 
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var dirItem = RequireItem(graph, factoryDirPath);
+        var dirItem = RequireItem(graph, suppliersDirPath);
         var dirItemChildren = graph.ChildrenOf(dirItem.Path);
         Assert.Single(dirItemChildren);
 
@@ -182,10 +182,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Factories/Variant.cs", "/* */");
+        _fs.File("Inventory/Suppliers/Variant.cs", "/* */");
 
-        var factoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
-        var csPath = RelativePath.File(_fs.Root, "./Domain/Factories/Variant.cs");
+        var suppliersDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
+        var csPath = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Variant.cs");
 
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
@@ -195,7 +195,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (factoryDirPath, new[] { csPath })
+            (suppliersDirPath, new[] { csPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -203,8 +203,8 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         Assert.True(graph.ContainsProjectItem(csPath));
 
-        var rel1 = RelativePath.File(_fs.Root, "./Domain/Factories/Variant.cs");
-        var rel2 = RelativePath.File(_fs.Root, "Domain/Factories/Variant.cs");
+        var rel1 = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Variant.cs");
+        var rel2 = RelativePath.File(_fs.Root, "Inventory/Suppliers/Variant.cs");
         Assert.True(graph.ContainsProjectItem(rel1));
         Assert.True(graph.ContainsProjectItem(rel2));
     }
@@ -214,26 +214,26 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
         var rootDirPath = RelativePath.Directory(_fs.Root, _fs.Root);
-        var domainDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
-        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        var inventoryDirPath = RelativePath.Directory(_fs.Root, "./Inventory/");
+        var stockDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Stock/");
 
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>());
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (rootDirPath, new[] { domainDirPath }),
-            (domainDirPath, new[] { modelsDirPath })
+            (rootDirPath, new[] { inventoryDirPath }),
+            (inventoryDirPath, new[] { stockDirPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        Assert.True(graph.ContainsProjectItem(domainDirPath));
-        Assert.True(graph.ContainsProjectItem(modelsDirPath));
+        Assert.True(graph.ContainsProjectItem(inventoryDirPath));
+        Assert.True(graph.ContainsProjectItem(stockDirPath));
 
-        var _ = RequireItem(graph, domainDirPath);
-        var modelsNode = RequireItem(graph, modelsDirPath);
-        Assert.Contains(modelsNode.Path, graph.ChildrenOf(domainDirPath));
+        var _ = RequireItem(graph, inventoryDirPath);
+        var stockNode = RequireItem(graph, stockDirPath);
+        Assert.Contains(stockNode.Path, graph.ChildrenOf(inventoryDirPath));
     }
 
     [Fact]
@@ -241,75 +241,75 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Factories/DependencyParserFactory.cs", "/* */");
+        _fs.File("Inventory/Suppliers/StockSupplier.cs", "/* */");
 
-        var depFactoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
-        var depFactoryFilePath = RelativePath.File(_fs.Root, "./Domain/Factories/DependencyParserFactory.cs");
+        var suppliersDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
+        var stockSupplierFilePath = RelativePath.File(_fs.Root, "./Inventory/Suppliers/StockSupplier.cs");
 
         var newDepPath = RelativePath.Directory(_fs.Root, "./New/Dep/");
-        var enumsPath = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums/");
+        var tagsPath = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Tags/");
 
         var lastSavedGraph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [depFactoryFilePath] = [newDepPath, enumsPath]
+            [stockSupplierFilePath] = [newDepPath, tagsPath]
         });
 
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (depFactoryDirPath, new[] { depFactoryFilePath }),
+            (suppliersDirPath, new[] { stockSupplierFilePath }),
             (newDepPath, [])
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
-        var depFactoryProjectItem = RequireItem(graph, depFactoryFilePath);
+        var stockSupplierItem = RequireItem(graph, stockSupplierFilePath);
 
-        var infraPath = RelativePath.Directory(_fs.Root, "./Infra/");
-        Assert.Contains(newDepPath, graph.DependenciesFrom(depFactoryProjectItem.Path).Keys);
-        Assert.Contains(enumsPath, graph.DependenciesFrom(depFactoryProjectItem.Path).Keys);
-        Assert.DoesNotContain(infraPath, graph.DependenciesFrom(depFactoryProjectItem.Path).Keys);
+        var warehousePath = RelativePath.Directory(_fs.Root, "./Warehouse/");
+        Assert.Contains(newDepPath, graph.DependenciesFrom(stockSupplierItem.Path).Keys);
+        Assert.Contains(tagsPath, graph.DependenciesFrom(stockSupplierItem.Path).Keys);
+        Assert.DoesNotContain(warehousePath, graph.DependenciesFrom(stockSupplierItem.Path).Keys);
     }
 
     [Fact]
     public async Task Merge_RetainsUnchangedSubtrees_FromLastSaved()
     {
         SetupMockProject();
-        _fs.File("Domain/Models/Records/Options.cs", "/* */");
-        _fs.File("./Domain/Factories/RendererFactory.cs", "/* */");
+        _fs.File("Inventory/Stock/Labels/PriceTag.cs", "/* */");
+        _fs.File("./Inventory/Suppliers/ShipmentSupplier.cs", "/* */");
 
         var root = _fs.Root;
-        var recordDirPath = RelativePath.Directory(root, "./Domain/Models/Records/");
-        var optionsPath = RelativePath.File(root, "./Domain/Models/Records/Options.cs");
+        var labelsDirPath = RelativePath.Directory(root, "./Inventory/Stock/Labels/");
+        var priceTagPath = RelativePath.File(root, "./Inventory/Stock/Labels/PriceTag.cs");
         var changedDep = RelativePath.Directory(root, "./Changed/Dep/");
 
-        var renderFactoryPath = RelativePath.File(root, "./Infra/Factories/RendererFactory.cs");
-        var dependencyGraphPath = RelativePath.File(root, "./Domain/Models/DependencyGraph.cs");
+        var shipmentSupplierPath = RelativePath.File(root, "./Warehouse/Suppliers/ShipmentSupplier.cs");
+        var cataloguePath = RelativePath.File(root, "./Inventory/Stock/Catalogue.cs");
 
         var lastSavedGraph = TestDependencyGraph.MakeDependencyGraph(root);
 
         var parser = new DependencyParserSpy(root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [optionsPath] = [changedDep]
+            [priceTagPath] = [changedDep]
         });
 
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (recordDirPath, new[] { optionsPath })
+            (labelsDirPath, new[] { priceTagPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, lastSavedGraph);
 
-        Assert.True(graph.ContainsProjectItem(renderFactoryPath));
-        Assert.True(graph.ContainsProjectItem(dependencyGraphPath));
+        Assert.True(graph.ContainsProjectItem(shipmentSupplierPath));
+        Assert.True(graph.ContainsProjectItem(cataloguePath));
 
-        var optionsItem = RequireItem(graph, optionsPath);
-        Assert.Contains(changedDep, graph.DependenciesFrom(optionsItem.Path).Keys);
+        var priceTagItem = RequireItem(graph, priceTagPath);
+        Assert.Contains(changedDep, graph.DependenciesFrom(priceTagItem.Path).Keys);
     }
 
     [Fact]
@@ -317,10 +317,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Utils/NewUtil.cs", "/* */");
+        _fs.File("Inventory/Tools/NewUtil.cs", "/* */");
 
-        var utilsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
-        var newPath = RelativePath.File(_fs.Root, "./Domain/Utils/NewUtil.cs");
+        var toolsDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Tools/");
+        var newPath = RelativePath.File(_fs.Root, "./Inventory/Tools/NewUtil.cs");
 
         var lastSavedGraph = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
@@ -333,7 +333,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (utilsDirPath, new[] { newPath })
+            (toolsDirPath, new[] { newPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -350,10 +350,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var cs = _fs.File("Domain/Factories/Cancellable.cs", "/* */");
+        var cs = _fs.File("Inventory/Suppliers/Cancellable.cs", "/* */");
 
-        var factoryDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
-        var csPath = RelativePath.File(_fs.Root, "./Domain/Factories/Variant.cs");
+        var suppliersDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
+        var csPath = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Variant.cs");
 
         var newDepPath = RelativePath.Directory(_fs.Root, "./New/Dep/");
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
@@ -364,7 +364,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (factoryDirPath, new[] { csPath })
+            (suppliersDirPath, new[] { csPath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -380,37 +380,37 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var depGraph = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+        var depGraph = _fs.File("Inventory/Stock/Catalogue.cs", "/* */");
 
         var rootPath = RelativePath.Directory(_fs.Root, _fs.Root);
-        var domainDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
-        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        var inventoryDirPath = RelativePath.Directory(_fs.Root, "./Inventory/");
+        var stockDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Stock/");
 
-        var depGraphPath = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        var cataloguePath = RelativePath.File(_fs.Root, "./Inventory/Stock/Catalogue.cs");
         var xPath = RelativePath.File(_fs.Root, "./X/");
 
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [depGraphPath] = [xPath]
+            [cataloguePath] = [xPath]
         });
 
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (rootPath, new[] { domainDirPath }),
-            (domainDirPath, new[] { modelsDirPath }),
-            (modelsDirPath, new[] { depGraphPath })
+            (rootPath, new[] { inventoryDirPath }),
+            (inventoryDirPath, new[] { stockDirPath }),
+            (stockDirPath, new[] { cataloguePath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
         var _ = RequireItem(graph, rootPath);
-        var domain = RequireItem(graph, domainDirPath);
-        var models = RequireItem(graph, modelsDirPath);
+        var inventory = RequireItem(graph, inventoryDirPath);
+        var stock = RequireItem(graph, stockDirPath);
 
-        Assert.Contains(domain.Path, graph.ChildrenOf(rootPath));
-        Assert.Contains(models.Path, graph.ChildrenOf(domainDirPath));
+        Assert.Contains(inventory.Path, graph.ChildrenOf(rootPath));
+        Assert.Contains(stock.Path, graph.ChildrenOf(inventoryDirPath));
     }
 
     [Fact]
@@ -420,27 +420,27 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var srcPath = RelativePath.Directory(_fs.Root, _fs.Root);
 
-        var domain1 = RelativePath.Directory(_fs.Root, Path.Combine(_fs.Root, "Domain"));
-        var domain2 = RelativePath.Directory(_fs.Root, $"{domain1}{Path.DirectorySeparatorChar}");
-        var domain3 = RelativePath.Directory(_fs.Root, Path.Combine(_fs.Root, "./Domain"));
-        var domain4 = RelativePath.Directory(_fs.Root, "./Domain");
+        var dir1 = RelativePath.Directory(_fs.Root, Path.Combine(_fs.Root, "Inventory"));
+        var dir2 = RelativePath.Directory(_fs.Root, $"{dir1}{Path.DirectorySeparatorChar}");
+        var dir3 = RelativePath.Directory(_fs.Root, Path.Combine(_fs.Root, "./Inventory"));
+        var dir4 = RelativePath.Directory(_fs.Root, "./Inventory");
 
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>());
         var builder = CreateBuilder([parser]);
 
         var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [srcPath] = [domain1],
-            [domain1] = [domain2, domain3, domain4]
+            [srcPath] = [dir1],
+            [dir1] = [dir2, dir3, dir4]
         };
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, null);
 
-        var n1 = RequireItem(graph, domain1);
-        var n2 = RequireItem(graph, domain2);
-        var n3 = RequireItem(graph, domain3);
-        var n4 = RequireItem(graph, domain4);
+        var n1 = RequireItem(graph, dir1);
+        var n2 = RequireItem(graph, dir2);
+        var n3 = RequireItem(graph, dir3);
+        var n4 = RequireItem(graph, dir4);
 
         Assert.True(ReferenceEquals(n1, n2));
         Assert.True(ReferenceEquals(n1, n3));
@@ -455,32 +455,32 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var _ = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+        var _ = _fs.File("Inventory/Stock/Catalogue.cs", "/* */");
 
-        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/Models/");
-        var depGraphPath = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        var stockDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Stock/");
+        var cataloguePath = RelativePath.File(_fs.Root, "./Inventory/Stock/Catalogue.cs");
         var changedFilePath = RelativePath.Directory(_fs.Root, "./Changed/Node/Dep/");
-        var domainUtilPath = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
+        var toolsPath = RelativePath.Directory(_fs.Root, "./Inventory/Tools/");
 
         var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
-        lastSaved.AddDependency(depGraphPath, domainUtilPath, DependencyType.Uses);
+        lastSaved.AddDependency(cataloguePath, toolsPath, DependencyType.Uses);
 
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [depGraphPath] = [changedFilePath]
+            [cataloguePath] = [changedFilePath]
         });
         var builder = CreateBuilder([parser]);
         var changedModules = ChangedModules(
-            (modelsDirPath, new[] { depGraphPath })
+            (stockDirPath, new[] { cataloguePath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, lastSaved);
 
-        RequireItem(graph, modelsDirPath);
-        RequireItem(graph, depGraphPath);
-        Assert.Contains(changedFilePath, graph.DependenciesFrom(depGraphPath).Keys);
-        Assert.DoesNotContain(domainUtilPath, graph.DependenciesFrom(depGraphPath).Keys);
+        RequireItem(graph, stockDirPath);
+        RequireItem(graph, cataloguePath);
+        Assert.Contains(changedFilePath, graph.DependenciesFrom(cataloguePath).Keys);
+        Assert.DoesNotContain(toolsPath, graph.DependenciesFrom(cataloguePath).Keys);
     }
 
     [Fact]
@@ -492,34 +492,34 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var lastSaved = TestDependencyGraph.MakeDependencyGraph(rootPath);
 
         var oldFile = RelativePath.Directory(rootPath, "./Old/Dep/");
-        var bogusPath = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var bogusPath = RelativePath.Directory(rootPath, "./Inventory/Stock/");
         var bogusItem = TestGraphs.AddProjectItem(lastSaved, bogusPath, ProjectItemType.Directory, [oldFile]);
 
-        var domainPath = RelativePath.Directory(rootPath, "./Domain/");
-        lastSaved.AddChild(domainPath, bogusItem);
+        var inventoryPath = RelativePath.Directory(rootPath, "./Inventory/");
+        lastSaved.AddChild(inventoryPath, bogusItem);
 
-        var modelsDirPath = RelativePath.Directory(rootPath, "./Domain/Models/");
+        var stockDirPath = RelativePath.Directory(rootPath, "./Inventory/Stock/");
 
-        var depGraph = _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
-        var depGraphPath = RelativePath.File(rootPath, "Domain/Models/DependencyGraph.cs");
+        var depGraph = _fs.File("Inventory/Stock/Catalogue.cs", "/* */");
+        var cataloguePath = RelativePath.File(rootPath, "Inventory/Stock/Catalogue.cs");
         var newDepPath = RelativePath.Directory(_fs.Root, "./New/Dep/");
         var parser = new DependencyParserSpy(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [depGraphPath] = [newDepPath]
+            [cataloguePath] = [newDepPath]
         });
 
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (modelsDirPath, new[] { depGraphPath })
+            (stockDirPath, new[] { cataloguePath })
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
         var graph = await builder.GetGraphAsync(changes, lastSaved);
 
-        var models = graph.GetProjectItem(modelsDirPath);
-        Assert.NotNull(models);
-        Assert.IsType<ProjectItem>(models);
+        var stock = graph.GetProjectItem(stockDirPath);
+        Assert.NotNull(stock);
+        Assert.IsType<ProjectItem>(stock);
     }
 
     [Fact]
@@ -527,7 +527,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var modelsDirPath = RelativePath.Directory(_fs.Root, "./Domain/");
+        var parentDir = RelativePath.Directory(_fs.Root, "./Shop/");
 
         var emptyPath = RelativePath.Directory(_fs.Root, "");
         var spacesPath = RelativePath.Directory(_fs.Root, "   ");
@@ -539,7 +539,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var changedModules = new Dictionary<RelativePath, IReadOnlyList<RelativePath>>()
         {
-            [modelsDirPath] = [emptyPath, spacesPath, tabsPath, newlinePath]
+            [parentDir] = [emptyPath, spacesPath, tabsPath, newlinePath]
         };
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -567,12 +567,12 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        var f1 = _fs.File("Domain/Factories/A.cs", "/* */");
-        var f1Path = RelativePath.File(_fs.Root, "./Domain/Factories/A.cs");
-        var factoriesDirPath = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
+        var f1 = _fs.File("Inventory/Suppliers/A.cs", "/* */");
+        var f1Path = RelativePath.File(_fs.Root, "./Inventory/Suppliers/A.cs");
+        var suppliersDirPath = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
 
         var changedModules = ChangedModules(
-            (factoriesDirPath, [f1Path])
+            (suppliersDirPath, [f1Path])
         );
         var changes = CreateProjectChanges(changedModules, [], []);
 
@@ -649,7 +649,7 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
-        var deleted = RelativePath.File(_fs.Root, "./Infra/Factories/RendererFactory.cs");
+        var deleted = RelativePath.File(_fs.Root, "./Warehouse/Suppliers/ShipmentSupplier.cs");
         Assert.True(lastSaved.ContainsProjectItem(deleted));
 
         var changes = CreateProjectChanges(
@@ -675,13 +675,13 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
-        var deletedDir = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        var deletedDir = RelativePath.Directory(_fs.Root, "./Inventory/Stock/");
         Assert.True(lastSaved.ContainsProjectItem(deletedDir));
 
-        var deletedChild1 = RelativePath.Directory(_fs.Root, "./Domain/Models/Records/");
-        var deletedChild2 = RelativePath.Directory(_fs.Root, "./Domain/Models/Enums/");
-        var deletedLeaf1 = RelativePath.File(_fs.Root, "./Domain/Models/Records/Options.cs");
-        var deletedLeaf2 = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
+        var deletedChild1 = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Labels/");
+        var deletedChild2 = RelativePath.Directory(_fs.Root, "./Inventory/Stock/Tags/");
+        var deletedLeaf1 = RelativePath.File(_fs.Root, "./Inventory/Stock/Labels/PriceTag.cs");
+        var deletedLeaf2 = RelativePath.File(_fs.Root, "./Inventory/Stock/Catalogue.cs");
 
         var changes = CreateProjectChanges(
             changedFilesByDirectory: new Dictionary<RelativePath, IReadOnlyList<RelativePath>>(),
@@ -706,11 +706,11 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Utils/U.cs", "/* */");
+        _fs.File("Inventory/Tools/U.cs", "/* */");
 
-        var domainDir = RelativePath.Directory(_fs.Root, "./Domain/");
-        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
-        var uFile = RelativePath.File(_fs.Root, "./Domain/Utils/U.cs");
+        var inventoryDir = RelativePath.Directory(_fs.Root, "./Inventory/");
+        var toolsDir = RelativePath.Directory(_fs.Root, "./Inventory/Tools/");
+        var uFile = RelativePath.File(_fs.Root, "./Inventory/Tools/U.cs");
 
         var parser = new FixedMapParser(_fs.Root, new Dictionary<RelativePath, IReadOnlyList<RelativePath>>
         {
@@ -720,8 +720,8 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         var builder = CreateBuilder([parser]);
 
         var changedModules = ChangedModules(
-            (domainDir, new[] { utilsDir, utilsDir, utilsDir }),
-            (utilsDir, new[] { uFile })
+            (inventoryDir, new[] { toolsDir, toolsDir, toolsDir }),
+            (toolsDir, new[] { uFile })
         );
 
         var changes = CreateProjectChanges(changedModules, [], []);
@@ -731,8 +731,8 @@ public sealed class DependencyGraphBuilderTests : IDisposable
         Assert.Single(parser.Calls);
         Assert.Equal(uFile, parser.Calls[0]);
 
-        var domainChildren = graph.ChildrenOf(domainDir);
-        Assert.Single(domainChildren, x => x.Equals(utilsDir));
+        var inventoryChildren = graph.ChildrenOf(inventoryDir);
+        Assert.Single(inventoryChildren, x => x.Equals(toolsDir));
     }
 
     [Fact]
@@ -740,12 +740,12 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Factories/Bad.cs", "/* */");
-        _fs.File("Domain/Factories/Good.cs", "/* */");
+        _fs.File("Inventory/Suppliers/Bad.cs", "/* */");
+        _fs.File("Inventory/Suppliers/Good.cs", "/* */");
 
-        var dir = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
-        var bad = RelativePath.File(_fs.Root, "./Domain/Factories/Bad.cs");
-        var good = RelativePath.File(_fs.Root, "./Domain/Factories/Good.cs");
+        var dir = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
+        var bad = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Bad.cs");
+        var good = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Good.cs");
 
         var parser = new ThrowingParser("Bad.cs", new InvalidOperationException("Contains Bad.cs"));
         var builder = CreateBuilder([parser]);
@@ -783,26 +783,26 @@ public sealed class DependencyGraphBuilderTests : IDisposable
 
         var lastSaved = TestDependencyGraph.MakeDependencyGraph(_fs.Root);
 
-        var depGraph = RelativePath.File(_fs.Root, "./Domain/Models/DependencyGraph.cs");
-        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
-        Assert.Contains(utilsDir, lastSaved.DependenciesFrom(depGraph).Keys);
+        var catalogue = RelativePath.File(_fs.Root, "./Inventory/Stock/Catalogue.cs");
+        var toolsDir = RelativePath.Directory(_fs.Root, "./Inventory/Tools/");
+        Assert.Contains(toolsDir, lastSaved.DependenciesFrom(catalogue).Keys);
 
-        _fs.File("Domain/Models/DependencyGraph.cs", "/* */");
+        _fs.File("Inventory/Stock/Catalogue.cs", "/* */");
 
-        var modelsDir = RelativePath.Directory(_fs.Root, "./Domain/Models/");
+        var stockDir = RelativePath.Directory(_fs.Root, "./Inventory/Stock/");
         var changes = CreateProjectChanges(
-            ChangedModules((modelsDir, new[] { depGraph })),
+            ChangedModules((stockDir, new[] { catalogue })),
             deletedFiles: [],
             deletedDirectories: []
         );
 
-        var parser = new ThrowingParser("DependencyGraph.cs", new Exception("parse failed"));
+        var parser = new ThrowingParser("Catalogue.cs", new Exception("parse failed"));
         var builder = CreateBuilder([parser]);
 
         var merged = await builder.GetGraphAsync(changes, lastSaved);
 
-        Assert.True(merged.ContainsProjectItem(depGraph));
-        Assert.Contains(utilsDir, merged.DependenciesFrom(depGraph).Keys);
+        Assert.True(merged.ContainsProjectItem(catalogue));
+        Assert.Contains(toolsDir, merged.DependenciesFrom(catalogue).Keys);
     }
 
     [Fact]
@@ -810,16 +810,16 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Utils/C.cs", "/* */");
+        _fs.File("Inventory/Tools/C.cs", "/* */");
 
-        var utilsDir = RelativePath.Directory(_fs.Root, "./Domain/Utils/");
-        var cFile = RelativePath.File(_fs.Root, "./Domain/Utils/C.cs");
+        var toolsDir = RelativePath.Directory(_fs.Root, "./Inventory/Tools/");
+        var cFile = RelativePath.File(_fs.Root, "./Inventory/Tools/C.cs");
 
         var blocking = new BlockingUntilCancelledParser(_fs.Root);
         var builder = CreateBuilder([blocking]);
 
         var changes = CreateProjectChanges(
-            ChangedModules((utilsDir, new[] { cFile })),
+            ChangedModules((toolsDir, new[] { cFile })),
             deletedFiles: [],
             deletedDirectories: []
         );
@@ -862,10 +862,10 @@ public sealed class DependencyGraphBuilderTests : IDisposable
     {
         SetupMockProject();
 
-        _fs.File("Domain/Factories/Multi.cs", "/* */");
+        _fs.File("Inventory/Suppliers/Multi.cs", "/* */");
 
-        var dir = RelativePath.Directory(_fs.Root, "./Domain/Factories/");
-        var file = RelativePath.File(_fs.Root, "./Domain/Factories/Multi.cs");
+        var dir = RelativePath.Directory(_fs.Root, "./Inventory/Suppliers/");
+        var file = RelativePath.File(_fs.Root, "./Inventory/Suppliers/Multi.cs");
 
         var depA = RelativePath.Directory(_fs.Root, "./Dep/A/");
         var depB = RelativePath.Directory(_fs.Root, "./Dep/B/");
