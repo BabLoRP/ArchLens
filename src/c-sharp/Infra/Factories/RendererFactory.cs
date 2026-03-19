@@ -1,0 +1,18 @@
+using System;
+using Archlens.Domain;
+using Archlens.Domain.Models.Enums;
+using Archlens.Domain.Models.Records;
+using Archlens.Infra.Renderers;
+
+namespace Archlens.Infra.Factories;
+
+public static class RendererFactory
+{
+    public static RendererBase SelectRenderer(RenderOptions options) => options.Format switch
+    {
+        RenderFormat.None => new NoneRenderer(),
+        RenderFormat.Json => new JsonRenderer(),
+        RenderFormat.PlantUML => new PlantUMLRenderer(),
+        _ => throw new ArgumentOutOfRangeException(nameof(options))
+    };
+}

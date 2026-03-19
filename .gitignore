@@ -3,6 +3,9 @@ test_projects/
 diagrams/
 
 .idea
+.vs
+
+obj/
 
 # Created by https://www.toptal.com/developers/gitignore/api/terraform
 # Edit at https://www.toptal.com/developers/gitignore?templates=terraform
@@ -225,3 +228,10 @@ pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,venv
 /.envrc
+
+**.dll
+
+**/.dotnet
+**/.dotnet/
+.dotnet/
+.dotnet

@@ -1,0 +1,6 @@
+include README.md
+include CHANGELOG.md
+include LICENSE
+include requirements.txt
+recursive-include src *.json
+graft .dotnet

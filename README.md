@@ -1,242 +1,296 @@
-# ArchLens
+# ArchLens User Guide  <!-- omit in toc -->
 
-##
-ArchLens is a Python software tool that generates customizable visual package views, showcasing the packages in your system and their dependencies. It offers the flexibility to include or exclude specific packages to suit your requirements for comprehensible views. We are working on making it work also on C#.
+ArchLens generates customisable visual internal dependency diagrams of your codebase, showing packages and their dependencies. It currently supports Python, C#, Go, Java & Kotlin. ArchLens also have a dedicted Visual Studio Code extension, you can call it through CLI and can highlight the differences between GitHub branches to make pull request reviews easier.
 
-Moreover, ArchLens can highlight the differences between your working branch and a specified remote branch, including added or removed dependencies and created or deleted packages, by using green and red highlighting.
+## Table of Contents  <!-- omit in toc -->
 
-Lastly, ArchLens can display the highlighted differences in the system views when a pull request is created on GitHub. It automatically generates the views specified in your config, highlights the differences, and displays them in your pull request, simplifying the review process.
-
-To help you get started, this readme includes various options in combination with the setup of a config file.
-
-## Compatibility
-
-ArchLens is compatible with projects written in **Python versions greater than 3.9** 
+- [Installation](#installation)
+  - [Python projects (PyPi)](#python-projects-pypi)
+  - [C# projects and multi-language support](#c-projects-and-multi-language-support)
+- [Configuration](#configuration)
+  - [Configuration reference](#configuration-reference)
+    - [Python folder depth constraint](#python-folder-depth-constraint)
+    - [C# configuration example](#c-configuration-example)
+- [Commands](#commands)
+- [Defining Views](#defining-views)
+  - [Show all top-level packages](#show-all-top-level-packages)
+  - [Expand a specific package](#expand-a-specific-package)
+  - [Multiple packages in one view](#multiple-packages-in-one-view)
+  - [Filtering packages](#filtering-packages)
+- [Diff Views](#diff-views)
+- [VSCode Extension](#vscode-extension)
+  - [Installation](#installation-1)
+  - [Setup](#setup)
+  - [Views in the extension](#views-in-the-extension)
+  - [Using the local ArchLens build with the extension](#using-the-local-archlens-build-with-the-extension)
+- [Multi-Language Support and Better Performance](#multi-language-support-and-better-performance)
+  - [Setup steps](#setup-steps)
 
 ## Installation
 
-To install ArchLens, simply use the pip package manager by running the following command:
+### Python projects (PyPi)
 
-`pip install archlens-preview` (You need administrative right to perform the operation)
+For Python projects, install ArchLens from PyPi:
 
-This will download and install the necessary files and dependencies needed for ArchLens to run properly.
+```bash
+pip install archlens
+```
+
+> **Note:** Administrative rights may be required. We recommend using a virtual environment.
+>
+> **Python version:** Python 3.10 is recommended; Later versions might cause issues.
+
+### C# projects and multi-language support
+
+The PyPi package currently supports Python only. For C# projects, or for the latest features and performance improvements, use the local development version. See [Multi-Language Support and Better Performance](#multi-language-support-and-better-performance).
+
+## Configuration
+
+ArchLens is configured through an `archlens.json` file in the root of your project. To generate a template, either press `ctrl`+`shift`+`p` and select `ArchLens: setup ArchLens`, or run:
+
+```bash
+archlens init
+```
+
+This creates an `archlens.json` file with the following structure:
+
+```json
+{
+    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
+    "name": "my-project",
+    "rootFolder": "src",
+    "github": {
+        "url": "https://github.com/owner/my-project",
+        "branch": "main"
+    },
+    "saveLocation": "./diagrams/",
+    "views": {
+        "completeView": {
+            "packages": [],
+            "ignorePackages": []
+        }
+    }
+}
+```
+
+### Configuration reference
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | Yes | Name of your project |
+| `rootFolder` | Yes | Path to your source root relative to the project root (e.g. `"src"`) |
+| `github.url` | For diff commands | URL of the GitHub repository |
+| `github.branch` | For diff commands | The base branch to compare against (e.g. `"main"`) |
+| `fileExtensions` | No/Required for non-python projects | File extensions to parse (e.g. `[".cs"]`) |
+| `exclusions` | No | Folders or files to exclude (e.g. `["obj/", "bin/", "*test*"]`) |
+| `saveLocation` | No | Where to save generated diagrams. Defaults to `"./diagrams/"` |
+| `snapshotDir` | No | Directory for cache files. Defaults to `".archlens"` |
+| `snapshotFile` | No | Filename for the cache. Defaults to `"snapshot"` |
+
+#### Python folder depth constraint
+
+For Python projects, `rootFolder` must have only **one level of depth** from your project root for dependency arrows to render correctly. For example, use `"src"` rather than `"src/myapp/modules"`.
+
+#### C# configuration example
+
+```json
+{
+    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
+    "name": "MyApp",
+    "rootFolder": "src/MyApp",
+    "github": {
+        "url": "https://github.com/owner/myapp",
+        "branch": "main"
+    },
+    "fileExtensions": [".cs"],
+    "exclusions": ["obj/", "bin/", ".vs/", ".git/"],
+    "saveLocation": "./diagrams/",
+    "views": {
+        "completeView": {
+            "packages": [],
+            "ignorePackages": []
+        }
+    }
+}
+```
 
 ## Commands
 
-All commands must be run from the project's root folder
+All commands must be run from the **root of your project** (where `archlens.json` lives).
 
-<b>The system has 4 commands:</b>
+| Command | Description |
+|---|---|
+| `archlens init` | Creates the `archlens.json` config template |
+| `archlens render` | Renders all views defined in the config |
+| `archlens render-diff` | Renders difference views comparing current branch to the base branch |
+| `archlens create-action` | Creates a GitHub Actions workflow for automatic PR diff comments |
 
+## Defining Views
 
--`archlens init`- Creates the config template
+Views control what is shown in each diagram. Each view is a named entry under `"views"` in your config.
 
--`archlens render` - Renders the views specified in the config
+### Show all top-level packages
 
--`archlens render-diff` - Renders the differences in the views between your working branch and a specified branch
-
--`archlens create-action` Creates the github action which will automatically add the difference views to pull requests.
-
-# Using the system
-
-In this section, we will guide you through using the ArchLens system by explaining the commands and output with the example of an API project called 'zeeguu-api' that can be found at https://github.com/zeeguu/api.
-
-Although the project is not large, understanding the system even for this project size of roughly 40 packages can be challenging. To begin generating views, you need to be in the root of your project and run the following command:
-
-- `archlens init`
-
-This will create an "archlens.json" file in your root folder, where you can edit your desired views. This is the initial config:
+Leave `packages` empty to show all top-level packages:
 
 ```json
- {
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
-    "name": "",
-    "rootFolder": "",
-    "github": {
-        "url": "",
-        "branch": "main"
-    },
-    "saveLocation": "./diagrams/",
-    "views": {
-        "completeView": {
-            "packages": [],
-            "ignorePackages": []
-        }
+"views": {
+    "completeView": {
+        "packages": [],
+        "ignorePackages": []
     }
 }
-
 ```
 
+### Expand a specific package
 
-### You can render the views specified in your "archlens.json" file by running the command:
-- `archlens render`
-
-This will generate the diagrams for all the views defined in your configuration file and save them in the location specified in the "saveLocation" field of your configuration.
-Since currently you only have one view you will only see the following: 
-
-![Zeeguu view](https://raw.githubusercontent.com/archlens/ArchLens/master/.github/readme/zeeguu-api-completeView.png)
-
-## Expanding Packages
-
-If you want to generate another view, in which you want to show the contents of the `core` package for example, you can do it by adding a new view to your definition. E.g. 
+Use a `path` and `depth` to drill into a package. `depth: 1` shows the direct children:
 
 ```json
- {
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
-    "name": "",
-    "rootFolder": "",
-    "github": {
-        "url": "",
-        "branch": "main"
-    },
-    "saveLocation": "./diagrams/",
-    "views": {
-        "completeView": {
-            "packages": [],
-            "ignorePackages": []
-        },
-        
- "inside-core": {
-      "packages": [
+"inside-core": {
+    "packages": [
         {
-          "path": "core",
-          "depth": 1
+            "path": "core",
+            "depth": 1
         }
-      ]
-    }
-}
-
-```
-
-This will generate another view that shows all the dependencies inside the `core` package
-
-
-![Zeeguu view](https://raw.githubusercontent.com/archlens/ArchLens/master/.github/readme/zeeguu-api-inside-core.png)
-
-
-## Filtering of packages
-
-The last view we generated above is 	quite dense. One way to solve this problem is to observe that almost all the packages depend on the `core.model` package. When every node depends on it, drawing all the dependencies has little value. We can filter nodes that are shown in the diagram if we use the `ignorePackages` key in a view definition. 
-
-We redefine the view to filter out the `core.mode` package from the view: 
-
-```json
-
-    "inside-core": {
-      "packages": [
-        {
-          "path": "core",
-          "depth": 1
-        }
-      ],
-      "ignorePackages": [
-        "core.model",
-      ]
-    },
-```
-
-The resulting view is much more relevant for understanding the architecture of this sytem. 
-
-![Zeeguu view](https://raw.githubusercontent.com/archlens/ArchLens/master/.github/readme/zeeguu-api-inside-core-no-model.png)
-
-
-## Arrows
-Each arrow in the system diagram represents a dependency between two packages, and the number on the arrow indicates the number of dependencies going in that direction. If you prefer not to see these arrows, you can use the optional "showDependencyCount" setting, which is a boolean. When set to "false", the dependency count will be hidden in all views. Here is an example of how to set this option in your archlens.json file:
-
-```json
-{
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
-    "name": "zeeguu", # Name of project
-    "rootFolder": "zeeguu", # Name of source folder
-    "github": {
-        "url": "https://github.com/zeeguu/api", # Link to project's Github
-        "branch": "master" # Name of main/master branch of project
-    },
-    "showDependencyCount": false, <------ here we remove the arrows.
-    "saveLocation": "./diagrams/", # Location to store generated diagrams
+    ]
 }
 ```
-In this ArchLens config file, the dependency count would be gone. This setting is applied to all of the views.
 
-## Ignore packages
-In addition to selecting which packages you want in your diagram, you can also select which packages you want removed from your diagram.
+### Multiple packages in one view
 
-This can be done in two different ways:
+```json
+"layeredView": {
+    "packages": [
+        { "path": "Application", "depth": 1 },
+        { "path": "Domain", "depth": 2 },
+        { "path": "Infra", "depth": 1 }
+    ],
+    "ignorePackages": []
+}
+```
+
+### Filtering packages
+
+Use `ignorePackages` to remove noisy packages from a view. Two filtering modes are supported:
 
 ```json
 "ignorePackages": [
-"*test*" #Removes any package which contains the word test
-"api/test" #Removes the package api/test and all of its sub packages
+    "*test*",
+    "core/model"
 ]
 ```
 
-To clarify, the first method using an asterisk (*) will remove any package containing the specified keyword, while the second method will remove only the specified package and all of its sub-packages. This can be useful for cleaning up clutter in the diagram or for excluding certain packages that are not relevant to the analysis.
+- `"*test*"` — removes any package whose name contains `"test"`
+- `"core/model"` — removes `core/model` and all of its sub-packages
 
-## The difference views
-To generate a difference view using ArchLens, you need to be on a branch other than the one specified in the configuration file. Usually, you would compare your current branch with the main/master branch, but you have the flexibility to choose any branch you desire. For the following example, I have narrowed down the view by filtering out only the "core/model" package.
+## Diff Views
 
-```json
-{
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/config.schema.json",
-    "name": "zeeguu",
-    "rootFolder": "zeeguu",
-    "github": {
-        "url": "https://github.com/zeeguu/api",
-        "branch": "master"
-    },
-    "saveLocation": "./diagrams/",
-    "views": {
-         "coreView":{
-            "packages": [
-                "core/model" #Looking at core/model, using the path instead of object, because i want to see the entire sub system
-            ],
-            "ignorePackages": []
-        }
-    }
-}
-```
-For the next example, the core view is further filtered to show only "core/model". Three changes were made in comparison to the main branch: the package "smart_watch" was deleted, a new package called "smart_watch_two" was added, and a dependency from "word_knowledge" to "model" was removed.
+Diff views highlight dependency changes between your current branch and the base branch specified in `github.branch`. Changed elements are shown in **green** (added) and **red** (removed).
 
-To render this new view displaying the changes, a new command must be run:
+**OBS!** to use diff on non-python projects we reccommend pushing a cached version (also refered to as the snapshot) to the branch, to optimise performance.
 
-- `archlens render-diff`
+Make sure you are on a feature branch (not the base branch), then run:
 
-![Zeeguu core view](https://raw.githubusercontent.com/archlens/ArchLens/master/.github/readme/zeeguu-modelViewdiffView.png)
-
-If there are no diffrences, a diagram without diffrences will still be generated.
-
-
-## Github action - Pull request
-
-To display the difference views in your pull requests, run the command:
-
-- `archlens create-action`
-
-This command generates the necessary files in the .github folder, creating it if it doesn't already exist. Once this is done, you can create a pull request, and the difference view will be visible to the reviewer, as shown in the image below. If there are no diffrences, a diagram without diffrences will still be generated.
-
-![Zeeguu core view](https://raw.githubusercontent.com/archlens/ArchLens/master/.github/readme/zeeguu-modelViewDiffGithub.png)
-
-## Contributing
-
-Further development on ArchLens is welcomed. To contribute to developing further on ArchLens, we welcome you to fork the repository and propose your additions.
-
-Before you start developing, ensure you have a compatible Python version for running ArchLens. ArchLens have been tested for versions after, including, 3.9, up until, and excluding, version 3.12. There are known issues related to running ArchLens with a version after and including version 3.11.
-
-After ensuring that the current Python version is compatible with ArchLens, we recommend installing the required packages from the files _requirements.txt_ and _dev-requirements.txt_. This will ensure that the necessary packages to run and test your contributions to ArchLens are in your development environment and that they uphold the minimum version requirements. The installing process has been tested using _pip_, and can be done using the following commands:
-
-```
-python -m pip install -r requirements.txt
-python -m pip install -r dev-requirements.txt
-```
-(What you use to install pip packages might differ)
-
-Next, to continue setting up your development environment, run the following command:
-```
-python setup.py develop
+```bash
+archlens render-diff
 ```
 
-After following these steps, one can use the commando below to run the commands locally:
-```
-python ./src/cli_interface.py [cli_command]
+This generates diagrams only for views that have actual changes. If there are no differences, a diagram without highlights is still generated.
+
+Diff output indicates:
+
+- **Green package/arrow** — added in the current branch
+- **Red package/arrow** — removed in the current branch
+- Count changes on arrows (e.g. `5 (+2)`)
+
+## VSCode Extension
+
+The [ArchLens for VSCode](https://github.com/archlens/ArchLens-VsCode-Extension) extension lets you generate and view architecture diagrams directly inside VS Code.
+
+### Installation
+
+Search for **ArchLens** in the VS Code Extensions panel and install it. You can also install it manually by downloading the `.vsix` file from the [releases page](https://github.com/archlens/ArchLens-VsCode-Extension/releases) and running:
+
+```bash
+code --install-extension archlens-<version>.vsix
 ```
 
-For an overview of CLI-commands, look [here](https://github.com/archlens/ArchLens/edit/master/README.md#commands).
+The extension requires the **Python extension for VS Code** to be installed.
+
+### Setup
+
+1. Open the command palette (`Ctrl+Shift+P`).
+2. Run the **ArchLens: Setup** command and follow the prompts.
+
+The extension will guide you through creating your `archlens.json` configuration if one does not exist.
+
+### Views in the extension
+
+The extension displays three states:
+
+- **Normal view**: your current architecture diagram
+- **Diff view**: dependency changes compared to the base branch
+- **Busy view**: while ArchLens is processing
+
+### Using the local ArchLens build with the extension
+
+If you are using the local development version of ArchLens (e.g. for C# support), install it into the virtual environment that the extension uses:
+
+```bash
+pip install -e "<path-to-local-archlens>/src/python"
+```
+
+## Multi-Language Support and Better Performance
+
+The PyPi package (`archlens`) currently supports **Python projects only**. For multilanguage support and improved performance, you need to use the local build.
+
+### Setup steps
+
+1. **Clone the ArchLens repository:**
+
+    ```bash
+    git clone https://github.com/archlens/ArchLens
+    ```
+
+2. **Clone your target project** (if not already available locally).
+
+3. **In your project, create and activate a virtual environment:**
+
+    ```bash
+    python -m venv .venv
+    # Windows
+    .venv\Scripts\activate
+    # macOS/Linux
+    source .venv/bin/activate
+    ```
+
+    > Use Python 3.10 or 3.12. Do **not** use Python 3.14.
+
+4. **Install ArchLens from the local source:**
+
+    ```bash
+    pip install -e "<path-to-local-archlens>/src/python"
+    ```
+
+5. **Build the .NET component**:
+
+    ```bash
+    dotnet build
+    ```
+
+    ```bash
+    dotnet publish "<path-to-archlens>/src/c-sharp/Archlens.csproj" \
+        -o "<path-to-archlens>/src/python/src/.dotnet"
+    ```
+
+    This publishes the .NET build output, including the ArchLens DLL, into the `.dotnet` folder so the Python CLI can invoke it.
+
+6. **Run ArchLens in your project:**
+
+    ```bash
+    archlens init
+    archlens render
+    ```
+
+> **Note:** Any time you make changes to the C# source, re-run the `dotnet publish` command to update the DLL.

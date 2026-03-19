@@ -1,18 +1,52 @@
 {
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/config.schema.json",
-    "name": "ArchLens",
-    "rootFolder": "src",
+    "$schema": "https://raw.githubusercontent.com/BabLoRP/ArchLens/master/src/python/config.schema.json",
+    "name": "Archlens",
+    "rootFolder": "src/c-sharp/",
     "github": {
-        "url": "https://github.com/archlens/ArchLens",
+        "url": "https://github.com/BabLoRP/ArchLens",
         "branch": "master"
     },
-    "saveLocation": "./diagrams/",
+    "snapshotDir": ".archlens",
+    "snapshotFile": "snapshot",
+    "saveLocation": "/diagrams/",
+    "exclusions": [
+        "obj/",
+        "bin/",
+        ".vs/",
+        ".git/",
+        ".idea/",
+        ".archlens"
+    ],
+    "fileExtensions": [
+        ".cs"
+    ],
     "views": {
         "completeView": {
+            "packages": [],
+            "ignorePackages": []
+        },
+        "domainView": {
             "packages": [
                 {
-                    "path": "*",
-                    "depth": 3
+                    "path": "Domain",
+                    "depth": 2
+                }
+            ],
+            "ignorePackages": []
+        },
+        "completeViewDetph2": {
+            "packages": [
+                {
+                    "path": "Application",
+                    "depth": 1
+                },
+                {
+                    "path": "Infra",
+                    "depth": 1
+                },
+                {
+                    "path": "Domain",
+                    "depth": 2
                 }
             ],
             "ignorePackages": []
