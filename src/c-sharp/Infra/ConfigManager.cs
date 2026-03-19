@@ -222,6 +222,7 @@ public class ConfigManager(string _path)
         var s = raw.Trim().ToLowerInvariant();
         return s switch
         {
+            "none" => RenderFormat.None,
             "json" or "application/json" => RenderFormat.Json,
             "puml" or "plantuml" or "plant-uml" => RenderFormat.PlantUML,
             _ => throw new NotSupportedException($"Unsupported format: '{raw}'.")

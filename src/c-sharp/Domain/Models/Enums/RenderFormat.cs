@@ -2,6 +2,7 @@ namespace Archlens.Domain.Models.Enums;
 
 public enum RenderFormat
 {
+    None,
     Json,
     PlantUML
 }
@@ -12,6 +13,7 @@ public static class RenderFormatExtensions
     {
         return format switch
         {
+            RenderFormat.None => "none",
             RenderFormat.Json => "json",
             RenderFormat.PlantUML => "puml",
             _ => format.ToString(),
