@@ -10,7 +10,7 @@ public static class RendererFactory
 {
     public static RendererBase SelectRenderer(RenderOptions options) => options.Format switch
     {
-        RenderFormat.None => throw new Exception(),
+        RenderFormat.None => new NoneRenderer(),
         RenderFormat.Json => new JsonRenderer(),
         RenderFormat.PlantUML => new PlantUMLRenderer(),
         _ => throw new ArgumentOutOfRangeException(nameof(options))
