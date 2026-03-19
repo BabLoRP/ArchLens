@@ -40,7 +40,7 @@ app = typer.Typer(add_completion=True)
 @app.command()
 def render(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
-    
+
     if (should_run_dotnet(config)):
         format = config.get("format", "puml") #default to puml if no format specified
         result = Program.CLISync(config_path, format)
@@ -96,13 +96,13 @@ def render_diff(config_path: str = "archlens.json"):
         result = Program.CLISync(config_path, format, True)
         assert_result(result)
 
-    if format == "puml":
-        for view in config["views"]:
-            file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-diff-{view}.puml"
-            puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
-            subprocess.run(["powershell", puml_command], shell=True)
+        if format == "puml":
+            for view in config["views"]:
+                file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-diff-{view}.puml"
+                puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
+                subprocess.run(["powershell", puml_command], shell=True)
 
-    else:     
+    else:
         with tempfile.TemporaryDirectory() as tmp_dir:
             print("Created temporary directory:", tmp_dir)
 
@@ -136,14 +136,14 @@ def render_diff(config_path: str = "archlens.json"):
 @app.command()
 def render_diff_json(config_path: str = "archlens.json"):
     config = read_config_file(config_path)
-    
+
     if (should_run_dotnet(config)):
         result = Program.CLISync(config_path, "json", True)
         assert_result(result)
-    else:  
+    else:
         with tempfile.TemporaryDirectory() as tmp_dir:
             print("Created temporary directory:", tmp_dir)
-            
+
             fetch_git_repo(tmp_dir, config["github"]["url"], config["github"]["branch"])
 
             shutil.copyfile(config_path, os.path.join(tmp_dir, "archlens.json"))
