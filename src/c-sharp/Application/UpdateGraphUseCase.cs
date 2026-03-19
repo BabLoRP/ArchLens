@@ -26,7 +26,7 @@ public sealed class UpdateGraphUseCase(
         var projectChanges = await ChangeDetector.GetProjectChangesAsync(parserOptions, snapshotGraph, ct);
         var graph = await new DependencyGraphBuilder(parsers, baseOptions).GetGraphAsync(projectChanges, snapshotGraph, ct);
 
-        if (!(renderOptions.Format == RenderFormat.None))
+        if (renderOptions.Format != RenderFormat.None)
         {
             if (diff)
             {
