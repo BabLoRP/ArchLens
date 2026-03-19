@@ -9,7 +9,7 @@ namespace ArchlensTests.Infra.Renderers;
 public sealed class NoneRendererTests : IDisposable
 {
     private readonly TestFileSystem _fs = new();
-    private readonly JsonRenderer _renderer = new();
+    private readonly NoneRenderer _renderer = new();
 
     public void Dispose() => _fs.Dispose();
 
