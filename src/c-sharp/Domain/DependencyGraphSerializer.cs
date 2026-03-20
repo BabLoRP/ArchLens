@@ -55,7 +55,7 @@ public static class DependencyGraphSerializer
         [Key(2)] public int Type { get; set; }
     }
 
-    public static byte[] Serialize(ProjectDependencyGraph graph, int version = 1)
+    public static byte[] Serialize(ProjectDependencyGraph graph, ILogger logger, int version = 1)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
@@ -109,7 +109,12 @@ public static class DependencyGraphSerializer
             DependsOn = dependsOn,
         };
 
-        return MessagePackSerializer.Serialize(dto, MsgPackOptions);
+        var result = MessagePackSerializer.Serialize(dto, MsgPackOptions);
+
+        if (result.Length == 0) logger.LogWarning($"Serialization size: {result.Length}");
+        else logger.LogInformation($"Serialization size: {result.Length}");
+
+        return result;
     }
 
     public static ProjectDependencyGraph Deserialize(byte[] data, string projectRoot)
