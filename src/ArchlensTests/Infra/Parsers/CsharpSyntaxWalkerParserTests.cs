@@ -97,7 +97,7 @@ public sealed class CsharpSyntaxWalkerParserTests : IDisposable
         var result = await new CsharpSyntaxWalkerParser(Opts()).ParseFileDependencies(path);
 
         Assert.Single(result);
-        Assert.Equal(Dir("./Domain/Utils/PathHelper/"), result[0]);
+        Assert.Equal(Dir("./Domain/Utils/"), result[0]);
     }
 
     [Fact]
