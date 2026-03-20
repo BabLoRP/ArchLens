@@ -97,7 +97,7 @@ This allows you to run and step through the C# code directly. Remember to **remo
 
 ## Architectural Requirements
 
-ArchLens is build after Clean- / Onion architecture.
+ArchLens is built after Clean- / Onion architecture.
 
 - The Domain layer encapsulates the business-critical concepts and rules, containing the core models, interfaces and logic for building dependency graphs, as well as caching mechanisms.
 - The Application layer coordinates the domain logic, namely, detecting changes in the analysed project, constructing the dependency graph, and rendering output.

@@ -1,6 +1,6 @@
 # ArchLens User Guide  <!-- omit in toc -->
 
-ArchLens generates customisable visual internal dependency diagrams of your codebase, showing packages and their dependencies. It currently supports Python, C#, Go, Java & Kotlin. ArchLens also have a dedicted Visual Studio Code extension, you can call it through CLI and can highlight the differences between GitHub branches to make pull request reviews easier.
+ArchLens generates customisable visual internal dependency diagrams of your codebase, showing packages and their dependencies. It currently supports Python, C#, Go, Java & Kotlin. ArchLens also has a dedicted Visual Studio Code extension, you can call it through CLI and can highlight the differences between GitHub branches to make pull request reviews easier.
 
 ## Table of Contents  <!-- omit in toc -->
 
@@ -188,7 +188,7 @@ Use `ignorePackages` to remove noisy packages from a view. Two filtering modes a
 
 Diff views highlight dependency changes between your current branch and the base branch specified in `github.branch`. Changed elements are shown in **green** (added) and **red** (removed).
 
-**OBS!** to use diff on non-python projects we reccommend pushing a cached version (also refered to as the snapshot) to the branch, to optimise performance.
+**OBS!** to use diff on non-python projects we recommend pushing a cached version (also refered to as the snapshot) to the branch, to optimise performance.
 
 Make sure you are on a feature branch (not the base branch), then run:
 

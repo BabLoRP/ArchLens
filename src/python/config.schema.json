@@ -59,7 +59,7 @@
     "snapshotFile": {
       "type": "string",
       "description": "The name of the file to save the snapshot in",
-      "default": "snaphot"
+      "default": "snapshot"
     },
     "format": {
       "type": "string",

@@ -115,7 +115,7 @@ public static class DependencyGraphSerializer
     public static ProjectDependencyGraph Deserialize(byte[] data, string projectRoot)
     {
         if (data is null || data.Length == 0)
-            throw new ArgumentException("Data is required to serialise.", nameof(data));
+            throw new ArgumentException("Data is required to deserialise.", nameof(data));
 
         if (string.IsNullOrWhiteSpace(projectRoot))
             throw new ArgumentException("Project root is required.", nameof(projectRoot));
