@@ -49,8 +49,14 @@ def render(config_path: str = "./archlens.json"):
         if format == "puml":
             for view in config["views"]:
                 file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-{view}.puml"
-                puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
-                subprocess.run(["powershell", puml_command], shell=True)
+                python_executable = sys.executable
+                plantuml_server = os.getenv(
+                    "PLANTUML_SERVER_URL",
+                    "https://www.plantuml.com/plantuml/img/",
+                )
+                os.system(
+                    f"{python_executable} -m plantuml --server {plantuml_server}  {file_name}"
+                )
 
     else:
         mt_path_manager = PathManagerSingleton()
@@ -113,8 +119,14 @@ def render_diff(config_path: str = "archlens.json"):
         if format == "puml":
             for view in config["views"]:
                 file_name = os.getcwd() + config["saveLocPure"] + config["name"] + f"-diff-{view}.puml"
-                puml_command = f"{sys.executable} -m plantuml --server https://www.plantuml.com/plantuml/img/  {file_name}"
-                subprocess.run(["powershell", puml_command], shell=True)
+                python_executable = sys.executable
+                plantuml_server = os.getenv(
+                    "PLANTUML_SERVER_URL",
+                    "https://www.plantuml.com/plantuml/img/",
+                )
+                os.system(
+                    f"{python_executable} -m plantuml --server {plantuml_server}  {file_name}"
+                )
 
     else:
         with tempfile.TemporaryDirectory() as tmp_dir:
