@@ -37,7 +37,10 @@ public class CsharpSyntaxWalkerParser(ParserOptions _options) : CSharpSyntaxWalk
         return [.. walker.Usings
             .Select(u =>
             {
-                var rel = u?.Name?.ToString()
+                var isStatic = u?.StaticKeyword.Text == "static";
+                // If using is static it references a concrete class, we trim that away to only have the folder
+                var name = isStatic ? string.Join('.', u?.Name?.ToString().Split('.').SkipLast(1)!) : u?.Name?.ToString();
+                var rel = name?
                     .Replace(".", "/")
                     .Replace(_options.BaseOptions.ProjectName, ".") + "/";
                 return RelativePath.Directory(_options.BaseOptions.FullRootPath, rel);
