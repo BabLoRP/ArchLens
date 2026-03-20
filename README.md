@@ -245,6 +245,8 @@ pip install -e "<path-to-local-archlens>/src/python"
 
 The PyPi package (`archlens`) currently supports **Python projects only**. For multilanguage support and improved performance, you need to use the local build.
 
+> **.NET version:** .NET 9.0 runtime is required to use the multilanguage features
+
 ### Setup steps
 
 1. **Clone the ArchLens repository:**

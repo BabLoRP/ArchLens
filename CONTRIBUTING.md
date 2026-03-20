@@ -18,7 +18,7 @@ Thank you for your interest in contributing! This document covers how to set up 
 ## Prerequisites
 
 - **Python 3.10 or 3.12** (do not use 3.14; 3.12 and 3.10 are known to work)
-- **.NET 8 SDK**
+- **.NET 9 SDK**
 - **VS Code** with the Python extension installed
 
 ## Setting Up the Development Environment
