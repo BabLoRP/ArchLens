@@ -27,13 +27,6 @@ import astroid
 
 astroid.MANAGER = None
 
-from pythonnet import load
-load("coreclr")
-import clr
-clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Microsoft.CodeAnalysis.dll'))
-clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Archlens.dll'))
-from Archlens.CLI import Program # type: ignore
-
 app = typer.Typer(add_completion=True)
 
 
@@ -42,6 +35,13 @@ def render(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
+        from pythonnet import load
+        load("coreclr")
+        import clr
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Microsoft.CodeAnalysis.dll'))
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Archlens.dll'))
+        from Archlens.CLI import Program # type: ignore
+
         format = config.get("format", "puml") #default to puml if no format specified
         result = Program.CLISync(config_path, format)
         assert_result(result)
@@ -68,6 +68,13 @@ def render_json(config_path: str = "./archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
+        from pythonnet import load
+        load("coreclr")
+        import clr
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Microsoft.CodeAnalysis.dll'))
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Archlens.dll'))
+        from Archlens.CLI import Program # type: ignore
+
         result = Program.CLISync(config_path, "json")
         assert_result(result)
     else:
@@ -92,6 +99,13 @@ def render_diff(config_path: str = "archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
+        from pythonnet import load
+        load("coreclr")
+        import clr
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Microsoft.CodeAnalysis.dll'))
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Archlens.dll'))
+        from Archlens.CLI import Program # type: ignore
+
         format = config.get("format", "puml") #default to puml if no format specified
         result = Program.CLISync(config_path, format, True)
         assert_result(result)
@@ -138,6 +152,13 @@ def render_diff_json(config_path: str = "archlens.json"):
     config = read_config_file(config_path)
 
     if (should_run_dotnet(config)):
+        from pythonnet import load
+        load("coreclr")
+        import clr
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Microsoft.CodeAnalysis.dll'))
+        clr.AddReference(os.path.join(os.path.dirname(__file__), '.dotnet', 'Archlens.dll'))
+        from Archlens.CLI import Program # type: ignore
+
         result = Program.CLISync(config_path, "json", True)
         assert_result(result)
     else:
