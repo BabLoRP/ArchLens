@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using Archlens.Application;
@@ -33,13 +33,15 @@ public class Program
     {
         try
         {
-            var (baseOptions, parserOptions, renderOptions, snapshotOptions) = await LoadOptions(configPath, diff, format);
+            var resolvedPath = configPath.Length > 0 ? configPath : FindConfigFile("archlens.json");
+            var configManager = new ConfigManager(resolvedPath);
+            await configManager.LoadAsync(diff, format);
 
-            var snapshotManager = SnapshotManagerFactory.SelectSnapshotManager(snapshotOptions);
-            var parsers = DependencyParserFactory.SelectDependencyParser(parserOptions);
-            var renderer = RendererFactory.SelectRenderer(renderOptions);
+            var snapshotManager = SnapshotManagerFactory.SelectSnapshotManager(configManager.GetSnapshotOptions());
+            var parsers = DependencyParserFactory.SelectDependencyParser(configManager.GetParserOptions());
+            var renderer = RendererFactory.SelectRenderer(configManager.GetRenderOptions());
 
-            var useCase = new UpdateGraphUseCase(baseOptions, parserOptions, renderOptions, snapshotOptions, parsers, renderer, snapshotManager, diff);
+            var useCase = new UpdateGraphUseCase(configManager, parsers, renderer, snapshotManager, diff);
             await useCase.RunAsync();
 
             return "";
@@ -49,13 +51,6 @@ public class Program
             Console.WriteLine($"EXCEPTION: {e.Message}\n{e.StackTrace}");
             return $"EXCEPTION: {e.Message}\n{e.StackTrace}";
         }
-    }
-
-    private static async Task<(BaseOptions, ParserOptions, RenderOptions, SnapshotOptions)> LoadOptions(string configPath, bool diff = false, string format = "puml")
-    {
-        var resolvedPath = configPath.Length > 0 ? configPath : FindConfigFile("archlens.json");
-        var configManager = new ConfigManager(resolvedPath);
-        return await configManager.LoadAsync(diff, format);
     }
 
     private static string FindConfigFile(string fileName)
