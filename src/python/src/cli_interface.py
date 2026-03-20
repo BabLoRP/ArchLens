@@ -251,7 +251,7 @@ def read_config_file(config_path):
     return config
 
 def should_run_dotnet(config):
-    return "fileExtensions" in config and not (len(config["fileExtensions"]) > 1) and (".py" not in config["fileExtensions"])
+    return "fileExtensions" in config and ((len(config["fileExtensions"]) > 1) or (".py" not in config["fileExtensions"]))
 
 def assert_result(result):
     if result != "":

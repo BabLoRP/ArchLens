@@ -33,7 +33,7 @@ public sealed class GitSnapshotManager : ISnapshotManager
     public async Task SaveGraphAsync(ProjectDependencyGraph graph, SnapshotOptions options, CancellationToken ct = default)
         => await _localManager.SaveGraphAsync(graph, options, ct);
 
-    public async Task<ProjectDependencyGraph> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
+    public async Task<ProjectDependencyGraph?> GetLastSavedDependencyGraphAsync(SnapshotOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.GitInfo.Url))
             throw new ArgumentException("GitUrl must be provided for GitSnaphotManager. Options has registered GitUrl as Null or Whitespace - has it been correctly configured in .archlens json?");

@@ -80,7 +80,7 @@ public class ConfigManager(string _path)
     private static BaseOptions MapBaseOptions(ConfigDto dto, string baseDir)
     {
         var projectRoot = MapProjectRoot(dto) ?? baseDir;
-        var projectName = MapName(dto) ?? baseDir.Split("\\").Last();
+        var projectName = MapName(dto) ?? baseDir.Split(Path.DirectorySeparatorChar).Last();
         var fullRootPath = GetFullRootPath(projectRoot, baseDir);
 
         if (!Directory.Exists(fullRootPath))

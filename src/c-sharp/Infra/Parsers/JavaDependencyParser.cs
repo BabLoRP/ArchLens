@@ -22,32 +22,32 @@ public class JavaDependencyParser(ParserOptions _options) : IDependencyParser
         ct.ThrowIfCancellationRequested();
         List<RelativePath> usings = [];
 
+        string regex = $$"""import\s+(static\s+)?{{_options.BaseOptions.ProjectName}}\.(.+);""";
+
         try
         {
-            StreamReader sr = new(path);
-
-            string? line = await sr.ReadLineAsync(ct);
-
-            while (line != null)
+            using (StreamReader sr = new(path))
             {
-                if (ct.IsCancellationRequested)
-                {
-                    sr.Close();
-                    ct.ThrowIfCancellationRequested();
-                }
+                string? line = await sr.ReadLineAsync(ct);
 
-                string regex = $$"""import\s+(static\s+)?{{_options.BaseOptions.ProjectName}}\.(.+);""";
-                var match = Regex.Match(line, regex, RegexOptions.None, TimeSpan.FromMilliseconds(200));
-                if (match.Success)
+                while (line != null)
                 {
-                    var packagePath = match.Groups[2].Value.TrimEnd('*').TrimEnd('.').Replace('.', '/');
-                    var relativePath = RelativePath.Directory(_options.BaseOptions.FullRootPath, packagePath);
-                    usings.Add(relativePath);
+                    if (ct.IsCancellationRequested)
+                    {
+                        sr.Close();
+                        ct.ThrowIfCancellationRequested();
+                    }
+
+                    var match = Regex.Match(line, regex, RegexOptions.None, TimeSpan.FromMilliseconds(200));
+                    if (match.Success)
+                    {
+                        var packagePath = match.Groups[2].Value.TrimEnd('*').TrimEnd('.').Replace('.', '/');
+                        var relativePath = RelativePath.Directory(_options.BaseOptions.FullRootPath, packagePath);
+                        usings.Add(relativePath);
+                    }
+                    line = await sr.ReadLineAsync(ct);
                 }
-                line = await sr.ReadLineAsync(ct);
             }
-
-            sr.Close();
             return usings;
         }
         catch (Exception e)

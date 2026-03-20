@@ -29,29 +29,29 @@ public class KotlinDependencyParser(ParserOptions _options) : IDependencyParser
 
         try
         {
-            StreamReader reader = new(path);
-
-            string? line;
-            while ((line = await reader.ReadLineAsync(ct)) != null)
+            using (StreamReader reader = new(path))
             {
-                if (ct.IsCancellationRequested)
+                string? line;
+                while ((line = await reader.ReadLineAsync(ct)) != null)
                 {
-                    reader.Close();
-                    ct.ThrowIfCancellationRequested();
-                }
-                var match = regex.Match(line);
-                if (!match.Success)
-                    continue;
+                    if (ct.IsCancellationRequested)
+                    {
+                        reader.Close();
+                        ct.ThrowIfCancellationRequested();
+                    }
+                    var match = regex.Match(line);
+                    if (!match.Success)
+                        continue;
 
-                var dep = match.Groups[1].Value.Trim();
-                if (dep.Length > 0)
-                {
-                    var packagePath = dep.TrimEnd('*').TrimEnd('.').Replace('.', '/');
-                    var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, packagePath);
-                    imports.Add(rel);
+                    var dep = match.Groups[1].Value.Trim();
+                    if (dep.Length > 0)
+                    {
+                        var packagePath = dep.TrimEnd('*').TrimEnd('.').Replace('.', '/');
+                        var rel = RelativePath.Directory(_options.BaseOptions.FullRootPath, packagePath);
+                        imports.Add(rel);
+                    }
                 }
             }
-            reader.Close();
 
             return imports;
         }

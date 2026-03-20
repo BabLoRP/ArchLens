@@ -25,26 +25,25 @@ public class GoDependencyParser(ParserOptions _options) : IDependencyParser
         if (string.IsNullOrEmpty(_projectImportPrefix))
             return deps; // if we do not know the project prefix we cannot decide what is internal
 
-        StreamReader reader = new(path);
-
-        var insideBlock = false;
-
-        while (!reader.EndOfStream)
+        using (StreamReader reader = new(path))
         {
-            if (ct.IsCancellationRequested)
+            var insideBlock = false;
+
+            while (!reader.EndOfStream)
             {
-                reader.Close();
-                ct.ThrowIfCancellationRequested();
+                if (ct.IsCancellationRequested)
+                {
+                    reader.Close();
+                    ct.ThrowIfCancellationRequested();
+                }
+
+                var line = await reader.ReadLineAsync(ct);
+                if (line is null)
+                    break;
+
+                insideBlock = ProcessImportLine(line.Trim(), insideBlock, deps);
             }
-
-            var line = await reader.ReadLineAsync(ct);
-            if (line is null)
-                break;
-
-            insideBlock = ProcessImportLine(line.Trim(), insideBlock, deps);
         }
-
-        reader.Close();
         return deps;
     }
     private bool ProcessImportLine(string trimmed, bool insideBlock, List<RelativePath> deps)
