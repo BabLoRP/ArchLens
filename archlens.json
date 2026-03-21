@@ -1,12 +1,25 @@
 {
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/config.schema.json",
+    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/python/config.schema.json",
     "name": "ArchLens",
-    "rootFolder": "src",
+    "rootFolder": "src/python/src",
     "github": {
         "url": "https://github.com/archlens/ArchLens",
         "branch": "master"
     },
+    "snapshotDir": ".archlens",
+    "snapshotFile": "snapshot",
     "saveLocation": "./diagrams/",
+    "exclusions": [
+        "obj/",
+        "bin/",
+        ".vs/",
+        ".git/",
+        ".idea/",
+        ".archlens"
+    ],
+    "fileExtensions": [
+        ".py"
+    ],
     "views": {
         "completeView": {
             "packages": [

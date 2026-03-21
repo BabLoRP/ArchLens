@@ -1,0 +1,63 @@
+root = true
+
+[*]
+insert_final_newline     = true
+trim_trailing_whitespace = true
+
+[*.cs]
+tab_width   = 4
+dotnet_diagnostic.IDE0055.severity = warning
+
+# Spacing
+csharp_space_after_cast                                           = false
+csharp_space_after_keywords_in_control_flow_statements            = true
+csharp_space_between_method_declaration_parameter_list_parentheses= false
+csharp_space_between_method_call_parameter_list_parentheses       = false
+csharp_space_before_colon_in_inheritance_clause                   = true
+csharp_space_after_colon_in_inheritance_clause                    = true
+
+# Imports
+dotnet_diagnostic.IDE0005.severity        = warning   # Remove unused using directives
+dotnet_sort_system_directives_first        = true
+dotnet_separate_import_directive_groups    = false
+
+csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,required,volatile,async:warning
+
+# Null handling
+dotnet_diagnostic.IDE0029.severity   = warning   # x != null ? x : y  →  x ?? y
+dotnet_diagnostic.IDE0031.severity   = warning   # x != null ? x.Foo : null  →  x?.Foo
+dotnet_diagnostic.IDE0270.severity   = warning   # x == null ? throw  →  x ?? throw
+
+dotnet_style_coalesce_expression     = true:warning
+dotnet_style_null_propagation        = true:warning
+
+# Pattern matching
+dotnet_diagnostic.IDE0019.severity                               = warning   # Use pattern matching instead of 'as' + null check
+dotnet_diagnostic.IDE0078.severity                               = warning   # Use pattern matching (is/and/or)
+dotnet_diagnostic.IDE0083.severity                               = warning   # Use 'is not' instead of '!(x is T)'
+
+csharp_style_pattern_matching_over_is_with_cast_check           = true:warning
+csharp_style_pattern_matching_over_as_with_null_check           = true:warning
+csharp_style_prefer_not_pattern                                  = true:warning
+csharp_style_prefer_extended_property_pattern                   = true:warning
+
+# Initializers & collections 
+dotnet_diagnostic.IDE0017.severity   = warning   # Use object initializers
+dotnet_diagnostic.IDE0028.severity   = warning   # Use collection initializers
+
+dotnet_style_object_initializer      = true:warning
+dotnet_style_collection_initializer  = true:warning
+
+# Switch expressions 
+dotnet_diagnostic.IDE0066.severity             = warning   # Convert switch statement → switch expression
+csharp_style_prefer_switch_expression          = true:warning
+
+# Cleanup
+dotnet_diagnostic.IDE0051.severity                = warning   # Remove unused private members
+dotnet_diagnostic.IDE0060.severity                = warning   # Remove unused parameters (non-public)
+dotnet_code_quality_unused_parameters             = non_public:warning
+
+# Language keywords vs framework types
+dotnet_diagnostic.IDE0049.severity               = warning   # Use int/string/bool instead of Int32/String/Boolean
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_predefined_type_for_member_access   = true:warning
