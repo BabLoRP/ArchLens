@@ -18,4 +18,5 @@ jsonschema
 gitpython
 six
 pre-commit
+pytest
 pythonnet
