@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages, glob
+from setuptools import setup, find_packages
 import os
 
 # Read README for long description
@@ -14,7 +14,7 @@ except FileNotFoundError:
 
 setup(
     name="ArchLens",
-    version="0.4.0",
+    version="0.4.1",
     description="Designed for visualizing package dependencies and highlighting differences between"
     " branches in GitHub pull requests. It offers customization options to tailor package views.",
     author="The ArchLens Team",
@@ -23,8 +23,10 @@ setup(
     packages=find_packages(),
     long_description=long_description,
     long_description_content_type="text/markdown",
-    data_files=glob.glob("src/config.**.json"),
     include_package_data=True,
+    package_data={
+        "": ["*.json"],
+    },
     install_requires=[
         "plantuml",
         "typer",
