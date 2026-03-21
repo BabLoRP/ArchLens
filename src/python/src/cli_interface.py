@@ -230,7 +230,7 @@ def read_config_file(config_path):
         config = json.load(f)
 
     config_schema = None
-    schema_path = os.path.join(os.path.dirname(__file__), "../config.schema.json")
+    schema_path = os.path.join(os.path.dirname(__file__), "config.schema.json")
     with open(schema_path) as fp:
         config_schema = json.load(fp)
 
