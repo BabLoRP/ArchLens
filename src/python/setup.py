@@ -4,7 +4,7 @@ import os
 # Read README for long description
 here = os.path.abspath(os.path.dirname(__file__))
 try:
-    with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
+    with open(os.path.join(here, "../../README.md"), encoding="utf-8") as f:
         readme = f.read()
     with open(os.path.join(here, "../../CHANGELOG.md"), encoding="utf-8") as f:
         changelog = f.read()
@@ -25,7 +25,7 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     package_data={
-        "": ["*.json"],
+        "src": ["config.schema.json", "config.template.json"],
     },
     install_requires=[
         "plantuml",
