@@ -14,7 +14,7 @@ except FileNotFoundError:
 
 setup(
     name="ArchLens",
-    version="0.3.0",
+    version="0.4.0",
     description="Designed for visualizing package dependencies and highlighting differences between"
     " branches in GitHub pull requests. It offers customization options to tailor package views.",
     author="The ArchLens Team",
