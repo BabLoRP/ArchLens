@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.4.0] - 2026-03-21
+### Added
+- Multi-language support: C#, Java, Go, and Kotlin (via .NET backend)
+- Diff rendering for non-Python projects
+- JSON rendering output format
+- Comprehensive C# test suite (~3,400 lines)
+- CONTRIBUTING.md with development setup instructions
+
+### Changed
+- `pythonnet` used to bridge Python CLI with .NET parsers
+- .NET DLLs no longer committed to repo; built via `dotnet publish` before packaging
+- `fileExtensions` config field determines which parser to use
+
 ## [0.3.0] - 2025-11-27
 ### Changed
 - `render_diff_views` now only generates images for views with actual architectural changes
