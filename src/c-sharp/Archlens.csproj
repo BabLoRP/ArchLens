@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <!--<OutputType>Exe</OutputType> -->
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <SatelliteResourceLanguages>en-US;en</SatelliteResourceLanguages>
 	<Nullable>enable</Nullable>
   </PropertyGroup>
