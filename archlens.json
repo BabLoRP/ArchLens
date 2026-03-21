@@ -1,5 +1,5 @@
 {
-    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/python/config.schema.json",
+    "$schema": "https://raw.githubusercontent.com/archlens/ArchLens/master/src/python/src/config.schema.json",
     "name": "ArchLens",
     "rootFolder": "src/python/src",
     "github": {
