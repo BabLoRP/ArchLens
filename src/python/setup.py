@@ -14,7 +14,7 @@ except FileNotFoundError:
 
 setup(
     name="ArchLens",
-    version="0.4.1",
+    version="0.4.2",
     description="Designed for visualizing package dependencies and highlighting differences between"
     " branches in GitHub pull requests. It offers customization options to tailor package views.",
     author="The ArchLens Team",
@@ -25,7 +25,11 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     package_data={
-        "src": ["config.schema.json", "config.template.json"],
+        "src": [
+            "config.schema.json",
+            "config.template.json",
+            ".dotnet/*",
+        ],
     },
     install_requires=[
         "plantuml",
