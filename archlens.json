@@ -8,7 +8,7 @@
     },
     "snapshotDir": ".archlens",
     "snapshotFile": "snapshot",
-    "saveLocation": "/diagrams/",
+    "saveLocation": "./diagrams/",
     "exclusions": [
         "obj/",
         "bin/",
