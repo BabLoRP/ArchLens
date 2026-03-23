@@ -34,8 +34,8 @@ public class Program
         try
         {
             var resolvedPath = configPath.Length > 0 ? configPath : FindConfigFile("archlens.json");
-            var configManager = new ConfigManager(resolvedPath);
-            await configManager.LoadAsync(diff, format);
+            var loadConfigUseCase = new LoadConfigUseCase();
+            var configManager = await loadConfigUseCase.RunAsync(resolvedPath, diff, format);
 
             var snapshotManager = SnapshotManagerFactory.SelectSnapshotManager(configManager.GetSnapshotOptions());
             var parsers = DependencyParserFactory.SelectDependencyParser(configManager.GetParserOptions());
